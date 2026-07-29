@@ -23,7 +23,7 @@ Many vulnerability scanners and penetration testing tools lack intelligent orche
 1. **Initiate Scan**: User accesses the Flask-based web UI and enters a target domain for an authorized scan.
 2. **Orchestration**: The request is passed to the AI Agent (the "brain").
 3. **Execution Loop**: The AI Agent dynamically calls specific Python Workers (e.g., WHOIS, Nmap, DNS) based on its findings, parsing results and planning the next steps iteratively.
-4. **Completion**: Once the agent determines no further beneficial reconnaissance can be performed, it triggers the Report Generator worker.
+4. **Completion**: Once the agent determines no further beneficial reconnaissance can be performed, it concludes the execution loop. The AI Agent analyzes the collected findings, prioritizes issues, determines severity, and prepares the final assessment report. Where applicable, CVSS scores are calculated using the dedicated CVSS Worker. It then triggers the Report Generator worker.
 5. **Report Delivery**: The user is presented with downloadable PDF and JSON reports summarizing the findings and calculated CVSS scores.
 
 ## Success Criteria

@@ -6,42 +6,15 @@ SentinelScan is built on a distributed logic model where a central AI Agent (pow
 ## System Diagram
 
 ```text
-+-------------------+       +-----------------------+
-|   User Browser    | ----> |  Flask Website (UI)   |
-| (React/HTML/JS)   | <---- | (Dumb Presentation)   |
-+-------------------+       +-----------+-----------+
-                                        |
-                                  REST API calls
-                                        |
-+---------------------------------------+---------------------------------------+
-|                            Backend (Python)                                   |
-|                                                                               |
-|  +--------------------+       +---------------------------------------------+ |
-|  |     Database       |       |                 AI Agent                    | |
-|  | (SQLite/Postgres)  | <---> | (The "Brain" - Gemini API Integration)      | |
-|  +--------------------+       +-------------------+-------------------------+ |
-|                                                   |                           |
-|                                           Dynamic Handoff                     |
-|                                                   |                           |
-|  +------------------------------------------------+-------------------------+ |
-|  |                        Python Workers                                    | |
-|  |                                                                          | |
-|  | +-------+ +------+ +----------+ +-------------+ +-----+ +--------------+ | |
-|  | | WHOIS | | DNS  | | Rev DNS  | | Port (Nmap) | | SSL | | HTTP Headers | | |
-|  | +-------+ +------+ +----------+ +-------------+ +-----+ +--------------+ | |
-|  | +---------+ +------------+ +-------------+ +------+ +------------------+ | |
-|  | | Cookies | | robots.txt | | sitemap.xml | | CVSS | | Report Generator | | |
-|  | +---------+ +------------+ +-------------+ +------+ +------------------+ | |
-|  +--------------------------------------------------------------------------+ |
-+-------------------------------------------------------------------------------+
+Workers -> Aggregated Findings -> CVSS Worker (only when required) -> AI Agent prepares final report data -> Report Generator -> PDF / JSON
 ```
 
 ## Component Responsibilities
 - **Flask Website**: Acts as a "dumb" UI. Displays forms, triggers API endpoints, polls for progress, and renders reports. It contains no scanning logic.
-- **AI Agent**: The orchestrator. Sends current state and context to Gemini, receives a decision on which tool to call next, parses tool outputs, and maintains the context window for the scan session.
+- **AI Agent**: The orchestrator and central reasoning engine. Sends current state and context to Gemini, receives a decision on which tool to call next, parses tool outputs, and maintains the context window for the scan session. The AI Agent is the central orchestrator and sole reasoning engine.
 - **Python Workers**: Highly specialized, single-purpose modules. They accept standard inputs, perform their network or parsing task, and return structured JSON. They contain zero business or orchestration logic.
 - **Database**: Stores scan history, active scan states, and findings. Currently SQLite, designed to be swapped to PostgreSQL later.
-- **Report Generator**: A specialized worker invoked at the end of the scan to compile findings into PDF (via reportlab) and JSON formats.
+- **Report Generator**: A specialized worker invoked at the end of the scan to compile findings into PDF (via reportlab) and JSON formats. It performs no analysis.
 
 ## End-to-End Data Flow
 1. **User Request**: User submits `target.com` via the web UI.
@@ -54,7 +27,7 @@ SentinelScan is built on a distributed logic model where a central AI Agent (pow
    - Agent updates context and queries Gemini with the new data.
    - Gemini decides the next tool (e.g., `call_tool(dns_lookup)`).
 5. **Termination**: Gemini evaluates the context and determines recon is complete. It outputs a `done` command.
-6. **Reporting**: Agent triggers the Report Generator worker, passing all gathered findings and CVSS scores.
+6. **Reporting**: The AI Agent analyzes the collected findings, prioritizes issues, determines severity, and prepares the final assessment report data. Where applicable, CVSS scores are calculated using the dedicated CVSS Worker. The Agent then triggers the Report Generator worker to output the PDF / JSON.
 7. **Finalization**: Reports are saved, DB status updates to `COMPLETED`, and the UI fetches the results for the user.
 
 ## Repository Folder Structure

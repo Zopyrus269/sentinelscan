@@ -3,6 +3,19 @@
 ## Overview
 The AI Agent is the core orchestration engine of SentinelScan, leveraging the Google Gemini API. Instead of a hardcoded procedural script, the agent evaluates the target dynamically, choosing which worker to execute based on previous findings.
 
+**The AI Agent is the sole reasoning component and single source of intelligence in the SentinelScan system.**
+
+## Responsibilities
+- Dynamic worker orchestration
+- Context management
+- Finding correlation
+- Severity determination
+- Recommendation generation
+- Overall Security Score generation (project-defined score)
+- Executive Summary generation
+- Complete report preparation
+
+
 ## System Prompt Draft
 ```text
 You are the SentinelScan Orchestrator, an autonomous AI agent designed for AUTHORIZED security reconnaissance.

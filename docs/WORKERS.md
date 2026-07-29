@@ -1,6 +1,6 @@
 # Worker Modules Specification
 
-Workers are isolated Python scripts. They take inputs (usually a domain or IP), perform a specific action, and return structured JSON. **Workers contain NO orchestration logic.**
+Workers are isolated Python scripts. They take inputs (usually a domain or IP), perform a specific action, and return structured JSON. **Workers remain intentionally "dumb" (they execute one task, return structured JSON, never assign severity, never recommend fixes, and never decide what runs next). They contain NO orchestration logic.**
 
 ### 1. WHOIS Worker
 - **Purpose**: Fetches domain registration details.
@@ -66,15 +66,15 @@ Workers are isolated Python scripts. They take inputs (usually a domain or IP), 
 - **Dependencies**: `requests`, `BeautifulSoup`
 
 ### 10. CVSS Scoring Worker
-- **Purpose**: Calculates standard CVSSv3 scores based on vulnerability vectors found by the agent. Note that the AI Agent (Gemini) is responsible for inferring the CVSS base metrics (AV, AC, PR, UI, S, C, I, A) from the raw findings of other workers before calling this tool — this worker only performs the mathematical scoring calculation, it does not do any interpretation itself.
+- **Purpose**: Calculates standard CVSSv3 scores based on vulnerability vectors found by the agent. Note that the AI Agent (Gemini) is responsible for inferring the CVSS base metrics (AV, AC, PR, UI, S, C, I, A) from the raw findings of other workers before calling this tool. The CVSS worker does not perform interpretation; it is strictly for mathematical calculation.
 - **Input**: `{"base_metrics": {"AV": "N", "AC": "L", "PR": "N", "UI": "N", "S": "U", "C": "H", "I": "H", "A": "H"}}`
 - **Output JSON**: `{"vector": "CVSS:3.1/...", "base_score": 9.8, "severity": "CRITICAL"}`
 - **Error Handling**: Validates metric inputs against CVSS specifications.
 - **Dependencies**: Native python math / static lookup tables.
 
 ### 11. Report Generator Worker
-- **Purpose**: Compiles all AI context and findings into final deliverables.
-- **Input**: `{"target": "...", "findings": [...], "cvss_scores": [...]}`
+- **Purpose**: Formats AI-generated report data into PDF and JSON deliverables. It performs ZERO analysis.
+- **Input**: Fully prepared JSON from the AI Agent (`{"executive_summary": "...", "findings": [...], "recommendations": [...], "overall_security_score": 85, "cvss_scores": [...], "metadata": {...}}`)
 - **Output JSON**: `{"pdf_path": "/reports/scan_1.pdf", "json_path": "/reports/scan_1.json"}`
 - **Error Handling**: Catches file IO and disk space errors.
 - **Dependencies**: `reportlab`, `json`
