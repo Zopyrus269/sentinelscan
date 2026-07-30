@@ -1,0 +1,9 @@
+flask
+python-nmap
+python-whois
+dnspython
+requests
+beautifulsoup4
+reportlab
+google-generativeai
+python-dotenv
