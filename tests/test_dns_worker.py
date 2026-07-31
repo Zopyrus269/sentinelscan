@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'backend', 'workers'))
+
 import json
 from dns_worker import dns_lookup
 
