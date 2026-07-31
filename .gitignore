@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated report output (PDF/JSON) - runtime artifacts, not source
+reports/*.pdf
+reports/*.json
+!reports/.gitkeep
