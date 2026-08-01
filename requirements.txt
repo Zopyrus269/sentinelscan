@@ -5,5 +5,5 @@ dnspython
 requests
 beautifulsoup4
 reportlab
-google-generativeai
+google-genai
 python-dotenv
