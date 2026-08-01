@@ -115,18 +115,34 @@ def _build_tools() -> List[Any]:
 def _extract_normalized_response(response: Any) -> Dict[str, Any]:
     """
     Converts a google.genai GenerateContentResponse into a simple dict:
-        {"type": "tool_call", "tool_name": str, "tool_args": dict}
+        {"type": "tool_call", "tool_name": str, "tool_args": dict, "model_content": <raw content>}
     or
-        {"type": "text", "text": str}
+        {"type": "text", "text": str, "model_content": <raw content>}
+
+    "model_content" holds the exact response.candidates[0].content object
+    the model returned. Callers building conversation history should
+    append this object directly (not reconstruct it manually), since
+    Gemini may attach internal state to a turn that only survives if
+    the original object is passed back verbatim.
     """
+    try:
+        model_content = response.candidates[0].content
+    except (AttributeError, IndexError):
+        model_content = None
+
     function_calls = getattr(response, "function_calls", None)
     if function_calls:
         first_call = function_calls[0]
         args = dict(first_call.args) if first_call.args else {}
-        return {"type": "tool_call", "tool_name": first_call.name, "tool_args": args}
+        return {
+            "type": "tool_call",
+            "tool_name": first_call.name,
+            "tool_args": args,
+            "model_content": model_content,
+        }
 
     text = getattr(response, "text", None)
-    return {"type": "text", "text": text or ""}
+    return {"type": "text", "text": text or "", "model_content": model_content}
 
 
 class GeminiClient:
@@ -203,27 +219,37 @@ class GeminiClient:
 
         Args:
             history: The full conversation so far, as a list of
-                {"role": ..., "parts": [...]} dicts.
+                {"role": ..., "parts": [...]} dicts or types.Content objects.
             use_cache: If True (default), identical history is served
-                from the local SQLite cache instead of hitting the API.
+                from the local SQLite cache instead of hitting the API --
+                but ONLY for plain text responses. Tool-call responses
+                always hit the live API, since a cached tool-call's
+                model turn can't be safely reconstructed for continuing
+                the conversation.
 
         Returns:
             A normalized dict, either:
-                {"type": "tool_call", "tool_name": str, "tool_args": dict}
+                {"type": "tool_call", "tool_name": str, "tool_args": dict, "model_content": <raw content>}
             or:
-                {"type": "text", "text": str}
+                {"type": "text", "text": str, "model_content": <raw content>}
         """
         cache_key = _cache_key_for(history)
 
         if use_cache:
             cached = _get_cached(cache_key, self._cache_db_path)
-            if cached is not None:
+            if cached is not None and cached.get("type") == "text":
+                cached = dict(cached)
+                cached["model_content"] = types.Content(
+                    role="model",
+                    parts=[types.Part.from_text(text=cached.get("text", ""))],
+                )
                 return cached
 
         raw_response = self._call_with_backoff(history)
         normalized = _extract_normalized_response(raw_response)
 
-        if use_cache:
-            _set_cached(cache_key, normalized, self._cache_db_path)
+        if use_cache and normalized["type"] == "text":
+            cache_payload = {k: v for k, v in normalized.items() if k != "model_content"}
+            _set_cached(cache_key, cache_payload, self._cache_db_path)
 
         return normalized

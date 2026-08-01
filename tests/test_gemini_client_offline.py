@@ -27,11 +27,23 @@ class FakeFunctionCall:
         self.args = args
 
 
+class FakeContent:
+    """Placeholder standing in for a real google.genai Content object."""
+    def __init__(self, label):
+        self.label = label
+
+
+class FakeCandidate:
+    def __init__(self, content):
+        self.content = content
+
+
 class FakeResponse:
     """Mimics google.genai's GenerateContentResponse convenience attributes."""
     def __init__(self, text=None, function_calls=None):
         self.text = text
         self.function_calls = function_calls or []
+        self.candidates = [FakeCandidate(FakeContent("mock-model-turn"))]
 
 
 class TestGeminiClientOffline(unittest.TestCase):
@@ -64,6 +76,7 @@ class TestGeminiClientOffline(unittest.TestCase):
         self.assertEqual(result["type"], "text")
         self.assertEqual(result["text"], "Scan complete.")
         self.assertEqual(mock_generate.call_count, 1)
+        self.assertIsNotNone(result["model_content"])
 
     def test_tool_call_response_parsing(self):
         """A function-call response should normalize to a tool_call dict."""
@@ -79,6 +92,7 @@ class TestGeminiClientOffline(unittest.TestCase):
         self.assertEqual(result["type"], "tool_call")
         self.assertEqual(result["tool_name"], "dns_lookup")
         self.assertEqual(result["tool_args"], {"target": "example.com"})
+        self.assertIsNotNone(result["model_content"])
 
     def test_caching_avoids_duplicate_api_calls(self):
         """Calling generate() twice with identical history should only hit the mock API once."""
@@ -89,7 +103,15 @@ class TestGeminiClientOffline(unittest.TestCase):
         result1 = client.generate(history, use_cache=True)
         result2 = client.generate(history, use_cache=True)
 
-        self.assertEqual(result1, result2)
+        # The meaningful fields must match between the live call and the cache hit.
+        self.assertEqual(result1["type"], result2["type"])
+        self.assertEqual(result1["text"], result2["text"])
+        # model_content will legitimately be a different object on a cache hit
+        # (reconstructed via Part.from_text) vs. a live call -- both should
+        # simply be present and non-None, not identical objects.
+        self.assertIsNotNone(result1["model_content"])
+        self.assertIsNotNone(result2["model_content"])
+
         self.assertEqual(mock_generate.call_count, 1, "Second identical call should be served from cache")
 
     def test_backoff_retries_on_rate_limit_then_succeeds(self):
@@ -117,6 +139,24 @@ class TestGeminiClientOffline(unittest.TestCase):
             client.generate([{"role": "user", "parts": ["scan example.com"]}], use_cache=False)
 
         self.assertEqual(mock_generate.call_count, 1, "Should not retry non-rate-limit errors")
+
+    def test_tool_call_responses_are_never_cached(self):
+        """Tool-call responses should always hit the live API, never be served from cache."""
+        mock_generate = MagicMock(
+            return_value=FakeResponse(
+                function_calls=[FakeFunctionCall("dns_lookup", {"target": "example.com"})]
+            )
+        )
+        client = self._make_client_with_mock_generate(mock_generate)
+
+        history = [{"role": "user", "parts": ["scan example.com"]}]
+        client.generate(history, use_cache=True)
+        client.generate(history, use_cache=True)
+
+        self.assertEqual(
+            mock_generate.call_count, 2,
+            "Tool-call responses must never be cached -- each call should hit the live API"
+        )
 
 
 if __name__ == "__main__":
