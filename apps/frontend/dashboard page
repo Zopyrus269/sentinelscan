@@ -1,1 +1,394 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>SentinelScan | Live Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface-variant": "#434655",
+                    "on-tertiary-container": "#ffede6",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-secondary-fixed": "#0b1c30",
+                    "inverse-on-surface": "#eef0ff",
+                    "error-container": "#ffdad6",
+                    "outline": "#737686",
+                    "border": "#E2E8F0",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed": "#ffdbcd",
+                    "surface-dim": "#d2d9f4",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "surface-variant": "#dae2fd",
+                    "surface-container": "#eaedff",
+                    "surface-container-highest": "#dae2fd",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#943700",
+                    "success": "#22C55E",
+                    "error": "#ba1a1a",
+                    "on-surface": "#131b2e",
+                    "outline-variant": "#c3c6d7",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "secondary": "#505f76",
+                    "primary-fixed": "#dbe1ff",
+                    "inverse-surface": "#283044",
+                    "on-background": "#131b2e",
+                    "inverse-primary": "#b4c5ff",
+                    "primary": "#004ac6",
+                    "secondary-fixed": "#d3e4fe",
+                    "surface-tint": "#0053db",
+                    "critical": "#EF4444",
+                    "warning": "#F59E0B",
+                    "on-tertiary-fixed": "#360f00",
+                    "background": "#F8FAFC",
+                    "tertiary-container": "#bc4800",
+                    "surface-container-high": "#e2e7ff",
+                    "secondary-container": "#d0e1fb",
+                    "on-primary-fixed": "#00174b",
+                    "on-primary": "#ffffff",
+                    "primary-container": "#2563eb",
+                    "on-primary-container": "#eeefff",
+                    "surface-container-low": "#f2f3ff",
+                    "surface": "#FFFFFF",
+                    "on-secondary-container": "#54647a",
+                    "surface-bright": "#faf8ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "xl": "64px",
+                    "lg": "40px",
+                    "md": "24px",
+                    "margin-desktop": "32px",
+                    "xs": "8px",
+                    "margin-mobile": "16px",
+                    "sm": "16px",
+                    "base": "4px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Inter"],
+                    "mono-md": ["JetBrains Mono"],
+                    "headline-sm": ["Inter"],
+                    "display": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "mono-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .terminal-container::-webkit-scrollbar { width: 4px; }
+        .terminal-container::-webkit-scrollbar-thumb { background: #434655; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-surface border-b border-border sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-margin-desktop h-16 max-w-[1440px] mx-auto">
+<div class="text-headline-md font-headline-md font-bold text-primary">SentinelScan</div>
+<nav class="hidden md:flex gap-md">
+<a class="text-label-md font-label-md text-primary border-b-2 border-primary pb-1" href="#">Dashboard</a>
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Reports</a>
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Documentation</a>
+</nav>
+<div class="flex items-center gap-sm">
+<button class="bg-primary text-on-primary px-sm py-xs rounded-lg text-label-md font-label-md hover:opacity-80 transition-opacity">New Scan</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist user profile avatar for a cybersecurity professional, shot in high-key lighting with a neutral grey background. The style is professional and modern, matching a SaaS utility aesthetic with soft shadows and high clarity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjlBHGDpzPO-I_baz3Fw0eK7YKmkE615VgYDidJRQv-ROD2Os2eKfBGsHgJWRtgZYln2BzPW0d8wcr4YeS-JZcKbBPHaqzpvJD5QSL-874KTh3w-TJWrmI7bVSk3oGQrAxQWZ4wKvrqNQzTsIl3BkOpsJQ6QCkWnRhARPrI6fEd1_XjPVy019OlNR2LxmvKLzqZIMhtU0zwoVq4bWlDRso2Iu5KodEV3HRotdsebv8IKoCsglGXa4q">
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-[1440px] mx-auto px-margin-desktop py-lg space-y-lg">
+<!-- Section 1: Active Scan Status -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<div class="lg:col-span-2 space-y-md">
+<div class="bg-surface border border-border p-md rounded-xl shadow-sm">
+<div class="flex justify-between items-center mb-md">
+<div>
+<h2 class="text-headline-sm font-headline-sm text-on-surface">Live Scan Analysis</h2>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">Target: <span class="font-mono-md text-primary">api.sentinel-core.io</span></p>
+</div>
+<div class="text-right">
+<p class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Current Worker</p>
+<p class="text-body-md font-body-md font-semibold text-primary">Hydra-Probe v4</p>
+</div>
+</div>
+<!-- Progress Bar -->
+<div class="space-y-xs">
+<div class="flex justify-between items-end">
+<span class="text-display font-display text-primary">68<span class="text-headline-md">%</span></span>
+<span class="text-label-md font-label-md text-on-surface-variant pb-2">Analysis in progress...</span>
+</div>
+<div class="w-full bg-surface-variant h-3 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full transition-all duration-500" style="width: 68%"></div>
+</div>
+</div>
+</div>
+<!-- Live Scan Log Terminal -->
+<div class="bg-inverse-surface rounded-xl p-md border border-outline overflow-hidden flex flex-col h-[320px]">
+<div class="flex items-center gap-xs mb-sm border-b border-on-surface-variant/20 pb-xs">
+<div class="flex gap-1.5">
+<div class="w-3 h-3 rounded-full bg-error/40"></div>
+<div class="w-3 h-3 rounded-full bg-warning/40"></div>
+<div class="w-3 h-3 rounded-full bg-success/40"></div>
+</div>
+<span class="text-label-sm font-label-sm text-surface-variant ml-2 uppercase">Live System Logs</span>
+</div>
+<div class="terminal-container overflow-y-auto flex-1 font-mono-md text-mono-md space-y-1 text-surface-bright/80">
+<p class="text-success">[2024-05-24 14:22:01] INF: Initializing Hydra-Probe v4 engine...</p>
+<p>[2024-05-24 14:22:03] DBG: Connection established to remote endpoint.</p>
+<p>[2024-05-24 14:22:05] INF: Fetching WHOIS data for api.sentinel-core.io</p>
+<p class="text-warning">[2024-05-24 14:22:08] WRN: Late response from upstream WHOIS server (Retrying...)</p>
+<p>[2024-05-24 14:22:12] INF: SSL Certificate validation started.</p>
+<p>[2024-05-24 14:22:15] INF: Checking HTTP Strict-Transport-Security...</p>
+<p class="text-primary">[2024-05-24 14:22:18] RES: HSTS header found: max-age=63072000</p>
+<p>[2024-05-24 14:22:20] INF: Running CVE-2023-x series footprinting.</p>
+<p class="animate-pulse text-primary-fixed-dim">_ [Listening for payloads...]</p>
+</div>
+</div>
+</div>
+<!-- Dashboard Quick Stats Card -->
+<div class="lg:col-span-1 space-y-md">
+<div class="bg-surface border border-border p-md rounded-xl h-full flex flex-col justify-between">
+<div>
+<h3 class="text-headline-sm font-headline-sm mb-md">Scan Summary</h3>
+<div class="space-y-sm">
+<div class="flex justify-between items-center p-sm bg-background rounded-lg border border-border">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">timer</span>
+<span class="text-body-md font-body-md">Duration</span>
+</div>
+<span class="text-label-md font-label-md">04:12s</span>
+</div>
+<div class="flex justify-between items-center p-sm bg-background rounded-lg border border-border">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-critical" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="text-body-md font-body-md">Vulnerabilities</span>
+</div>
+<span class="text-label-md font-label-md text-critical">12 Found</span>
+</div>
+<div class="flex justify-between items-center p-sm bg-background rounded-lg border border-border">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-success" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-body-md font-body-md">Tests Passed</span>
+</div>
+<span class="text-label-md font-label-md text-success">84 Units</span>
+</div>
+</div>
+</div>
+<div class="mt-lg">
+<img class="w-full h-32 object-cover rounded-lg border border-border" data-alt="A sleek, high-tech abstract 3D visualization of data packets moving through a secure network funnel. The lighting is dominated by SentinelScan's primary blue and clean white, with sharp focus and a macro-photography feel. The style is ultra-minimalist and professional, conveying security and speed." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGUyO7Qdrvdmunp4nCK856WSCvWqx1JLg4mhs4ZbGLo-fomFhYqmay-zUo9kxuOoJuqxp6ND1MsUCSNHwqtoE3l7RZvm5f27nx5JfIPvSvIi8IrZbC3fcs6q3bXn6UIzc8qJtsnPjmQtC7gV9w1i19UmXy7qUdLMIEj11NJmfgCYwZCNa4OBvMwtFJ5iaozEJNpBP881_G6g5aJ1wPjJIo-kQ5X_vzSZg9kRqRWvkspOFU-I3ojHkf">
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Live Findings Grid -->
+<section class="space-y-md">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-headline-sm font-headline-sm">Worker Analysis Grid</h2>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Real-time reports from independent monitoring nodes.</p>
+</div>
+<button class="text-primary text-label-md font-label-md hover:underline">View All Workers</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Worker 1: WHOIS -->
+<div class="bg-surface border border-border p-md rounded-xl hover:shadow-md transition-shadow cursor-default group">
+<div class="flex justify-between items-start mb-sm">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">public</span>
+</div>
+<span class="bg-success/10 text-success px-xs py-0.5 rounded-full text-label-sm font-label-sm">Success</span>
+</div>
+<h3 class="text-body-lg font-semibold mb-1">WHOIS Record</h3>
+<p class="text-body-sm text-on-surface-variant">Verification of domain registration and ownership nodes.</p>
+<div class="mt-md pt-sm border-t border-border flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Last ping: 2m ago</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+</div>
+<!-- Worker 2: SSL -->
+<div class="bg-surface border border-border p-md rounded-xl hover:shadow-md transition-shadow cursor-default group border-l-4 border-l-warning">
+<div class="flex justify-between items-start mb-sm">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">lock</span>
+</div>
+<span class="bg-warning/10 text-warning px-xs py-0.5 rounded-full text-label-sm font-label-sm">Warning</span>
+</div>
+<h3 class="text-body-lg font-semibold mb-1">SSL Certificate</h3>
+<p class="text-body-sm text-on-surface-variant">Encryption validation and expiry date monitoring.</p>
+<div class="mt-md pt-sm border-t border-border flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Expiry: 12 days</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+</div>
+<!-- Worker 3: HTTP Headers -->
+<div class="bg-surface border border-border p-md rounded-xl hover:shadow-md transition-shadow cursor-default group">
+<div class="flex justify-between items-start mb-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">code</span>
+</div>
+<span class="bg-on-surface-variant/10 text-on-surface-variant px-xs py-0.5 rounded-full text-label-sm font-label-sm">Success</span>
+</div>
+<h3 class="text-body-lg font-semibold mb-1">HTTP Headers</h3>
+<p class="text-body-sm text-on-surface-variant">Security policy audit for CSP, XSS, and HSTS headers.</p>
+<div class="mt-md pt-sm border-t border-border flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Audit: Passed</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+</div>
+<!-- Worker 4: CVE Check -->
+<div class="bg-surface border border-border p-md rounded-xl hover:shadow-md transition-shadow cursor-default group border-l-4 border-l-critical">
+<div class="flex justify-between items-start mb-sm">
+<div class="w-10 h-10 rounded-lg bg-error-container flex items-center justify-center text-on-error-container">
+<span class="material-symbols-outlined">bug_report</span>
+</div>
+<span class="bg-critical/10 text-critical px-xs py-0.5 rounded-full text-label-sm font-label-sm">Critical</span>
+</div>
+<h3 class="text-body-lg font-semibold mb-1">CVE Check</h3>
+<p class="text-body-sm text-on-surface-variant">Live vulnerability matching against current threat DB.</p>
+<div class="mt-md pt-sm border-t border-border flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-critical font-bold">2 Vulnerable</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Layout Insight Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+<div class="lg:col-span-1 bg-primary text-on-primary p-lg rounded-xl flex flex-col justify-between relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="text-headline-sm font-headline-sm mb-xs">Sentinel AI Insight</h3>
+<p class="text-body-md opacity-90">Anomalous traffic patterns detected in Northern European nodes. Recommended hardening for Port 443.</p>
+</div>
+<div class="mt-md relative z-10">
+<button class="bg-white/20 backdrop-blur-md px-sm py-xs rounded-lg text-label-md font-label-md hover:bg-white/30 transition-all">View Intelligence Report</button>
+</div>
+<!-- Subtle visual decoration -->
+<div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+</div>
+<div class="lg:col-span-2 bg-surface border border-border rounded-xl p-md flex flex-col md:flex-row gap-lg items-center">
+<div class="w-full md:w-1/3">
+<img class="rounded-lg shadow-sm border border-border w-full h-full object-cover" data-alt="A detailed, hyper-realistic map focused on data traffic hotspots across the globe, with glowing blue and white nodes connected by thin, sharp lines over a dark navy background. The perspective is an isometric 3D view, consistent with a modern cybersecurity dashboard, using a clean and professional lighting style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWHkkUed5oZdTOqnJn2qx0A56r03DukYKKfWKLGchfUWVm-SYbf3NsK0QdaeoDTjwmYPh4lNbotNnekczK3qMXOuLxCCoBq6gDJNZUqnUXzkr6YawV1Z8GCwFOdNXinV9CXTGWl7TvVVcjVd7_se5WtApTjVWowhfHzBXjCMUtUxbFkBMPJdORhLtrhxQVmLdMF1_yMwbncrT-oUkQfRxaB10sGkDnXUYeGCE8v9K1bojW35L0-UzK">
+</div>
+<div class="flex-1 space-y-sm">
+<h3 class="text-headline-sm font-headline-sm">Global Threat Intelligence</h3>
+<p class="text-body-md text-on-surface-variant">Live mapping of common attack vectors targeting similar infrastructure profiles in the last 24 hours.</p>
+<div class="flex gap-md">
+<div class="text-center">
+<p class="text-display font-display text-on-surface">14k</p>
+<p class="text-label-sm text-on-surface-variant">Global Attacks</p>
+</div>
+<div class="text-center border-l border-border pl-md">
+<p class="text-display font-display text-primary">0%</p>
+<p class="text-label-sm text-on-surface-variant">Your Impact</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-background border-t border-border mt-xl">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-lg px-margin-desktop py-xl max-w-[1440px] mx-auto">
+<div class="col-span-1 md:col-span-1">
+<div class="text-headline-sm font-headline-sm font-bold text-primary mb-sm">SentinelScan</div>
+<p class="text-body-sm text-on-surface-variant">The definitive standard in automated security posture analysis and vulnerability intelligence.</p>
+</div>
+<div class="col-span-1">
+<h4 class="text-label-md font-label-md text-on-surface mb-sm">Platform</h4>
+<ul class="space-y-xs">
+<li><a class="text-body-sm text-on-surface-variant hover:text-primary transition-all" href="#">Documentation</a></li>
+<li><a class="text-body-sm text-on-surface-variant hover:text-primary transition-all" href="#">API Reference</a></li>
+<li><a class="text-body-sm text-on-surface-variant hover:text-primary transition-all" href="#">Status</a></li>
+</ul>
+</div>
+<div class="col-span-1">
+<h4 class="text-label-md font-label-md text-on-surface mb-sm">Company</h4>
+<ul class="space-y-xs">
+<li><a class="text-body-sm text-on-surface-variant hover:text-primary transition-all" href="#">Privacy Policy</a></li>
+<li><a class="text-body-sm text-on-surface-variant hover:text-primary transition-all" href="#">Terms of Service</a></li>
+<li><a class="text-body-sm text-on-surface-variant hover:text-primary transition-all" href="#">Responsible Disclosure</a></li>
+</ul>
+</div>
+<div class="col-span-1">
+<h4 class="text-label-md font-label-md text-on-surface mb-sm">Copyright</h4>
+<p class="text-body-sm text-on-surface-variant">© 2024 SentinelScan. All rights reserved.</p>
+<div class="mt-md flex gap-sm">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant cursor-pointer hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant cursor-pointer hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[18px]">shield</span>
+</div>
+</div>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interaction: Randomize terminal lines occasionally to simulate live feed
+        const terminal = document.querySelector('.terminal-container');
+        const logs = [
+            "INF: Port 80 identified as closed. Redirect found to 443.",
+            "DBG: Script injection payload test initiated on /api/v1/auth.",
+            "INF: Comparing server fingerprint with database v98.4.",
+            "RES: Server identified as Nginx 1.25.4 (Stable).",
+            "WRN: Insecure cipher suite found: TLS_RSA_WITH_AES_128_CBC_SHA",
+            "INF: Brute-force resistance check passed."
+        ];
 
+        function addLog() {
+            const p = document.createElement('p');
+            p.className = 'text-surface-bright/60 animate-in fade-in slide-in-from-bottom-1 duration-500';
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            const randomLog = logs[Math.floor(Math.random() * logs.length)];
+            p.innerText = `[${timestamp}] ${randomLog}`;
+            
+            // Keep it tidy
+            if (terminal.children.length > 50) {
+                terminal.removeChild(terminal.firstChild);
+            }
+            
+            terminal.appendChild(p);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        setInterval(addLog, 4000);
+    </script>
+</body></html>
