@@ -115,3 +115,25 @@ The Gemini free tier has strict RPM (Requests Per Minute) limits. To mitigate th
 2. **Exponential Backoff**: API calls are wrapped in a retry mechanism with exponential backoff for `429 Too Many Requests`.
 3. **Local Caching**: Identical prompts within a timeframe (e.g., scanning the exact same target back-to-back) hit a local SQLite cache instead of the API.
 4. **Token Pacing**: A token bucket algorithm enforces a slight delay (e.g., `time.sleep(2)`) between requests to stay well below the threshold.
+
+## Implementation Notes & Lessons Learned
+
+These notes reflect real issues discovered while building and live-testing the agent, which the original design didn't anticipate. Future changes to this system should account for them.
+
+### Model selection
+Do not pin to a specific dated model name (e.g. "gemini-2.5-flash") -- Google retires specific model versions with little notice, and a pinned name can suddenly 404 with "no longer available to new users." Use a `-latest` alias instead (e.g. `gemini-flash-lite-latest`), which automatically tracks Google's current recommended model in that tier. If you must verify what's available/working for a given API key, query `client.models.list()` directly rather than trusting third-party documentation, which is frequently outdated for this fast-moving API.
+
+### System prompt must be explicit about authorization, not just assert it
+An early version of the system prompt simply stated the work was "authorized" -- this was not sufficient, and the model repeatedly refused to call tools, responding with canned safety-refusal text instead. The fix required a much more explicit prompt: stating that targets are pre-authorized before the agent ever sees them, explicitly describing every tool as passive/read-only reconnaissance (no exploitation), explicitly comparing the toolset to standard industry tools (Nmap, Qualys, Nessus), and explicitly instructing the model not to hesitate or ask for confirmation. See the current SYSTEM_PROMPT in gemini_client.py for the working version.
+
+### Function-response role
+When feeding a tool's result back to Gemini in conversation history, use `role="user"` on the Content object, NOT `role="tool"`. Some official Google documentation examples show `role="tool"`, but the live Gemini Developer API (as opposed to Vertex AI, which may differ) rejects it with `400 INVALID_ARGUMENT`, and its own error message explicitly recommends `role="user"`. Trust the live API's error message over documentation examples if they conflict.
+
+### Cache keys must include everything that affects the response
+Our local response cache initially hashed only conversation history. After changing the system prompt to fix the refusal issue above, stale cached refusal responses kept being served instead of hitting the API with the new prompt, because the cache key didn't change. The cache key must include model name and system prompt, not just history, or any prompt/model iteration will silently appear not to work.
+
+### Retry logic must cover more than rate limits
+429 (rate limit) is not the only transient, retry-worthy error. 503 (UNAVAILABLE, "high demand") occurs during normal Google-side load spikes and should also trigger backoff-and-retry, not an immediate crash.
+
+### CVSS scoring must be explicitly mandated, not left to model judgment
+Without an explicit rule, the agent sometimes completed a scan with real findings (e.g. multiple missing security headers) but chose not to call calculate_cvss before generating the report, leaving cvss_scores empty. Adding an explicit system prompt rule requiring the agent to evaluate and score security-relevant findings before calling generate_report fixed this reliably.
