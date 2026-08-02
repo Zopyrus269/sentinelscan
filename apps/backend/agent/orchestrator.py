@@ -24,7 +24,7 @@ A hard iteration cap is a safety net against infinite loops if Gemini
 never calls generate_report.
 """
 
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Optional
 
 from google.genai import types
 
@@ -37,7 +37,11 @@ CRITICAL_TOOLS = {"dns_lookup"}
 DEFAULT_MAX_ITERATIONS = 20
 
 
-def run_scan(target: str, max_iterations: int = DEFAULT_MAX_ITERATIONS) -> Dict[str, Any]:
+def run_scan(
+    target: str,
+    max_iterations: int = DEFAULT_MAX_ITERATIONS,
+    on_progress: Optional[Callable[..., None]] = None,
+) -> Dict[str, Any]:
     """
     Runs a full autonomous SentinelScan assessment against target.
 
@@ -48,6 +52,10 @@ def run_scan(target: str, max_iterations: int = DEFAULT_MAX_ITERATIONS) -> Dict[
         max_iterations: Safety cap on how many Gemini decision rounds
             to allow before giving up, in case generate_report is
             never called.
+        on_progress: Optional callback invoked as
+            on_progress(iteration=int, max_iterations=int, tool_name=str)
+            right before each tool is executed, so a caller (e.g. an
+            API layer) can report live progress. Safe to leave as None.
 
     Returns:
         On successful completion:
@@ -78,6 +86,9 @@ def run_scan(target: str, max_iterations: int = DEFAULT_MAX_ITERATIONS) -> Dict[
         if response["type"] == "tool_call":
             tool_name = response["tool_name"]
             tool_args = response["tool_args"]
+
+            if on_progress is not None:
+                on_progress(iteration=iteration, max_iterations=max_iterations, tool_name=tool_name)
 
             if tool_name == "generate_report":
                 result = generate_report(
