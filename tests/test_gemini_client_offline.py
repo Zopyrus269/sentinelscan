@@ -130,6 +130,22 @@ class TestGeminiClientOffline(unittest.TestCase):
         self.assertEqual(result["text"], "succeeded on retry")
         self.assertEqual(mock_generate.call_count, 2)
 
+    def test_backoff_retries_on_503_then_succeeds(self):
+        """A 503 UNAVAILABLE (server overload) error should also trigger a retry, not fail immediately."""
+        mock_generate = MagicMock(
+            side_effect=[
+                Exception("503 UNAVAILABLE. This model is currently experiencing high demand."),
+                FakeResponse(text="succeeded on retry"),
+            ]
+        )
+        client = self._make_client_with_mock_generate(mock_generate)
+
+        result = client.generate([{"role": "user", "parts": ["scan example.com"]}], use_cache=False)
+
+        self.assertEqual(result["type"], "text")
+        self.assertEqual(result["text"], "succeeded on retry")
+        self.assertEqual(mock_generate.call_count, 2)
+
     def test_non_rate_limit_error_raises_immediately(self):
         """A non-rate-limit error should NOT be retried -- it should raise right away."""
         mock_generate = MagicMock(side_effect=ValueError("Some unrelated bug"))

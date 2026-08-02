@@ -221,3 +221,5 @@ __marimo__/
 reports/*.pdf
 reports/*.json
 !reports/.gitkeep
+
+apps/backend/agent/gemini_cache.sqlite3
