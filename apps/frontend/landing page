@@ -1,1 +1,312 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>SentinelScan | AI-Powered Website Security Scanner</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#434655",
+                        "on-tertiary-container": "#ffede6",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-secondary-fixed": "#0b1c30",
+                        "inverse-on-surface": "#eef0ff",
+                        "error-container": "#ffdad6",
+                        "outline": "#737686",
+                        "border": "#E2E8F0",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-dim": "#d2d9f4",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "surface-variant": "#dae2fd",
+                        "surface-container": "#eaedff",
+                        "surface-container-highest": "#dae2fd",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#943700",
+                        "success": "#22C55E",
+                        "error": "#ba1a1a",
+                        "on-surface": "#131b2e",
+                        "outline-variant": "#c3c6d7",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "secondary": "#505f76",
+                        "primary-fixed": "#dbe1ff",
+                        "inverse-surface": "#283044",
+                        "on-background": "#131b2e",
+                        "inverse-primary": "#b4c5ff",
+                        "primary": "#004ac6",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface-tint": "#0053db",
+                        "critical": "#EF4444",
+                        "warning": "#F59E0B",
+                        "on-tertiary-fixed": "#360f00",
+                        "background": "#F8FAFC",
+                        "tertiary-container": "#bc4800",
+                        "surface-container-high": "#e2e7ff",
+                        "secondary-container": "#d0e1fb",
+                        "on-primary-fixed": "#00174b",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#2563eb",
+                        "on-primary-container": "#eeefff",
+                        "surface-container-low": "#f2f3ff",
+                        "surface": "#FFFFFF",
+                        "on-secondary-container": "#54647a",
+                        "surface-bright": "#faf8ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "xl": "64px",
+                        "lg": "40px",
+                        "md": "24px",
+                        "margin-desktop": "32px",
+                        "xs": "8px",
+                        "margin-mobile": "16px",
+                        "sm": "16px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "mono-md": ["JetBrains Mono"],
+                        "headline-sm": ["Inter"],
+                        "display": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "mono-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "display": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(226, 232, 240, 1);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top Navigation Bar -->
+<header class="bg-surface sticky top-0 z-50 border-b border-border">
+<nav class="flex justify-between items-center w-full px-margin-desktop h-16 max-w-[1440px] mx-auto">
+<div class="text-headline-md font-headline-md font-extrabold text-primary tracking-tight">SentinelScan</div>
+<div class="hidden md:flex items-center gap-lg">
+<a class="text-primary border-b-2 border-primary pb-1 font-label-md text-label-md transition-colors duration-200" href="#">Dashboard</a>
+<a class="text-on-surface-variant hover:text-primary font-label-md text-label-md transition-colors duration-200" href="#">Reports</a>
+<a class="text-on-surface-variant hover:text-primary font-label-md text-label-md transition-colors duration-200" href="#">Documentation</a>
+</div>
+<div class="flex items-center gap-md">
+<button class="bg-primary hover:bg-primary-container text-on-primary px-sm py-xs rounded-lg font-label-md text-label-md transition-all active:scale-[0.98]">
+                    New Scan
+                </button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-border">
+<img class="w-full h-full object-cover" data-alt="Professional close-up portrait of a cybersecurity engineer with a neutral expression, clean lighting, white background, high-end photography style consistent with a modern enterprise security platform. The lighting is bright and professional, emphasizing clarity and trust." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_chKwgvrlydeTG4DFwNdWg3BbIJC98W4djtYZ5i5LOLHiV2oEwVtV6W0pPeOEsfuzuuvoCv6q29IX0dFFIyk6lnV-z1oYp1R-26X-hsjmA5-1CE8V7DZWYpTOl3GI5q1uiC-YLHiJV-vNw14oQW7LCxnnxWoKXcd6YZjcoBk2hybeERJN4VKWpTYVeHIo_sc4gRcfZbC59WnFdHTjPklsUWTUy2k4sNhOVErJImKkNkuVPp8mCNEm">
+</div>
+</div>
+</nav>
+</header>
+<main>
+<!-- Hero Section -->
+<section class="relative pt-xl pb-24 overflow-hidden">
+<div class="absolute inset-0 z-0 opacity-20 pointer-events-none">
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-fixed blur-[120px] rounded-full"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-surface-variant blur-[120px] rounded-full"></div>
+</div>
+<div class="relative z-10 max-w-[1440px] mx-auto px-margin-desktop text-center">
+<span class="inline-block px-sm py-base bg-secondary-container text-on-secondary-container rounded-full font-label-sm text-label-sm mb-md uppercase tracking-widest">
+                    Next-Generation Security
+                </span>
+<h1 class="font-display text-display text-on-background mb-md max-w-4xl mx-auto">
+                    AI-Powered Website Security Scanner
+                </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-lg">
+                    Uncover critical vulnerabilities, zero-day threats, and compliance risks with our precision-engineered scanning engine.
+                </p>
+<!-- Scan Input -->
+<div class="max-w-xl mx-auto mb-md">
+<div class="flex flex-col sm:flex-row gap-xs p-base bg-surface border border-border rounded-xl shadow-sm">
+<div class="flex-1 flex items-center px-sm gap-xs">
+<span class="material-symbols-outlined text-outline">language</span>
+<input class="w-full border-none focus:ring-0 font-body-md text-body-md bg-transparent" placeholder="https://your-website.com" type="text">
+</div>
+<button class="bg-primary hover:bg-primary-container text-on-primary px-lg py-sm rounded-lg font-label-md text-label-md transition-all whitespace-nowrap active:scale-95 shadow-md" onclick="toggleModal(true)">
+                            Start AI-Powered Scan
+                        </button>
+</div>
+</div>
+<!-- Notice -->
+<div class="flex items-center justify-center gap-xs text-error font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="uppercase tracking-tighter font-bold">Authorized Personnel Only</span>
+</div>
+</div>
+</section>
+<!-- Feature Section: Bento-ish Grid -->
+<section class="py-xl bg-surface-container-lowest">
+<div class="max-w-[1440px] mx-auto px-margin-desktop">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-lg">
+<!-- Feature 1 -->
+<div class="glass-card p-lg rounded-xl flex flex-col items-start gap-md group hover:border-primary transition-all duration-300">
+<div class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm mb-xs">Static &amp; Dynamic Analysis</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                                Comprehensive DAST and SAST scanning to identify script-level flaws and runtime injection vulnerabilities.
+                            </p>
+</div>
+</div>
+<!-- Feature 2 -->
+<div class="glass-card p-lg rounded-xl flex flex-col items-start gap-md group hover:border-primary transition-all duration-300">
+<div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center text-on-secondary-fixed group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm mb-xs">Zero-Day Detection</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                                Leverage machine learning models trained on millions of CVEs to predict and prevent novel exploitation patterns.
+                            </p>
+</div>
+</div>
+<!-- Feature 3 -->
+<div class="glass-card p-lg rounded-xl flex flex-col items-start gap-md group hover:border-primary transition-all duration-300">
+<div class="w-12 h-12 rounded-lg bg-secondary-container flex items-center justify-center text-on-secondary-container group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm mb-xs">Real-time Compliance</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                                Automatically audit your infrastructure against SOC2, HIPAA, and GDPR standards with every single scan.
+                            </p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Visualization Section -->
+<section class="py-xl overflow-hidden">
+<div class="max-w-[1440px] mx-auto px-margin-desktop">
+<div class="rounded-xl border border-border overflow-hidden bg-surface relative h-[500px]">
+<div class="absolute inset-0 bg-[#0f172a] overflow-hidden">
 
+</div>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center px-md">
+<h2 class="font-display text-headline-lg text-white mb-sm">Visualizing the Attack Surface</h2>
+<p class="text-white/70 max-w-xl font-body-md">Our neural engine maps your digital footprint in real-time, identifying nodes of risk before attackers do.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Confirmation Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center p-md" id="confirmModal">
+<div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onclick="toggleModal(false)"></div>
+<div class="relative bg-surface rounded-xl shadow-xl max-w-md w-full p-lg animate-in fade-in zoom-in duration-200 border border-border">
+<div class="flex items-center gap-sm text-warning mb-md">
+<span class="material-symbols-outlined text-headline-md">gavel</span>
+<h3 class="font-headline-sm text-headline-sm text-on-background">Authorization Required</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-lg">
+                By clicking "Proceed", you confirm that you are the owner of the target domain or have explicit written authorization to perform a security penetration test. Unauthorized scanning may be illegal in your jurisdiction.
+            </p>
+<div class="flex flex-col gap-xs">
+<button class="w-full bg-primary hover:bg-primary-container text-on-primary py-sm rounded-lg font-label-md text-label-md transition-all active:scale-[0.98]">
+                    I Authorize This Scan
+                </button>
+<button class="w-full bg-transparent hover:bg-surface-container-low text-on-surface-variant py-sm rounded-lg font-label-md text-label-md transition-all" onclick="toggleModal(false)">
+                    Cancel
+                </button>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="bg-background border-t border-border">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-lg px-margin-desktop py-xl max-w-[1440px] mx-auto">
+<div class="flex flex-col gap-sm">
+<div class="text-headline-sm font-headline-sm font-bold text-primary">SentinelScan</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                    Advanced cybersecurity intelligence for modern web infrastructures.
+                </p>
+</div>
+<div class="flex flex-col gap-xs">
+<h4 class="font-label-md text-label-md text-on-background mb-xs">Product</h4>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">Documentation</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">API</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">New Scan</a>
+</div>
+<div class="flex flex-col gap-xs">
+<h4 class="font-label-md text-label-md text-on-background mb-xs">Legal</h4>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">Authorized Use</a>
+</div>
+<div class="flex flex-col gap-xs">
+<h4 class="font-label-md text-label-md text-on-background mb-xs">Support</h4>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">Responsible Disclosure</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-all" href="#">Contact</a>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-md">© 2024 SentinelScan. All rights reserved.</p>
+</div>
+</div>
+</footer>
+<script>
+        function toggleModal(show) {
+            const modal = document.getElementById('confirmModal');
+            if (show) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.style.overflow = 'hidden';
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Simple parallax effect for shader container
+        window.addEventListener('scroll', () => {
+            const shader = document.querySelector('webgl-shader');
+            if (shader) {
+                const speed = 0.05;
+                const offset = window.pageYOffset * speed;
+                shader.style.transform = `translateY(${offset}px)`;
+            }
+        });
+    </script>
+</body></html>
