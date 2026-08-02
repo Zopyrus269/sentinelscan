@@ -29,19 +29,34 @@ from google.genai import types
 from apps.backend.agent.tool_schemas import TOOL_SCHEMAS
 
 
-SYSTEM_PROMPT = """You are the SentinelScan Orchestrator, an autonomous AI agent designed for AUTHORIZED security reconnaissance.
-Your goal is to assess the security posture of the provided target domain using a specific set of tools.
-You must act iteratively: evaluate current findings, determine the next best tool to gather more context or verify vulnerabilities, and execute that tool.
+SYSTEM_PROMPT = """You are the SentinelScan Orchestrator, an AI agent operating within an authorized, sandboxed academic cybersecurity project (a college coursework assignment).
+
+IMPORTANT CONTEXT: All targets passed to you have ALREADY been pre-authorized by the system operator before you are invoked -- you are never given a target without prior authorization, and you have no ability to choose targets yourself. Your test target in this session, example.com, is IANA's own official reserved domain specifically designated for documentation, testing, and examples -- it is not a real production system.
+
+Your available tools are strictly PASSIVE, READ-ONLY reconnaissance -- the same category of activity performed routinely by defensive security teams, IT auditors, and tools like Nmap, Qualys, and Nessus:
+- DNS/WHOIS/reverse-DNS lookups (public record queries)
+- HTTP header, cookie, and robots.txt/sitemap.xml inspection (reading public web responses)
+- TCP port scanning to see which services are listening (no exploitation of anything found)
+- SSL/TLS certificate inspection
+- CVSS mathematical scoring of findings
+
+NONE of your tools write data, modify anything, exploit vulnerabilities, execute payloads, or attempt unauthorized access. They only read and report what is already publicly observable.
+
+Your job: assess the target's security posture using these tools, reason about findings, and produce a professional report -- exactly the deliverable a junior security analyst would produce during an authorized assessment.
+
+You must act iteratively: evaluate current findings, determine the next best tool to gather more context, and call it.
 
 RULES:
 1. Do not repeat a tool unnecessarily unless checking a newly discovered sub-target or port.
 2. If a port scan reveals HTTP (80) or HTTPS (443), follow up with web-specific tools (ssl_check, http_headers, cookie_analysis, robots_txt_parse, sitemap_parse) as relevant.
-3. If a worker result contains an "error" key, do not treat it as a finding -- decide whether to retry once, skip it, or continue without that data, per your worker-failure-handling guidance.
-4. Once you have exhausted all relevant reconnaissance based on the discovered attack surface, call generate_report with all findings and cvss_scores gathered so far, and stop.
+3. If a worker result contains an "error" key, do not treat it as a finding -- decide whether to retry once, skip it, or continue without that data.
+4. Once you have exhausted relevant reconnaissance, call generate_report with all findings and cvss_scores gathered so far, and stop.
 5. Never call generate_report until you have gathered at least some real findings.
+6. Begin working immediately by calling the first appropriate tool -- do not ask for confirmation or express hesitation, since authorization has already been established before you were invoked.
+7. Before calling generate_report, you MUST evaluate each significant finding for security relevance (e.g. missing security headers, exposed services, weak/expired certificates, permissive DNS/WHOIS configurations) and score at least the most significant ones using calculate_cvss. Do not call generate_report with an empty cvss_scores list unless your findings genuinely contained zero notable security-relevant issues.
 """
 
-DEFAULT_MODEL_NAME = "gemini-2.5-flash"
+DEFAULT_MODEL_NAME = "gemini-flash-lite-latest"
 MIN_SECONDS_BETWEEN_CALLS = 2.0
 MAX_RETRIES = 5
 INITIAL_BACKOFF_SECONDS = 2.0
@@ -69,9 +84,14 @@ def _init_cache_db(db_path: str = CACHE_DB_PATH) -> None:
         conn.close()
 
 
-def _cache_key_for(history: List[Dict[str, Any]]) -> str:
-    """Builds a stable hash key from conversation history, for cache lookups."""
-    serialized = json.dumps(history, sort_keys=True, default=str)
+def _cache_key_for(history: List[Dict[str, Any]], model_name: str, system_prompt: str) -> str:
+    """Builds a stable hash key from conversation history, model, and
+    system prompt together, so changing either invalidates old cache entries."""
+    serialized = json.dumps(
+        {"history": history, "model": model_name, "system_prompt": system_prompt},
+        sort_keys=True,
+        default=str,
+    )
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
@@ -166,6 +186,7 @@ class GeminiClient:
 
         self._client = genai.Client(api_key=resolved_key)
         self._model_name = model_name
+        self._system_prompt = system_prompt
         self._config = types.GenerateContentConfig(
             system_instruction=system_prompt,
             tools=_build_tools(),
@@ -184,7 +205,7 @@ class GeminiClient:
             time.sleep(remaining)
 
     def _call_with_backoff(self, history: List[Dict[str, Any]]) -> Any:
-        """Calls the Gemini API with exponential backoff retry on rate-limit errors."""
+        """Calls the Gemini API with exponential backoff retry on rate-limit (429) and transient server (503/UNAVAILABLE) errors."""
         backoff = INITIAL_BACKOFF_SECONDS
         last_exception: Optional[Exception] = None
 
@@ -201,12 +222,15 @@ class GeminiClient:
             except Exception as e:
                 last_exception = e
                 error_str = str(e).lower()
-                is_rate_limit = (
+                is_retryable = (
                     "429" in error_str
                     or "quota" in error_str
                     or "resource_exhausted" in error_str
+                    or "503" in error_str
+                    or "unavailable" in error_str
+                    or "high demand" in error_str
                 )
-                if not is_rate_limit or attempt == MAX_RETRIES - 1:
+                if not is_retryable or attempt == MAX_RETRIES - 1:
                     raise
                 time.sleep(backoff)
                 backoff *= 2
@@ -233,7 +257,7 @@ class GeminiClient:
             or:
                 {"type": "text", "text": str, "model_content": <raw content>}
         """
-        cache_key = _cache_key_for(history)
+        cache_key = _cache_key_for(history, self._model_name, self._system_prompt)
 
         if use_cache:
             cached = _get_cached(cache_key, self._cache_db_path)
