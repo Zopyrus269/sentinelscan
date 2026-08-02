@@ -7,3 +7,5 @@ beautifulsoup4
 reportlab
 google-genai
 python-dotenv
+
+pytest

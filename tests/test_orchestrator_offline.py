@@ -98,7 +98,7 @@ class TestOrchestratorOffline(unittest.TestCase):
             for content in final_call_history
             if hasattr(content, "role") and content.role == "user"
             for part in content.parts
-            if hasattr(part, "text")
+            if hasattr(part, "text") and part.text is not None
         ]
         self.assertTrue(
             any("Critical tool 'dns_lookup'" in t for t in nudge_texts),
@@ -137,7 +137,7 @@ class TestOrchestratorOffline(unittest.TestCase):
             for content in final_call_history
             if hasattr(content, "role") and content.role == "user"
             for part in content.parts
-            if hasattr(part, "text")
+            if hasattr(part, "text") and part.text is not None
         ]
         self.assertTrue(
             any("Tool 'whois_lookup' has now failed" in t for t in nudge_texts),
