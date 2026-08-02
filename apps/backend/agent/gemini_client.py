@@ -235,7 +235,9 @@ class GeminiClient:
                 time.sleep(backoff)
                 backoff *= 2
 
-        raise last_exception  # pragma: no cover - unreachable safeguard
+        if last_exception is not None:
+            raise last_exception
+        raise RuntimeError("Gemini API call failed after all retries with no captured exception")  # pragma: no cover - unreachable safeguard
 
     def generate(self, history: List[Dict[str, Any]], use_cache: bool = True) -> Dict[str, Any]:
         """
