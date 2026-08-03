@@ -221,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
             window.location.href =
-                `dashboard.html?scan_id=${encodeURIComponent(
+                `../dashboard/dashboard.html?scan_id=${encodeURIComponent(
                     payload.scan_id
                 )}`;
         } catch (error) {
