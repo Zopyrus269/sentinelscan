@@ -1,7 +1,7 @@
 "use strict";
 
-const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
-const POLL_INTERVAL_MS = 2000;
+const API_BASE_URL = "/api/v1";
+const POLL_INTERVAL_MS = 500;
 
 let pollTimer = null;
 let scanStartedAt = null;
@@ -58,7 +58,7 @@ function bindNavigation() {
         );
 
     newScanButton?.addEventListener("click", () => {
-        window.location.href = "index.html";
+        window.location.href = "/";
     });
 
     viewReportButton?.addEventListener("click", () => {
@@ -75,14 +75,12 @@ function bindNavigation() {
 
 function openReport() {
     if (!activeScanId) {
-        window.location.href = "index.html";
+        window.location.href = "/";
         return;
     }
 
     window.location.href =
-        `report.html?scan_id=${encodeURIComponent(
-            activeScanId
-        )}`;
+        `/report?scan_id=${encodeURIComponent(activeScanId)}`;
 }
 
 async function loadScan() {
