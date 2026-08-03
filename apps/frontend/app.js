@@ -10,18 +10,33 @@ document.addEventListener("DOMContentLoaded", () => {
     const navNewScanButton = document.getElementById(
         "navNewScanButton"
     );
+    const openLatestReportButton = document.getElementById(
+        "openLatestReportButton"
+    );
+
     const confirmModal = document.getElementById("confirmModal");
     const modalBackdrop = document.getElementById("modalBackdrop");
+    const modalCloseButton = document.getElementById(
+        "modalCloseButton"
+    );
+    const modalScrollableContent = document.getElementById(
+        "modalScrollableContent"
+    );
+
     const ownershipConsent = document.getElementById(
         "ownershipConsent"
     );
-    const legalConsent = document.getElementById("legalConsent");
+    const legalConsent = document.getElementById(
+        "legalConsent"
+    );
+
     const authorizeScanButton = document.getElementById(
         "authorizeScanButton"
     );
     const cancelConsentButton = document.getElementById(
         "cancelConsentButton"
     );
+
     const scanError = document.getElementById("scanError");
 
     const requiredElements = {
@@ -41,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (missingElements.length > 0) {
         console.error(
-            "SentinelScan landing page is missing required elements:",
+            "Missing landing-page elements:",
             missingElements
         );
         return;
@@ -57,59 +72,16 @@ document.addEventListener("DOMContentLoaded", () => {
         scanError.classList.add("hidden");
     }
 
-    function showModal() {
-        ownershipConsent.checked = false;
-        legalConsent.checked = false;
-        updateAuthorizeButton();
-
-        confirmModal.classList.remove("hidden");
-        confirmModal.classList.add("flex");
-        document.body.style.overflow = "hidden";
-    }
-
-    function hideModal() {
-        confirmModal.classList.add("hidden");
-        confirmModal.classList.remove("flex");
-        document.body.style.overflow = "";
-    }
-
-    function updateAuthorizeButton() {
-        const consentGiven =
-            ownershipConsent.checked &&
-            legalConsent.checked;
-
-        authorizeScanButton.disabled = !consentGiven;
-
-        if (consentGiven) {
-            authorizeScanButton.classList.remove(
-                "opacity-50",
-                "cursor-not-allowed"
-            );
-        } else {
-            authorizeScanButton.classList.add(
-                "opacity-50",
-                "cursor-not-allowed"
-            );
-        }
-    }
-
     function normalizeTarget(rawTarget) {
         const value = String(rawTarget || "").trim();
 
         if (!value) {
-            throw new Error(
-                "Enter a domain name before starting the scan."
-            );
+            throw new Error("Enter a domain name.");
         }
 
-        let candidate = value;
-
-        if (
-            !candidate.startsWith("http://") &&
-            !candidate.startsWith("https://")
-        ) {
-            candidate = `https://${candidate}`;
-        }
+        const candidate = /^https?:\/\//i.test(value)
+            ? value
+            : `https://${value}`;
 
         let parsedUrl;
 
@@ -117,35 +89,89 @@ document.addEventListener("DOMContentLoaded", () => {
             parsedUrl = new URL(candidate);
         } catch {
             throw new Error(
-                "Enter a valid domain, such as example.com."
+                "Enter a valid domain such as example.com."
             );
         }
 
-        const hostname = parsedUrl.hostname.trim();
+        if (parsedUrl.username || parsedUrl.password) {
+            throw new Error(
+                "Targets containing usernames or passwords are not allowed."
+            );
+        }
+
+        const hostname = parsedUrl.hostname
+            .trim()
+            .toLowerCase()
+            .replace(/\.$/, "");
 
         if (
             !hostname ||
             hostname === "localhost" ||
+            hostname.endsWith(".local") ||
+            hostname.endsWith(".internal") ||
             !hostname.includes(".")
         ) {
-            throw new Error(
-                "Enter a valid public domain, such as example.com."
-            );
+            throw new Error("Enter a valid public domain.");
         }
 
         return hostname;
     }
 
-    function validateAndOpenModal() {
+    function updateAuthorizeButton() {
+        const accepted =
+            ownershipConsent.checked &&
+            legalConsent.checked;
+
+        authorizeScanButton.disabled = !accepted;
+
+        if (accepted) {
+            authorizeScanButton.textContent =
+                "Start Authorized Scan";
+        } else {
+            authorizeScanButton.textContent =
+                "I Authorize This Scan";
+        }
+    }
+
+    function showModal() {
         clearError();
 
-        try {
-            normalizeTarget(targetInput.value);
-            showModal();
-        } catch (error) {
-            showError(error.message);
-            targetInput.focus();
+        ownershipConsent.checked = false;
+        legalConsent.checked = false;
+
+        updateAuthorizeButton();
+
+        if (modalScrollableContent) {
+            modalScrollableContent.scrollTop = 0;
         }
+
+        confirmModal.classList.remove("hidden");
+        confirmModal.classList.add("flex");
+
+        document.body.style.overflow = "hidden";
+    }
+
+    function hideModal() {
+        confirmModal.classList.add("hidden");
+        confirmModal.classList.remove("flex");
+
+        document.body.style.overflow = "";
+    }
+
+    async function readJsonResponse(response) {
+        const contentType =
+            response.headers.get("Content-Type") || "";
+
+        if (!contentType.includes("application/json")) {
+            const text = await response.text();
+
+            throw new Error(
+                text ||
+                "The backend returned an invalid response."
+            );
+        }
+
+        return response.json();
     }
 
     async function startScan() {
@@ -156,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
             !legalConsent.checked
         ) {
             showError(
-                "You must confirm both authorization statements."
+                "Confirm both authorization statements."
             );
             return;
         }
@@ -172,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const originalButtonText =
+        const originalText =
             authorizeScanButton.textContent;
 
         authorizeScanButton.disabled = true;
@@ -190,11 +216,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     },
                     body: JSON.stringify({
                         target,
+                        authorization_confirmed: true,
                     }),
                 }
             );
 
-            const payload = await response.json();
+            const payload = await readJsonResponse(response);
 
             if (!response.ok) {
                 throw new Error(
@@ -220,13 +247,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 target
             );
 
+            hideModal();
+
             window.location.href =
-                `../dashboard/dashboard.html?scan_id=${encodeURIComponent(
+                `./dashboard/dashboard.html?scan_id=${encodeURIComponent(
                     payload.scan_id
                 )}`;
         } catch (error) {
-            hideModal();
-
             showError(
                 error.message ||
                 "Unable to connect to the SentinelScan backend."
@@ -234,11 +261,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
             authorizeScanButton.disabled = false;
             authorizeScanButton.textContent =
-                originalButtonText;
+                originalText;
 
             updateAuthorizeButton();
         }
     }
+
+    openConsentButton.addEventListener(
+        "click",
+        () => {
+            clearError();
+
+            try {
+                normalizeTarget(targetInput.value);
+                showModal();
+            } catch (error) {
+                showError(error.message);
+                targetInput.focus();
+            }
+        }
+    );
+
+    targetInput.addEventListener(
+        "keydown",
+        (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                openConsentButton.click();
+            }
+        }
+    );
 
     ownershipConsent.addEventListener(
         "change",
@@ -250,22 +302,6 @@ document.addEventListener("DOMContentLoaded", () => {
         updateAuthorizeButton
     );
 
-    openConsentButton.addEventListener(
-        "click",
-        validateAndOpenModal
-    );
-
-    if (navNewScanButton) {
-        navNewScanButton.addEventListener("click", () => {
-            targetInput.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-            });
-
-            targetInput.focus();
-        });
-    }
-
     authorizeScanButton.addEventListener(
         "click",
         startScan
@@ -276,31 +312,54 @@ document.addEventListener("DOMContentLoaded", () => {
         hideModal
     );
 
-    if (modalBackdrop) {
-        modalBackdrop.addEventListener(
-            "click",
-            hideModal
-        );
-    }
+    modalCloseButton?.addEventListener(
+        "click",
+        hideModal
+    );
 
-    targetInput.addEventListener(
-        "keydown",
-        (event) => {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                validateAndOpenModal();
-            }
+    modalBackdrop?.addEventListener(
+        "click",
+        hideModal
+    );
+
+    navNewScanButton?.addEventListener(
+        "click",
+        () => {
+            targetInput.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+            });
+
+            targetInput.focus();
         }
     );
 
-    document.addEventListener("keydown", (event) => {
-        if (
-            event.key === "Escape" &&
-            confirmModal.classList.contains("flex")
-        ) {
-            hideModal();
+    openLatestReportButton?.addEventListener(
+        "click",
+        () => {
+            const scanId = sessionStorage.getItem(
+                "sentinelscan_scan_id"
+            );
+
+            window.location.href = scanId
+                ? `./report/report.html?scan_id=${encodeURIComponent(
+                    scanId
+                )}`
+                : "./index.html";
         }
-    });
+    );
+
+    document.addEventListener(
+        "keydown",
+        (event) => {
+            if (
+                event.key === "Escape" &&
+                confirmModal.classList.contains("flex")
+            ) {
+                hideModal();
+            }
+        }
+    );
 
     updateAuthorizeButton();
 });
