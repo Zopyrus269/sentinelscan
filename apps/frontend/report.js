@@ -1,6 +1,6 @@
 "use strict";
 
-const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
+const API_BASE_URL = "/api/v1";
 
 let activeScanId = null;
 let activeScan = null;
@@ -42,21 +42,19 @@ function bindNavigation() {
 
     if (newScanButton) {
         newScanButton.addEventListener("click", () => {
-            window.location.href = "index.html";
+            window.location.href = "/";
         });
     }
 
     if (backToDashboardButton) {
         backToDashboardButton.addEventListener("click", () => {
             if (!activeScanId) {
-                window.location.href = "dashboard.html";
+                window.location.href = "/dashboard";
                 return;
             }
 
             window.location.href =
-                `dashboard.html?scan_id=${encodeURIComponent(
-                    activeScanId
-                )}`;
+                `/dashboard?scan_id=${encodeURIComponent(activeScanId)}`;
         });
     }
 }
@@ -240,10 +238,9 @@ function renderReport(report) {
 
     const maximumCvss = getMaximumCvss(cvssScores);
 
-    const securityScore = calculateSecurityScore(
-        maximumCvss,
-        cvssScores
-    );
+    const securityScore = Number.isFinite(Number(report.security_score))
+        ? Number(report.security_score)
+        : calculateSecurityScore(maximumCvss, cvssScores);
 
     renderSecurityScore(securityScore);
     renderMaximumCvss(maximumCvss, cvssScores);
