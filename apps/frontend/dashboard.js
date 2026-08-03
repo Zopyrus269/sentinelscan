@@ -58,7 +58,7 @@ function bindNavigation() {
         );
 
     newScanButton?.addEventListener("click", () => {
-        window.location.href = "../index.html";
+        window.location.href = "index.html";
     });
 
     viewReportButton?.addEventListener("click", () => {
@@ -75,12 +75,12 @@ function bindNavigation() {
 
 function openReport() {
     if (!activeScanId) {
-        window.location.href = "../index.html";
+        window.location.href = "index.html";
         return;
     }
 
     window.location.href =
-        `../report/report.html?scan_id=${encodeURIComponent(
+        `report.html?scan_id=${encodeURIComponent(
             activeScanId
         )}`;
 }

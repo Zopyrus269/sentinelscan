@@ -32,6 +32,7 @@ def create_scan(target: str) -> str:
             "pdf_path": None,
             "json_path": None,
             "error": None,
+            "events": [],
         }
     return scan_id
 
@@ -41,6 +42,18 @@ def update_scan(scan_id: str, **fields: Any) -> None:
     with _lock:
         if scan_id in _SCANS:
             _SCANS[scan_id].update(fields)
+
+
+def add_scan_event(scan_id: str, level: str, message: str, tool_name: Optional[str] = None) -> None:
+    """Appends an event to the scan's events list."""
+    with _lock:
+        if scan_id in _SCANS:
+            _SCANS[scan_id]["events"].append({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "level": level,
+                "message": message,
+                "tool_name": tool_name,
+            })
 
 
 def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:

@@ -250,7 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
             hideModal();
 
             window.location.href =
-                `./dashboard/dashboard.html?scan_id=${encodeURIComponent(
+                `dashboard.html?scan_id=${encodeURIComponent(
                     payload.scan_id
                 )}`;
         } catch (error) {
@@ -342,10 +342,10 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
             window.location.href = scanId
-                ? `./report/report.html?scan_id=${encodeURIComponent(
+                ? `report.html?scan_id=${encodeURIComponent(
                     scanId
                 )}`
-                : "./index.html";
+                : "index.html";
         }
     );
 

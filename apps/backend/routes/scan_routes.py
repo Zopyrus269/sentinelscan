@@ -10,12 +10,13 @@ duration.
 import json
 import os
 import threading
+from datetime import datetime, timezone
 from typing import Tuple
 
 from flask import Blueprint, jsonify, request, send_file, Response
 
 from apps.backend.agent.orchestrator import run_scan
-from apps.backend.models.scan_store import create_scan, get_scan, list_scans, update_scan
+from apps.backend.models.scan_store import create_scan, get_scan, list_scans, update_scan, add_scan_event
 
 scan_bp = Blueprint("scan_routes", __name__, url_prefix="/api/v1")
 
@@ -38,6 +39,7 @@ def _run_scan_background(scan_id: str, target: str) -> None:
     def on_progress(iteration: int, max_iterations: int, tool_name: str) -> None:
         percent = min(99, round((iteration / max_iterations) * 100))
         update_scan(scan_id, current_action=tool_name, progress_percent=percent)
+        add_scan_event(scan_id, level="info", message=f"Running {tool_name}", tool_name=tool_name)
 
     try:
         result = run_scan(target, on_progress=on_progress)
@@ -48,6 +50,7 @@ def _run_scan_background(scan_id: str, target: str) -> None:
                 status="COMPLETED",
                 current_action=None,
                 progress_percent=100,
+                completed_at=datetime.now(timezone.utc).isoformat(),
                 pdf_path=report.get("pdf_path"),
                 json_path=report.get("json_path"),
             )
@@ -56,10 +59,11 @@ def _run_scan_background(scan_id: str, target: str) -> None:
                 scan_id,
                 status="FAILED",
                 current_action=None,
+                completed_at=datetime.now(timezone.utc).isoformat(),
                 error=result.get("error", "Scan did not complete"),
             )
     except Exception as e:
-        update_scan(scan_id, status="FAILED", current_action=None, error=str(e))
+        update_scan(scan_id, status="FAILED", current_action=None, completed_at=datetime.now(timezone.utc).isoformat(), error=str(e))
 
 
 @scan_bp.route("/scans", methods=["POST"])
@@ -88,6 +92,10 @@ def get_scan_status(scan_id: str):
 
     return jsonify({
         "scan_id": scan["scan_id"],
+        "target": scan["target"],
+        "started_at": scan["date"].isoformat() if hasattr(scan["date"], "isoformat") else scan["date"],
+        "completed_at": scan.get("completed_at"),
+        "events": scan.get("events", []),
         "status": scan["status"],
         "current_action": scan.get("current_action"),
         "progress_percent": scan.get("progress_percent", 0),

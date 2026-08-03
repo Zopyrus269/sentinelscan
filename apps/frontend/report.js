@@ -42,19 +42,19 @@ function bindNavigation() {
 
     if (newScanButton) {
         newScanButton.addEventListener("click", () => {
-            window.location.href = "../landing/index.html";
+            window.location.href = "index.html";
         });
     }
 
     if (backToDashboardButton) {
         backToDashboardButton.addEventListener("click", () => {
             if (!activeScanId) {
-                window.location.href = "../dashboard/dashboard.html";
+                window.location.href = "dashboard.html";
                 return;
             }
 
             window.location.href =
-                `../dashboard/dashboard.html?scan_id=${encodeURIComponent(
+                `dashboard.html?scan_id=${encodeURIComponent(
                     activeScanId
                 )}`;
         });

@@ -9,3 +9,4 @@ google-genai
 python-dotenv
 
 pytest
+flask-cors
