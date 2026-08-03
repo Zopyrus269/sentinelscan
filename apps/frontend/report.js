@@ -40,21 +40,25 @@ function bindNavigation() {
         "backToDashboardButton"
     );
 
-    newScanButton.addEventListener("click", () => {
-        window.location.href = "../landing/index.html";
-    });
+    if (newScanButton) {
+        newScanButton.addEventListener("click", () => {
+            window.location.href = "../landing/index.html";
+        });
+    }
 
-    backToDashboardButton.addEventListener("click", () => {
-        if (!activeScanId) {
-            window.location.href = "../dashboard/dashboard.html";
-            return;
-        }
+    if (backToDashboardButton) {
+        backToDashboardButton.addEventListener("click", () => {
+            if (!activeScanId) {
+                window.location.href = "../dashboard/dashboard.html";
+                return;
+            }
 
-        window.location.href =
-            `../dashboard/dashboard.html?scan_id=${encodeURIComponent(
-                activeScanId
-            )}`;
-    });
+            window.location.href =
+                `../dashboard/dashboard.html?scan_id=${encodeURIComponent(
+                    activeScanId
+                )}`;
+        });
+    }
 }
 
 
@@ -66,6 +70,10 @@ function bindRawJsonToggle() {
     const toggleIcon = document.getElementById(
         "rawJsonToggleIcon"
     );
+
+    if (!toggleButton || !rawJsonPanel || !toggleIcon) {
+        return;
+    }
 
     toggleButton.addEventListener("click", () => {
         const isHidden = rawJsonPanel.classList.contains("hidden");
@@ -87,11 +95,15 @@ async function loadReport() {
         activeScan = await fetchScan(activeScanId);
 
         if (activeScan.status !== "COMPLETED") {
+            if (activeScan.status === "FAILED") {
+                throw new Error(
+                    activeScan.error ||
+                    "The assessment failed before a report was generated."
+                );
+            }
+
             throw new Error(
-                activeScan.status === "FAILED"
-                    ? activeScan.error ||
-                      "The assessment failed before a report was generated."
-                    : "The assessment is not complete yet."
+                "The assessment is not complete yet. Return to the dashboard and wait for completion."
             );
         }
 
@@ -123,7 +135,15 @@ async function fetchScan(scanId) {
         }
     );
 
-    const payload = await response.json();
+    let payload;
+
+    try {
+        payload = await response.json();
+    } catch {
+        throw new Error(
+            "The scan status endpoint returned an invalid response."
+        );
+    }
 
     if (!response.ok) {
         throw new Error(
@@ -164,25 +184,44 @@ async function fetchJsonReport(scanId) {
         throw new Error(message);
     }
 
+    const contentType =
+        response.headers.get("Content-Type") || "";
+
+    if (!contentType.includes("application/json")) {
+        throw new Error(
+            "The report endpoint did not return a valid JSON document."
+        );
+    }
+
     return response.json();
 }
 
 
 function renderScanMetadata(scan) {
-    document.getElementById("reportTarget").textContent =
-        scan.target || "Unknown target";
+    setText(
+        "reportTarget",
+        scan.target || "Unknown target"
+    );
 
-    document.getElementById("reportScanId").textContent =
-        scan.scan_id || activeScanId;
+    setText(
+        "reportScanId",
+        scan.scan_id || activeScanId
+    );
 
-    document.getElementById("reportCompletedAt").textContent =
-        formatDate(scan.completed_at);
+    setText(
+        "reportCompletedAt",
+        formatDate(scan.completed_at)
+    );
 
-    document.getElementById("reportStatus").textContent =
-        formatStatus(scan.status);
+    setText(
+        "reportStatus",
+        formatStatus(scan.status)
+    );
 
-    document.getElementById("reportIdLabel").textContent =
-        `REPORT_ID: ${scan.scan_id || activeScanId}`;
+    setText(
+        "reportIdLabel",
+        `REPORT_ID: ${scan.scan_id || activeScanId}`
+    );
 }
 
 
@@ -200,10 +239,14 @@ function renderReport(report) {
     );
 
     const maximumCvss = getMaximumCvss(cvssScores);
-    const securityScore = calculateSecurityScore(maximumCvss);
+
+    const securityScore = calculateSecurityScore(
+        maximumCvss,
+        cvssScores
+    );
 
     renderSecurityScore(securityScore);
-    renderMaximumCvss(maximumCvss);
+    renderMaximumCvss(maximumCvss, cvssScores);
     renderRiskSummary(riskSummary);
     renderExecutiveSummary(
         report,
@@ -239,25 +282,41 @@ function normalizeRiskSummary(summary) {
 
 function getMaximumCvss(cvssScores) {
     if (!cvssScores.length) {
-        return 0;
+        return null;
     }
 
     return cvssScores.reduce((maximum, item) => {
-        const score = Number(item.base_score || 0);
+        const score = Number(item.base_score);
+
+        if (!Number.isFinite(score)) {
+            return maximum;
+        }
+
         return Math.max(maximum, score);
     }, 0);
 }
 
 
-function calculateSecurityScore(maximumCvss) {
+function calculateSecurityScore(maximumCvss, cvssScores) {
     /*
-     * SentinelScan's backend currently provides CVSS values but does not
-     * provide an official overall 0–100 security score. This UI score is
-     * therefore a display value derived from the highest CVSS score.
+     * The backend does not currently return an official overall
+     * security score. This display score is only derived when at
+     * least one valid CVSS score is available.
      */
+    if (
+        !Array.isArray(cvssScores) ||
+        cvssScores.length === 0 ||
+        maximumCvss === null
+    ) {
+        return null;
+    }
+
     return Math.max(
         0,
-        Math.min(100, Math.round(100 - maximumCvss * 10))
+        Math.min(
+            100,
+            Math.round(100 - maximumCvss * 10)
+        )
     );
 }
 
@@ -269,14 +328,43 @@ function renderSecurityScore(score) {
     );
     const riskLabel = document.getElementById("riskLabel");
 
+    if (!gauge || !scoreElement || !riskLabel) {
+        return;
+    }
+
     const radius = 88;
     const circumference = 2 * Math.PI * radius;
+
+    gauge.style.strokeDasharray = String(circumference);
+
+    if (score === null) {
+        gauge.style.strokeDashoffset = String(circumference);
+
+        gauge.setAttribute(
+            "class",
+            "text-outline-variant gauge-ring"
+        );
+
+        scoreElement.textContent = "N/A";
+
+        riskLabel.className =
+            "mt-md text-on-surface-variant font-label-md " +
+            "flex items-center gap-base";
+
+        riskLabel.innerHTML = `
+            <span class="material-symbols-outlined text-sm">
+                help
+            </span>
+            Insufficient scored findings
+        `;
+
+        return;
+    }
+
     const offset =
         circumference - (score / 100) * circumference;
 
-    gauge.style.strokeDasharray = String(circumference);
     gauge.style.strokeDashoffset = String(offset);
-
     scoreElement.textContent = String(score);
 
     const rating = getSecurityRating(score);
@@ -305,7 +393,7 @@ function getSecurityRating(score) {
             label: "Low Observed Risk",
             icon: "verified_user",
             textClass: "text-success",
-            gaugeClass: "text-success gauge-ring",
+            gaugeClass: "text-success",
         };
     }
 
@@ -314,7 +402,7 @@ function getSecurityRating(score) {
             label: "Moderate Observed Risk",
             icon: "warning",
             textClass: "text-warning",
-            gaugeClass: "text-warning gauge-ring",
+            gaugeClass: "text-warning",
         };
     }
 
@@ -323,7 +411,7 @@ function getSecurityRating(score) {
             label: "High Observed Risk",
             icon: "error",
             textClass: "text-error",
-            gaugeClass: "text-error gauge-ring",
+            gaugeClass: "text-error",
         };
     }
 
@@ -331,34 +419,37 @@ function getSecurityRating(score) {
         label: "Critical Observed Risk",
         icon: "dangerous",
         textClass: "text-critical",
-        gaugeClass: "text-critical gauge-ring",
+        gaugeClass: "text-critical",
     };
 }
 
 
-function renderMaximumCvss(maximumCvss) {
-    document.getElementById(
+function renderMaximumCvss(maximumCvss, cvssScores) {
+    const element = document.getElementById(
         "maxCvssScore"
-    ).textContent = maximumCvss.toFixed(1);
+    );
+
+    if (!element) {
+        return;
+    }
+
+    element.textContent =
+        cvssScores.length > 0 &&
+        maximumCvss !== null
+            ? maximumCvss.toFixed(1)
+            : "N/A";
 }
 
 
 function renderRiskSummary(summary) {
-    document.getElementById("criticalCount").textContent =
-        String(summary.CRITICAL);
-
-    document.getElementById("highCount").textContent =
-        String(summary.HIGH);
-
-    document.getElementById("mediumCount").textContent =
-        String(summary.MEDIUM);
-
-    document.getElementById("lowCount").textContent =
-        String(summary.LOW);
-
-    document.getElementById(
-        "informationalCount"
-    ).textContent = String(summary.INFORMATIONAL);
+    setText("criticalCount", summary.CRITICAL);
+    setText("highCount", summary.HIGH);
+    setText("mediumCount", summary.MEDIUM);
+    setText("lowCount", summary.LOW);
+    setText(
+        "informationalCount",
+        summary.INFORMATIONAL
+    );
 }
 
 
@@ -385,8 +476,9 @@ function renderExecutiveSummary(
         summary =
             `SentinelScan completed its authorized assessment of ` +
             `${target}. No reportable findings were included in the ` +
-            `generated report. Review the raw worker output and confirm ` +
-            `that all expected assessment steps completed successfully.`;
+            `generated report. This does not prove that the target is ` +
+            `fully secure. Review the raw worker output and confirm that ` +
+            `all expected assessment steps completed successfully.`;
     } else {
         summary =
             `SentinelScan completed an AI-guided assessment of ${target}. ` +
@@ -394,29 +486,35 @@ function renderExecutiveSummary(
             `were compiled from ${workerCount} worker` +
             `${workerCount === 1 ? "" : "s"}. `;
 
-        if (cvssScores.length) {
+        if (
+            cvssScores.length &&
+            maximumCvss !== null
+        ) {
             summary +=
                 `The highest calculated CVSS v3.1 base score was ` +
                 `${maximumCvss.toFixed(1)}. `;
         } else {
             summary +=
-                "No CVSS-scored findings were included. ";
+                "No valid CVSS-scored findings were included, so an " +
+                "overall security score cannot be determined. ";
         }
 
         summary +=
-            "Review each finding and validate the recommended actions " +
-            "before making production changes.";
+            "Review each finding, verify it manually, and validate the " +
+            "recommended actions before making production changes.";
     }
 
-    document.getElementById(
-        "executiveSummary"
-    ).textContent = summary;
+    setText("executiveSummary", summary);
 }
 
 
 function renderFindings(findings, cvssScores) {
     const list = document.getElementById("findingsList");
     const count = document.getElementById("findingsCount");
+
+    if (!list || !count) {
+        return;
+    }
 
     count.textContent =
         `${findings.length} Finding` +
@@ -426,8 +524,8 @@ function renderFindings(findings, cvssScores) {
         list.innerHTML = `
             <div class="bg-surface border border-border rounded-xl p-md">
                 <div class="flex items-start gap-sm">
-                    <span class="material-symbols-outlined text-success">
-                        check_circle
+                    <span class="material-symbols-outlined text-on-surface-variant">
+                        info
                     </span>
 
                     <div>
@@ -437,6 +535,7 @@ function renderFindings(findings, cvssScores) {
 
                         <p class="text-body-sm text-on-surface-variant mt-xs">
                             The generated report did not include any findings.
+                            This does not guarantee that the target is secure.
                         </p>
                     </div>
                 </div>
@@ -454,11 +553,14 @@ function renderFindings(findings, cvssScores) {
             );
 
             const severity = score
-                ? String(score.severity || "INFORMATIONAL").toUpperCase()
+                ? String(
+                    score.severity || "INFORMATIONAL"
+                ).toUpperCase()
                 : "INFORMATIONAL";
 
-            const baseScore = score
-                ? Number(score.base_score || 0).toFixed(1)
+            const baseScore = score &&
+                Number.isFinite(Number(score.base_score))
+                ? Number(score.base_score).toFixed(1)
                 : null;
 
             const severityStyle =
@@ -484,11 +586,11 @@ function renderFindings(findings, cvssScores) {
                             </span>
                         </div>
 
-                        <div class="flex-grow">
+                        <div class="flex-grow min-w-0">
                             <div
                                 class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-xs"
                             >
-                                <div>
+                                <div class="min-w-0">
                                     <p
                                         class="text-label-sm text-on-surface-variant uppercase tracking-wider"
                                     >
@@ -500,7 +602,7 @@ function renderFindings(findings, cvssScores) {
                                     </p>
 
                                     <h3
-                                        class="text-headline-sm font-headline-sm text-on-surface mt-1"
+                                        class="text-headline-sm font-headline-sm text-on-surface mt-1 break-words"
                                     >
                                         ${escapeHtml(
                                             getFindingTitle(
@@ -514,7 +616,7 @@ function renderFindings(findings, cvssScores) {
                                 <span
                                     class="${
                                         severityStyle.badge
-                                    } text-label-sm font-label-sm px-sm py-1 rounded-full uppercase self-start"
+                                    } text-label-sm font-label-sm px-sm py-1 rounded-full uppercase self-start whitespace-nowrap"
                                 >
                                     ${escapeHtml(severity)}
                                     ${
@@ -526,7 +628,7 @@ function renderFindings(findings, cvssScores) {
                             </div>
 
                             <p
-                                class="text-body-sm text-on-surface-variant mt-sm"
+                                class="text-body-sm text-on-surface-variant mt-sm break-words"
                             >
                                 ${escapeHtml(
                                     finding.summary ||
@@ -592,6 +694,10 @@ function getFindingTitle(finding, index) {
 function renderCvssScores(cvssScores) {
     const list = document.getElementById("cvssList");
 
+    if (!list) {
+        return;
+    }
+
     if (!cvssScores.length) {
         list.innerHTML = `
             <div class="bg-surface border border-border rounded-xl p-md">
@@ -610,9 +716,22 @@ function renderCvssScores(cvssScores) {
             ).toUpperCase();
 
             const style = getSeverityStyle(severity);
-            const baseScore = Number(
-                score.base_score || 0
-            ).toFixed(1);
+
+            const numericScore =
+                Number(score.base_score);
+
+            const baseScore =
+                Number.isFinite(numericScore)
+                    ? numericScore.toFixed(1)
+                    : "N/A";
+
+            const scoreWidth =
+                Number.isFinite(numericScore)
+                    ? Math.max(
+                        0,
+                        Math.min(100, numericScore * 10)
+                    )
+                    : 0;
 
             return `
                 <article
@@ -621,8 +740,8 @@ function renderCvssScores(cvssScores) {
                     <div
                         class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-md"
                     >
-                        <div class="flex-grow">
-                            <div class="flex items-center gap-sm">
+                        <div class="flex-grow min-w-0">
+                            <div class="flex items-center gap-sm flex-wrap">
                                 <span
                                     class="${
                                         style.badge
@@ -641,7 +760,7 @@ function renderCvssScores(cvssScores) {
                             </div>
 
                             <h3
-                                class="text-body-lg font-semibold text-on-surface mt-sm"
+                                class="text-body-lg font-semibold text-on-surface mt-sm break-words"
                             >
                                 ${escapeHtml(
                                     score.finding ||
@@ -666,9 +785,7 @@ function renderCvssScores(cvssScores) {
                                 class="${
                                     style.bar
                                 } h-full rounded-full"
-                                style="width: ${
-                                    Number(score.base_score || 0) * 10
-                                }%"
+                                style="width: ${scoreWidth}%"
                             ></div>
                         </div>
                     </div>
@@ -683,6 +800,10 @@ function renderWorkerFindings(findings) {
     const container = document.getElementById(
         "workerFindings"
     );
+
+    if (!container) {
+        return;
+    }
 
     if (!findings.length) {
         container.innerHTML = `
@@ -701,18 +822,18 @@ function renderWorkerFindings(findings) {
 
             return `
                 <article
-                    class="bg-surface border border-border rounded-xl p-md"
+                    class="bg-surface border border-border rounded-xl p-md min-w-0"
                 >
                     <div class="flex items-center gap-sm mb-sm">
                         <div
-                            class="w-10 h-10 rounded-lg bg-primary-fixed text-primary flex items-center justify-center"
+                            class="w-10 h-10 rounded-lg bg-primary-fixed text-primary flex items-center justify-center shrink-0"
                         >
                             <span class="material-symbols-outlined">
                                 ${getWorkerIcon(finding.worker)}
                             </span>
                         </div>
 
-                        <div>
+                        <div class="min-w-0">
                             <p
                                 class="text-label-sm text-on-surface-variant uppercase"
                             >
@@ -720,7 +841,7 @@ function renderWorkerFindings(findings) {
                             </p>
 
                             <h3
-                                class="text-body-lg font-semibold"
+                                class="text-body-lg font-semibold break-words"
                             >
                                 ${escapeHtml(
                                     formatWorkerName(
@@ -732,7 +853,7 @@ function renderWorkerFindings(findings) {
                     </div>
 
                     <p
-                        class="text-body-sm text-on-surface-variant mb-sm"
+                        class="text-body-sm text-on-surface-variant mb-sm break-words"
                     >
                         ${escapeHtml(
                             finding.summary ||
@@ -748,7 +869,7 @@ function renderWorkerFindings(findings) {
                         </summary>
 
                         <pre
-                            class="mt-sm bg-inverse-surface text-surface-bright/80 rounded-lg p-sm overflow-auto max-h-72 font-mono-md text-body-sm"
+                            class="mt-sm bg-inverse-surface text-surface-bright/80 rounded-lg p-sm overflow-auto max-h-72 font-mono-md text-body-sm whitespace-pre-wrap break-words"
                         >${escapeHtml(
                             stringifyValue(rawData)
                         )}</pre>
@@ -764,6 +885,10 @@ function renderRecommendations(findings, cvssScores) {
     const container = document.getElementById(
         "recommendationsList"
     );
+
+    if (!container) {
+        return;
+    }
 
     const recommendations = buildRecommendations(
         findings,
@@ -793,7 +918,7 @@ function renderRecommendations(findings, cvssScores) {
                         class="flex items-center gap-sm text-inverse-on-surface font-label-md mb-xs"
                     >
                         <span
-                            class="text-sm bg-primary/20 text-primary-fixed-dim px-2 py-0.5 rounded"
+                            class="text-sm bg-primary/20 text-primary-fixed-dim px-2 py-0.5 rounded whitespace-nowrap"
                         >
                             STEP ${index + 1}
                         </span>
@@ -813,6 +938,7 @@ function renderRecommendations(findings, cvssScores) {
 
 function buildRecommendations(findings, cvssScores) {
     const recommendations = [];
+
     const workers = new Set(
         findings
             .map((finding) => finding.worker)
@@ -867,6 +993,15 @@ function buildRecommendations(findings, cvssScores) {
         });
     }
 
+    if (workers.has("dns_lookup")) {
+        recommendations.push({
+            title: "Review DNS Configuration",
+            description:
+                "Review DNS records for outdated, unnecessary, or incorrectly " +
+                "configured entries and confirm mail-security records are suitable.",
+        });
+    }
+
     const highRiskScores = cvssScores.filter((score) => {
         return Number(score.base_score || 0) >= 7;
     });
@@ -902,29 +1037,127 @@ function configureDownloadButtons(scanId) {
         "downloadJsonButton"
     );
 
+    if (!pdfButton || !jsonButton) {
+        return;
+    }
+
     pdfButton.disabled = false;
     jsonButton.disabled = false;
 
-    pdfButton.addEventListener("click", () => {
-        window.location.href =
-            `${API_BASE_URL}/reports/${encodeURIComponent(
-                scanId
-            )}/pdf`;
+    pdfButton.addEventListener("click", async () => {
+        await downloadReport(
+            `${API_BASE_URL}/reports/${encodeURIComponent(scanId)}/pdf`,
+            `sentinelscan-${scanId}.pdf`,
+            "application/pdf",
+            pdfButton
+        );
     });
 
-    jsonButton.addEventListener("click", () => {
-        window.location.href =
-            `${API_BASE_URL}/reports/${encodeURIComponent(
-                scanId
-            )}/json`;
+    jsonButton.addEventListener("click", async () => {
+        await downloadReport(
+            `${API_BASE_URL}/reports/${encodeURIComponent(scanId)}/json`,
+            `sentinelscan-${scanId}.json`,
+            "application/json",
+            jsonButton
+        );
     });
 }
 
 
+async function downloadReport(
+    url,
+    filename,
+    expectedContentType,
+    button
+) {
+    clearError();
+
+    const originalText = button.innerHTML;
+
+    button.disabled = true;
+
+    button.innerHTML = `
+        <span class="material-symbols-outlined animate-spin">
+            progress_activity
+        </span>
+        Preparing...
+    `;
+
+    try {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            let message = "Report download failed.";
+
+            try {
+                const errorPayload = await response.json();
+
+                message =
+                    errorPayload.message ||
+                    errorPayload.error ||
+                    message;
+            } catch {
+                // Response was not JSON.
+            }
+
+            throw new Error(message);
+        }
+
+        const contentType =
+            response.headers.get("Content-Type") || "";
+
+        if (!contentType.includes(expectedContentType)) {
+            throw new Error(
+                `The server returned ${contentType || "an unknown format"} ` +
+                `instead of ${expectedContentType}.`
+            );
+        }
+
+        const blob = await response.blob();
+
+        if (blob.size === 0) {
+            throw new Error(
+                "The downloaded report file was empty."
+            );
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+
+        anchor.href = objectUrl;
+        anchor.download = filename;
+        anchor.style.display = "none";
+
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+
+        window.setTimeout(() => {
+            URL.revokeObjectURL(objectUrl);
+        }, 1000);
+    } catch (error) {
+        showError(
+            error.message ||
+            "Unable to download the report."
+        );
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+
 function renderRawJson(report) {
-    document.getElementById(
+    const rawJsonContent = document.getElementById(
         "rawJsonContent"
-    ).textContent = JSON.stringify(report, null, 2);
+    );
+
+    if (!rawJsonContent) {
+        return;
+    }
+
+    rawJsonContent.textContent =
+        JSON.stringify(report, null, 2);
 }
 
 
@@ -1063,7 +1296,7 @@ function formatDate(value) {
 
 
 function stringifyValue(value) {
-    if (value === undefined) {
+    if (value === undefined || value === null) {
         return "No raw data was provided.";
     }
 
@@ -1080,32 +1313,63 @@ function stringifyValue(value) {
 
 
 function showLoading() {
-    document
-        .getElementById("reportLoading")
-        .classList.remove("hidden");
+    const loading = document.getElementById(
+        "reportLoading"
+    );
+
+    if (loading) {
+        loading.classList.remove("hidden");
+    }
 }
 
 
 function hideLoading() {
-    document
-        .getElementById("reportLoading")
-        .classList.add("hidden");
+    const loading = document.getElementById(
+        "reportLoading"
+    );
+
+    if (loading) {
+        loading.classList.add("hidden");
+    }
 }
 
 
 function showError(message) {
     const errorBox = document.getElementById("reportError");
 
+    if (!errorBox) {
+        console.error(message);
+        return;
+    }
+
     errorBox.textContent = message;
     errorBox.classList.remove("hidden");
+
+    errorBox.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+    });
 }
 
 
 function clearError() {
     const errorBox = document.getElementById("reportError");
 
+    if (!errorBox) {
+        return;
+    }
+
     errorBox.textContent = "";
     errorBox.classList.add("hidden");
+}
+
+
+function setText(elementId, value) {
+    const element = document.getElementById(elementId);
+
+    if (element) {
+        element.textContent = String(value);
+    }
 }
 
 
