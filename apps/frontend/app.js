@@ -1,6 +1,6 @@
 "use strict";
 
-const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
+const API_BASE_URL = "/api/v1";
 
 document.addEventListener("DOMContentLoaded", () => {
     const targetInput = document.getElementById("targetInput");
@@ -250,7 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
             hideModal();
 
             window.location.href =
-                `dashboard.html?scan_id=${encodeURIComponent(
+                `/dashboard?scan_id=${encodeURIComponent(
                     payload.scan_id
                 )}`;
         } catch (error) {
@@ -342,10 +342,10 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
             window.location.href = scanId
-                ? `report.html?scan_id=${encodeURIComponent(
+                ? `/report?scan_id=${encodeURIComponent(
                     scanId
                 )}`
-                : "index.html";
+                : "/";
         }
     );
 
