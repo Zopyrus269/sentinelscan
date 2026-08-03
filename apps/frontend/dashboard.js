@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document
         .getElementById("newScanButton")
         .addEventListener("click", () => {
-            window.location.href = "../landing/index.html";
+            window.location.href = "landing_index.html";
         });
 
     if (!scanId) {
@@ -69,7 +69,7 @@ async function loadScan(scanId) {
 
             window.setTimeout(() => {
                 window.location.href =
-                    `../report/report.html?scan_id=${encodeURIComponent(
+                    `report.html?scan_id=${encodeURIComponent(
                         payload.scan_id
                     )}`;
             }, 1500);
