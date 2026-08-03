@@ -55,6 +55,7 @@ def _run_scan_background(scan_id: str, target: str) -> None:
                 json_path=report.get("json_path"),
             )
         else:
+            add_scan_event(scan_id, level="error", message=result.get("error", "Scan did not complete"))
             update_scan(
                 scan_id,
                 status="FAILED",
@@ -63,6 +64,7 @@ def _run_scan_background(scan_id: str, target: str) -> None:
                 error=result.get("error", "Scan did not complete"),
             )
     except Exception as e:
+        add_scan_event(scan_id, level="error", message=str(e))
         update_scan(scan_id, status="FAILED", current_action=None, completed_at=datetime.now(timezone.utc).isoformat(), error=str(e))
 
 
