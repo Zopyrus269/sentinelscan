@@ -70,8 +70,8 @@ def generate_report(target: str, findings: List[Dict[str, Any]], cvss_scores: Li
 
         # Return relative paths as requested
         return {
-            "pdf_path": f"reports/{scan_id}.pdf",
-            "json_path": f"reports/{scan_id}.json"
+            "pdf_path": pdf_path,
+            "json_path": json_path
         }
 
     except Exception as e:
