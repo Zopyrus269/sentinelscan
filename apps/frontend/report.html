@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <meta
+        content="width=device-width, initial-scale=1.0"
+        name="viewport"
+    >
+
+    <title>SentinelScan | Security Assessment Report</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet"
+    >
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface-variant": "#434655",
+                        "on-tertiary-container": "#ffede6",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-secondary-fixed": "#0b1c30",
+                        "inverse-on-surface": "#eef0ff",
+                        "error-container": "#ffdad6",
+                        "outline": "#737686",
+                        "border": "#E2E8F0",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-dim": "#d2d9f4",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "surface-variant": "#dae2fd",
+                        "surface-container": "#eaedff",
+                        "surface-container-highest": "#dae2fd",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#943700",
+                        "success": "#22C55E",
+                        "error": "#ba1a1a",
+                        "on-surface": "#131b2e",
+                        "outline-variant": "#c3c6d7",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "secondary": "#505f76",
+                        "primary-fixed": "#dbe1ff",
+                        "inverse-surface": "#283044",
+                        "on-background": "#131b2e",
+                        "inverse-primary": "#b4c5ff",
+                        "primary": "#004ac6",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface-tint": "#0053db",
+                        "critical": "#EF4444",
+                        "warning": "#F59E0B",
+                        "on-tertiary-fixed": "#360f00",
+                        "background": "#F8FAFC",
+                        "tertiary-container": "#bc4800",
+                        "surface-container-high": "#e2e7ff",
+                        "secondary-container": "#d0e1fb",
+                        "on-primary-fixed": "#00174b",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#2563eb",
+                        "on-primary-container": "#eeefff",
+                        "surface-container-low": "#f2f3ff",
+                        "surface": "#FFFFFF",
+                        "on-secondary-container": "#54647a",
+                        "surface-bright": "#faf8ff"
+                    },
+
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+
+                    spacing: {
+                        gutter: "24px",
+                        xl: "64px",
+                        lg: "40px",
+                        md: "24px",
+                        "margin-desktop": "32px",
+                        xs: "8px",
+                        "margin-mobile": "16px",
+                        sm: "16px",
+                        base: "4px"
+                    },
+
+                    fontFamily: {
+                        "headline-lg": ["Inter"],
+                        "mono-md": ["JetBrains Mono"],
+                        "headline-sm": ["Inter"],
+                        display: ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+
+                    fontSize: {
+                        "headline-lg": [
+                            "32px",
+                            {
+                                lineHeight: "40px",
+                                letterSpacing: "-0.02em",
+                                fontWeight: "600"
+                            }
+                        ],
+
+                        "mono-md": [
+                            "14px",
+                            {
+                                lineHeight: "20px",
+                                fontWeight: "400"
+                            }
+                        ],
+
+                        "headline-sm": [
+                            "20px",
+                            {
+                                lineHeight: "28px",
+                                fontWeight: "600"
+                            }
+                        ],
+
+                        display: [
+                            "48px",
+                            {
+                                lineHeight: "56px",
+                                letterSpacing: "-0.02em",
+                                fontWeight: "700"
+                            }
+                        ],
+
+                        "label-sm": [
+                            "12px",
+                            {
+                                lineHeight: "16px",
+                                letterSpacing: "0.05em",
+                                fontWeight: "600"
+                            }
+                        ],
+
+                        "body-lg": [
+                            "18px",
+                            {
+                                lineHeight: "28px",
+                                fontWeight: "400"
+                            }
+                        ],
+
+                        "headline-md": [
+                            "24px",
+                            {
+                                lineHeight: "32px",
+                                letterSpacing: "-0.01em",
+                                fontWeight: "600"
+                            }
+                        ],
+
+                        "body-md": [
+                            "16px",
+                            {
+                                lineHeight: "24px",
+                                fontWeight: "400"
+                            }
+                        ],
+
+                        "label-md": [
+                            "14px",
+                            {
+                                lineHeight: "20px",
+                                letterSpacing: "0.01em",
+                                fontWeight: "600"
+                            }
+                        ],
+
+                        "body-sm": [
+                            "14px",
+                            {
+                                lineHeight: "20px",
+                                fontWeight: "400"
+                            }
+                        ]
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body {
+            background-color: #F8FAFC;
+            color: #131b2e;
+            font-family: "Inter", sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings:
+                "FILL" 0,
+                "wght" 400,
+                "GRAD" 0,
+                "opsz" 24;
+        }
+
+        .gauge-ring {
+            transition: stroke-dashoffset 1s ease-out;
+        }
+
+        .finding-card {
+            transition:
+                border-color 0.2s ease,
+                box-shadow 0.2s ease,
+                transform 0.2s ease;
+        }
+
+        .finding-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .report-json {
+            max-height: 480px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .report-json::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .report-json::-webkit-scrollbar-thumb {
+            background: #737686;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+
+<body class="font-body-md text-on-background">
+    <!-- Top Navigation Bar -->
+    <header
+        class="bg-surface border-b border-border fixed top-0 w-full z-50"
+    >
+        <div
+            class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16 max-w-[1440px] mx-auto"
+        >
+            <a
+                class="text-headline-md font-headline-md font-bold text-primary"
+                href="../landing/index.html"
+            >
+                SentinelScan
+            </a>
+
+            <nav class="hidden md:flex items-center gap-lg">
+                <a
+                    class="text-on-surface-variant font-label-md hover:text-primary transition-colors duration-200"
+                    href="../dashboard/dashboard.html"
+                >
+                    Dashboard
+                </a>
+
+                <a
+                    class="text-primary border-b-2 border-primary pb-1 font-label-md"
+                    href="./report.html"
+                >
+                    Reports
+                </a>
+
+                <a
+                    class="text-on-surface-variant font-label-md hover:text-primary transition-colors duration-200"
+                    href="#"
+                >
+                    Documentation
+                </a>
+            </nav>
+
+            <div class="flex items-center gap-md">
+                <button
+                    id="newScanButton"
+                    type="button"
+                    class="bg-primary text-on-primary px-sm py-xs rounded-lg font-label-md transition-opacity hover:opacity-90"
+                >
+                    New Scan
+                </button>
+
+                <div
+                    class="w-8 h-8 rounded-full border border-border bg-primary-fixed flex items-center justify-center text-primary"
+                    aria-label="SentinelScan profile"
+                >
+                    <span class="material-symbols-outlined text-[18px]">
+                        shield_person
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main
+        class="pt-24 pb-xl px-margin-mobile md:px-margin-desktop max-w-[1440px] mx-auto"
+    >
+        <!-- Error Message -->
+        <div
+            id="reportError"
+            class="hidden mb-md bg-error-container text-on-error-container border border-error/20 rounded-lg p-sm"
+            role="alert"
+        ></div>
+
+        <!-- Loading State -->
+        <div
+            id="reportLoading"
+            class="mb-md bg-surface border border-border rounded-xl p-md flex items-center gap-sm"
+        >
+            <span
+                class="material-symbols-outlined text-primary animate-spin"
+            >
+                progress_activity
+            </span>
+
+            <span class="text-body-md text-on-surface-variant">
+                Loading SentinelScan report...
+            </span>
+        </div>
+
+        <!-- Report Metadata -->
+        <section
+            class="bg-surface border border-border rounded-xl p-md mb-lg"
+        >
+            <div
+                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-sm"
+            >
+                <div
+                    class="p-sm bg-background border border-border rounded-lg"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
+                    >
+                        Target
+                    </p>
+
+                    <p
+                        id="reportTarget"
+                        class="font-mono-md text-primary mt-1 break-all"
+                    >
+                        Loading...
+                    </p>
+                </div>
+
+                <div
+                    class="p-sm bg-background border border-border rounded-lg"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
+                    >
+                        Scan ID
+                    </p>
+
+                    <p
+                        id="reportScanId"
+                        class="font-mono-md text-on-surface mt-1 break-all"
+                    >
+                        Loading...
+                    </p>
+                </div>
+
+                <div
+                    class="p-sm bg-background border border-border rounded-lg"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
+                    >
+                        Completed
+                    </p>
+
+                    <p
+                        id="reportCompletedAt"
+                        class="text-label-md text-on-surface mt-1"
+                    >
+                        Loading...
+                    </p>
+                </div>
+
+                <div
+                    class="p-sm bg-background border border-border rounded-lg"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
+                    >
+                        Status
+                    </p>
+
+                    <p
+                        id="reportStatus"
+                        class="text-label-md text-primary mt-1"
+                    >
+                        Loading...
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Summary Section -->
+        <section
+            class="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-lg"
+        >
+            <!-- Security Score Gauge -->
+            <div
+                class="lg:col-span-4 bg-surface border border-border rounded-xl p-lg flex flex-col items-center justify-center text-center"
+            >
+                <h2
+                    class="text-label-sm font-label-sm uppercase tracking-widest text-on-surface-variant mb-md"
+                >
+                    Overall Security Score
+                </h2>
+
+                <div
+                    class="relative w-48 h-48 flex items-center justify-center"
+                >
+                    <svg
+                        class="w-full h-full transform -rotate-90"
+                        viewBox="0 0 192 192"
+                        aria-label="Overall security score"
+                    >
+                        <circle
+                            class="text-surface-container"
+                            cx="96"
+                            cy="96"
+                            fill="transparent"
+                            r="88"
+                            stroke="currentColor"
+                            stroke-width="12"
+                        ></circle>
+
+                        <circle
+                            id="securityGauge"
+                            class="text-primary gauge-ring"
+                            cx="96"
+                            cy="96"
+                            fill="transparent"
+                            r="88"
+                            stroke="currentColor"
+                            stroke-dasharray="552.92"
+                            stroke-dashoffset="552.92"
+                            stroke-linecap="round"
+                            stroke-width="12"
+                        ></circle>
+                    </svg>
+
+                    <div
+                        class="absolute inset-0 flex flex-col items-center justify-center"
+                    >
+                        <span
+                            id="securityScore"
+                            class="text-display font-display text-on-surface"
+                        >
+                            0
+                        </span>
+
+                        <span
+                            class="text-label-md font-label-md text-on-surface-variant"
+                        >
+                            / 100
+                        </span>
+                    </div>
+                </div>
+
+                <div
+                    id="riskLabel"
+                    class="mt-md text-primary font-label-md flex items-center gap-base"
+                >
+                    <span class="material-symbols-outlined text-sm">
+                        shield
+                    </span>
+
+                    Awaiting score
+                </div>
+            </div>
+
+            <!-- Executive Summary -->
+            <div
+                class="lg:col-span-8 bg-surface border border-border rounded-xl p-lg"
+            >
+                <div
+                    class="flex flex-col md:flex-row justify-between items-start md:items-center mb-md gap-md"
+                >
+                    <div>
+                        <h1
+                            class="text-headline-lg font-headline-lg text-on-surface"
+                        >
+                            Security Assessment Report
+                        </h1>
+
+                        <p
+                            id="reportIdLabel"
+                            class="text-body-sm text-on-surface-variant font-mono-md mt-xs"
+                        >
+                            REPORT_ID: Loading...
+                        </p>
+                    </div>
+
+                    <div
+                        class="bg-error-container text-on-error-container px-md py-sm rounded-lg flex items-center gap-sm"
+                    >
+                        <span class="material-symbols-outlined">
+                            priority_high
+                        </span>
+
+                        <div>
+                            <div class="text-label-sm font-label-sm">
+                                MAX CVSS EXPOSURE
+                            </div>
+
+                            <div
+                                id="maxCvssScore"
+                                class="text-headline-sm font-headline-sm"
+                            >
+                                0.0
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-border pt-md">
+                    <h2
+                        class="text-label-md font-label-md text-on-surface mb-sm"
+                    >
+                        Executive Summary
+                    </h2>
+
+                    <p
+                        id="executiveSummary"
+                        class="text-body-md text-on-surface-variant leading-relaxed"
+                    >
+                        SentinelScan is preparing the executive summary.
+                    </p>
+                </div>
+
+                <div
+                    class="mt-lg flex flex-col sm:flex-row gap-sm"
+                >
+                    <button
+                        id="downloadPdfButton"
+                        type="button"
+                        disabled
+                        class="flex items-center justify-center gap-xs px-md py-sm border border-border rounded-lg text-on-surface hover:bg-surface-container transition-colors font-label-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span class="material-symbols-outlined">
+                            picture_as_pdf
+                        </span>
+
+                        Download PDF
+                    </button>
+
+                    <button
+                        id="downloadJsonButton"
+                        type="button"
+                        disabled
+                        class="flex items-center justify-center gap-xs px-md py-sm border border-border rounded-lg text-on-surface hover:bg-surface-container transition-colors font-label-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span class="material-symbols-outlined">
+                            code
+                        </span>
+
+                        Download JSON
+                    </button>
+
+                    <button
+                        id="backToDashboardButton"
+                        type="button"
+                        class="flex items-center justify-center gap-xs px-md py-sm border border-border rounded-lg text-on-surface hover:bg-surface-container transition-colors font-label-md"
+                    >
+                        <span class="material-symbols-outlined">
+                            dashboard
+                        </span>
+
+                        Back to Dashboard
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Risk Summary -->
+        <section class="mb-lg">
+            <div
+                class="flex items-center justify-between gap-md mb-md"
+            >
+                <div>
+                    <h2
+                        class="text-headline-sm font-headline-sm text-on-surface"
+                    >
+                        Risk Summary
+                    </h2>
+
+                    <p
+                        class="text-body-sm text-on-surface-variant mt-1"
+                    >
+                        Severity distribution across scored findings.
+                    </p>
+                </div>
+            </div>
+
+            <div
+                class="grid grid-cols-2 md:grid-cols-5 gap-sm"
+            >
+                <div
+                    class="bg-surface border border-border rounded-xl p-md"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase"
+                    >
+                        Critical
+                    </p>
+
+                    <p
+                        id="criticalCount"
+                        class="text-headline-lg font-headline-lg text-critical mt-xs"
+                    >
+                        0
+                    </p>
+                </div>
+
+                <div
+                    class="bg-surface border border-border rounded-xl p-md"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase"
+                    >
+                        High
+                    </p>
+
+                    <p
+                        id="highCount"
+                        class="text-headline-lg font-headline-lg text-error mt-xs"
+                    >
+                        0
+                    </p>
+                </div>
+
+                <div
+                    class="bg-surface border border-border rounded-xl p-md"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase"
+                    >
+                        Medium
+                    </p>
+
+                    <p
+                        id="mediumCount"
+                        class="text-headline-lg font-headline-lg text-warning mt-xs"
+                    >
+                        0
+                    </p>
+                </div>
+
+                <div
+                    class="bg-surface border border-border rounded-xl p-md"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase"
+                    >
+                        Low
+                    </p>
+
+                    <p
+                        id="lowCount"
+                        class="text-headline-lg font-headline-lg text-primary mt-xs"
+                    >
+                        0
+                    </p>
+                </div>
+
+                <div
+                    class="bg-surface border border-border rounded-xl p-md col-span-2 md:col-span-1"
+                >
+                    <p
+                        class="text-label-sm text-on-surface-variant uppercase"
+                    >
+                        Informational
+                    </p>
+
+                    <p
+                        id="informationalCount"
+                        class="text-headline-lg font-headline-lg text-on-surface-variant mt-xs"
+                    >
+                        0
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Findings -->
+        <section class="mb-lg">
+            <div
+                class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-sm mb-md"
+            >
+                <div>
+                    <h2
+                        class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-sm"
+                    >
+                        <span class="material-symbols-outlined text-primary">
+                            view_list
+                        </span>
+
+                        Assessment Findings
+                    </h2>
+
+                    <p
+                        class="text-body-sm text-on-surface-variant mt-1"
+                    >
+                        AI-written summaries based on worker output.
+                    </p>
+                </div>
+
+                <span
+                    id="findingsCount"
+                    class="text-label-md font-label-md text-primary"
+                >
+                    0 Findings
+                </span>
+            </div>
+
+            <div
+                id="findingsList"
+                class="grid grid-cols-1 gap-md"
+            >
+                <div
+                    class="bg-surface border border-border rounded-xl p-md"
+                >
+                    <p class="text-body-sm text-on-surface-variant">
+                        Findings are loading.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CVSS Results -->
+        <section class="mb-lg">
+            <div class="mb-md">
+                <h2
+                    class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-sm"
+                >
+                    <span class="material-symbols-outlined text-primary">
+                        speed
+                    </span>
+
+                    CVSS Scoring
+                </h2>
+
+                <p
+                    class="text-body-sm text-on-surface-variant mt-1"
+                >
+                    CVSS v3.1 base scores calculated from metrics supplied by
+                    the AI agent.
+                </p>
+            </div>
+
+            <div
+                id="cvssList"
+                class="grid grid-cols-1 gap-md"
+            >
+                <div
+                    class="bg-surface border border-border rounded-xl p-md"
+                >
+                    <p class="text-body-sm text-on-surface-variant">
+                        CVSS results are loading.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Worker Findings -->
+        <section class="mb-lg">
+            <div class="mb-md">
+                <h2
+                    class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-sm"
+                >
+                    <span class="material-symbols-outlined text-primary">
+                        account_tree
+                    </span>
+
+                    Worker Findings
+                </h2>
+
+                <p
+                    class="text-body-sm text-on-surface-variant mt-1"
+                >
+                    Raw output captured from the workers selected during the
+                    assessment.
+                </p>
+            </div>
+
+            <div
+                id="workerFindings"
+                class="grid grid-cols-1 md:grid-cols-2 gap-md"
+            >
+                <div
+                    class="bg-surface border border-border rounded-xl p-md"
+                >
+                    <p class="text-body-sm text-on-surface-variant">
+                        Worker results are loading.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recommendations -->
+        <section class="mb-lg">
+            <div
+                class="bg-inverse-surface rounded-xl p-lg overflow-hidden relative"
+            >
+                <div
+                    class="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full -mr-32 -mt-32"
+                ></div>
+
+                <h2
+                    class="text-headline-sm font-headline-sm text-inverse-on-surface mb-lg flex items-center gap-sm relative z-10"
+                >
+                    <span class="material-symbols-outlined text-primary-fixed-dim">
+                        auto_awesome
+                    </span>
+
+                    Sentinel AI Recommendations
+                </h2>
+
+                <div
+                    id="recommendationsList"
+                    class="grid grid-cols-1 md:grid-cols-2 gap-md relative z-10"
+                >
+                    <div
+                        class="bg-on-surface-variant/10 border border-outline/30 p-md rounded-lg"
+                    >
+                        <p class="text-body-sm text-surface-variant">
+                            Recommendations are loading.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Raw JSON Preview -->
+        <section>
+            <div
+                class="bg-surface border border-border rounded-xl overflow-hidden"
+            >
+                <button
+                    id="toggleRawJsonButton"
+                    type="button"
+                    class="w-full flex items-center justify-between p-md text-left hover:bg-surface-container-low transition-colors"
+                >
+                    <span
+                        class="flex items-center gap-sm text-headline-sm font-headline-sm"
+                    >
+                        <span class="material-symbols-outlined text-primary">
+                            data_object
+                        </span>
+
+                        Raw Report Data
+                    </span>
+
+                    <span
+                        id="rawJsonToggleIcon"
+                        class="material-symbols-outlined text-on-surface-variant"
+                    >
+                        expand_more
+                    </span>
+                </button>
+
+                <div
+                    id="rawJsonPanel"
+                    class="hidden border-t border-border p-md bg-inverse-surface"
+                >
+                    <pre
+                        id="rawJsonContent"
+                        class="report-json font-mono-md text-surface-bright/80"
+                    >Report data is loading...</pre>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-background border-t border-border mt-xl">
+        <div
+            class="grid grid-cols-1 md:grid-cols-4 gap-lg px-margin-mobile md:px-margin-desktop py-xl max-w-[1440px] mx-auto"
+        >
+            <div>
+                <div
+                    class="text-headline-sm font-headline-sm font-bold text-primary mb-md"
+                >
+                    SentinelScan
+                </div>
+
+                <p class="text-body-sm text-on-surface-variant">
+                    AI-guided security reconnaissance and professional
+                    reporting for authorized assessments.
+                </p>
+            </div>
+
+            <div class="flex flex-col gap-sm">
+                <span
+                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
+                >
+                    Product
+                </span>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="#"
+                >
+                    Documentation
+                </a>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="#"
+                >
+                    API
+                </a>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="../landing/index.html"
+                >
+                    New Scan
+                </a>
+            </div>
+
+            <div class="flex flex-col gap-sm">
+                <span
+                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
+                >
+                    Legal
+                </span>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="#"
+                >
+                    Privacy Policy
+                </a>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="#"
+                >
+                    Terms of Service
+                </a>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="#"
+                >
+                    Responsible Disclosure
+                </a>
+            </div>
+
+            <div class="flex flex-col gap-sm">
+                <span
+                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
+                >
+                    Assessment
+                </span>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="../dashboard/dashboard.html"
+                >
+                    Dashboard
+                </a>
+
+                <a
+                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
+                    href="#"
+                >
+                    Authorized Use
+                </a>
+
+                <p
+                    class="text-body-sm text-on-surface-variant mt-md"
+                >
+                    © 2026 SentinelScan. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/report.js" defer></script>
+</body>
+</html>
