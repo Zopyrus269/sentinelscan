@@ -211,7 +211,7 @@
 
     <link
         rel="stylesheet"
-        href="styles.css"
+        href="/static/css/styles.css"
     >
 </head>
 
@@ -226,27 +226,26 @@
             class="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between px-margin-mobile md:px-margin-desktop"
         >
             <a
-                href="index.html"
-                class="text-headline-md font-extrabold tracking-tight text-primary"
+                href="/"
+                class="text-headline-md font-headline-md font-bold tracking-tight text-primary"
             >
                 SentinelScan
             </a>
 
             <div class="hidden items-center gap-lg md:flex">
                 <a
-                    href="dashboard.html"
+                    href="/dashboard"
                     class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
                 >
                     Dashboard
                 </a>
 
-                <button
-                    id="openLatestReportButton"
-                    type="button"
+                <a
+                    href="/report"
                     class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
                 >
                     Reports
-                </button>
+                </a>
 
                 <a
                     href="#documentation"
@@ -701,7 +700,7 @@
                     </a>
 
                     <a
-                        href="dashboard.html"
+                        href="/dashboard"
                         class="block text-body-sm text-on-surface-variant hover:text-primary"
                     >
                         Dashboard
@@ -757,7 +756,7 @@
     </footer>
 
     <script
-        src="app.js"
+        src="/static/js/app.js"
         defer
     ></script>
 </body>
