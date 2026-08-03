@@ -5,151 +5,261 @@ const POLL_INTERVAL_MS = 2000;
 
 let pollTimer = null;
 let scanStartedAt = null;
-let renderedEventCount = 0;
+let activeScanId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
-    const scanId = getScanId();
+    activeScanId = getScanId();
 
-    document
-        .getElementById("newScanButton")
-        .addEventListener("click", () => {
-            window.location.href = "../landing/index.html";
-        });
+    bindNavigation();
 
-    if (!scanId) {
+    if (!activeScanId) {
         showError(
-            "No scan ID was provided. Start a new scan from the landing page."
+            "No scan ID was provided. Return to the landing page and start a new scan."
         );
-        updateStatus("FAILED");
         return;
     }
 
-    loadScan(scanId);
+    sessionStorage.setItem(
+        "sentinelscan_scan_id",
+        activeScanId
+    );
 
-    pollTimer = window.setInterval(() => {
-        loadScan(scanId);
-    }, POLL_INTERVAL_MS);
+    loadScan();
+
+    pollTimer = window.setInterval(
+        loadScan,
+        POLL_INTERVAL_MS
+    );
 });
 
 function getScanId() {
-    const params = new URLSearchParams(window.location.search);
+    const query = new URLSearchParams(
+        window.location.search
+    );
 
     return (
-        params.get("scan_id") ||
+        query.get("scan_id") ||
         sessionStorage.getItem("sentinelscan_scan_id")
     );
 }
 
-async function loadScan(scanId) {
-    try {
-        const response = await fetch(
-            `${API_BASE_URL}/scans/${encodeURIComponent(scanId)}`,
-            {
-                headers: {
-                    Accept: "application/json",
-                },
-            }
+function bindNavigation() {
+    const newScanButton = document.getElementById(
+        "newScanButton"
+    );
+
+    const viewReportButton = document.getElementById(
+        "viewReportButton"
+    );
+
+    const openLatestReportButton =
+        document.getElementById(
+            "openLatestReportButton"
         );
 
-        const payload = await response.json();
+    newScanButton?.addEventListener("click", () => {
+        window.location.href = "../index.html";
+    });
 
-        if (!response.ok) {
-            throw new Error(
-                payload.message ||
-                payload.error ||
-                "Unable to retrieve scan status."
-            );
+    viewReportButton?.addEventListener("click", () => {
+        openReport();
+    });
+
+    openLatestReportButton?.addEventListener(
+        "click",
+        () => {
+            openReport();
         }
+    );
+}
+
+function openReport() {
+    if (!activeScanId) {
+        window.location.href = "../index.html";
+        return;
+    }
+
+    window.location.href =
+        `../report/report.html?scan_id=${encodeURIComponent(
+            activeScanId
+        )}`;
+}
+
+async function loadScan() {
+    try {
+        const scan = await fetchScan(activeScanId);
 
         clearError();
-        renderScan(payload);
+        renderScan(scan);
 
-        if (payload.status === "COMPLETED") {
+        if (scan.status === "COMPLETED") {
             stopPolling();
-
-            window.setTimeout(() => {
-                window.location.href =
-                    `../report/report.html?scan_id=${encodeURIComponent(
-                        payload.scan_id
-                    )}`;
-            }, 1500);
+            enableReportButton();
         }
 
-        if (payload.status === "FAILED") {
+        if (scan.status === "FAILED") {
             stopPolling();
 
             showError(
-                payload.error ||
-                "The assessment failed before completion."
+                scan.error ||
+                "The SentinelScan assessment failed."
             );
         }
     } catch (error) {
+        /*
+         * A temporary backend restart should not destroy the current
+         * dashboard. Display the problem and continue polling.
+         */
         showError(
             error.message ||
-            "Unable to communicate with the SentinelScan backend."
+            "Unable to retrieve the scan status."
         );
     }
 }
 
+async function fetchScan(scanId) {
+    const endpoint =
+        `${API_BASE_URL}/scans/${encodeURIComponent(
+            scanId
+        )}`;
+
+    let response;
+
+    try {
+        response = await fetch(endpoint, {
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+            },
+            cache: "no-store",
+        });
+    } catch {
+        throw new Error(
+            "Unable to connect to the SentinelScan backend on port 5000. Make sure python -m backend.app is running."
+        );
+    }
+
+    const contentType =
+        response.headers.get("Content-Type") || "";
+
+    if (!contentType.includes("application/json")) {
+        const responseText = await response.text();
+
+        const preview = responseText
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 100);
+
+        throw new Error(
+            `The backend returned HTML instead of JSON ` +
+            `(HTTP ${response.status}). ` +
+            `Requested: ${endpoint}. ` +
+            `${preview ? `Response begins: ${preview}` : ""}`
+        );
+    }
+
+    let payload;
+
+    try {
+        payload = await response.json();
+    } catch {
+        throw new Error(
+            "The backend returned malformed JSON."
+        );
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            payload.message ||
+            payload.error ||
+            `Unable to retrieve scan status (HTTP ${response.status}).`
+        );
+    }
+
+    return payload;
+}
+
 function renderScan(scan) {
-    const progress = Number(scan.progress_percent || 0);
-    const status = scan.status || "PENDING";
-    const currentAction = scan.current_action || "queued";
+    const progress = clampProgress(
+        Number(scan.progress_percent || 0)
+    );
 
-    document.getElementById("scanTarget").textContent =
-        scan.target || "Unknown target";
+    setText(
+        "scanTarget",
+        scan.target || "Unknown target"
+    );
 
-    document.getElementById("currentWorker").textContent =
-        formatWorkerName(currentAction);
+    setText(
+        "scanIdDisplay",
+        scan.scan_id || activeScanId
+    );
 
-    document.getElementById("progressPercent").innerHTML =
-        `${progress}<span class="text-headline-md">%</span>`;
+    setText(
+        "currentWorker",
+        friendlyName(
+            scan.current_action || "initializing"
+        )
+    );
 
-    document.getElementById("progressBar").style.width =
-        `${Math.min(100, Math.max(0, progress))}%`;
+    setText(
+        "scanStatusBadge",
+        friendlyName(scan.status || "IN_PROGRESS")
+    );
 
-    document.getElementById("scanStatusText").textContent =
-        getStatusMessage(status, currentAction);
-
-    updateStatus(status);
+    renderProgress(progress, scan);
     renderDuration(scan);
     renderEvents(scan.events || []);
-    renderWorkerGrid(scan.events || [], currentAction);
+    renderWorkers(
+        scan.events || [],
+        scan.current_action
+    );
     renderInsight(scan);
 }
 
-function updateStatus(status) {
-    const statusText = document.getElementById("scanStatusText");
+function renderProgress(progress, scan) {
+    const progressPercent = document.getElementById(
+        "progressPercent"
+    );
 
-    if (status === "COMPLETED") {
-        statusText.textContent =
-            "Assessment completed. Opening report...";
-        statusText.className =
-            "text-label-md font-label-md text-success pb-2";
-    } else if (status === "FAILED") {
-        statusText.textContent = "Assessment failed.";
-        statusText.className =
-            "text-label-md font-label-md text-error pb-2";
-    } else {
-        statusText.className =
-            "text-label-md font-label-md text-on-surface-variant pb-2";
+    const progressBar = document.getElementById(
+        "progressBar"
+    );
+
+    const statusText = document.getElementById(
+        "scanStatusText"
+    );
+
+    if (progressPercent) {
+        progressPercent.innerHTML =
+            `${progress}` +
+            `<span class="text-headline-md">%</span>`;
     }
-}
 
-function getStatusMessage(status, currentAction) {
-    const messages = {
-        PENDING: "Assessment is queued...",
-        IN_PROGRESS: `Running ${formatWorkerName(currentAction)}...`,
-        COMPLETED: "Assessment completed.",
-        FAILED: "Assessment failed.",
-    };
+    if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+    }
 
-    return messages[status] || "Assessment status unavailable.";
+    if (!statusText) {
+        return;
+    }
+
+    if (scan.status === "COMPLETED") {
+        statusText.textContent =
+            "Assessment complete.";
+    } else if (scan.status === "FAILED") {
+        statusText.textContent =
+            "Assessment failed.";
+    } else {
+        statusText.textContent =
+            `Running ${friendlyName(
+                scan.current_action || "initialization"
+            )}...`;
+    }
 }
 
 function renderDuration(scan) {
     if (!scan.started_at) {
-        document.getElementById("scanDuration").textContent = "00:00";
+        setText("scanDuration", "00:00");
         return;
     }
 
@@ -161,88 +271,117 @@ function renderDuration(scan) {
         ? new Date(scan.completed_at)
         : new Date();
 
-    const elapsedSeconds = Math.max(
+    const totalSeconds = Math.max(
         0,
-        Math.floor((endTime - scanStartedAt) / 1000)
+        Math.floor(
+            (endTime.getTime() -
+                scanStartedAt.getTime()) /
+                1000
+        )
     );
 
-    const minutes = String(
-        Math.floor(elapsedSeconds / 60)
-    ).padStart(2, "0");
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
 
-    const seconds = String(
-        elapsedSeconds % 60
-    ).padStart(2, "0");
-
-    document.getElementById(
-        "scanDuration"
-    ).textContent = `${minutes}:${seconds}`;
+    setText(
+        "scanDuration",
+        `${String(minutes).padStart(2, "0")}:${String(
+            seconds
+        ).padStart(2, "0")}`
+    );
 }
 
 function renderEvents(events) {
-    const terminal = document.getElementById("terminalLogs");
+    const terminal = document.getElementById(
+        "terminalLogs"
+    );
 
-    if (!events.length) {
-        terminal.innerHTML = `
-            <p class="text-primary-fixed-dim animate-pulse">
-                Waiting for scan events...
-            </p>
-        `;
+    if (!terminal) {
         return;
     }
 
-    if (events.length === renderedEventCount) {
+    if (!events.length) {
+        terminal.innerHTML =
+            "<p>Waiting for scan events...</p>";
+
+        setText("eventCount", "0 Events");
+        setText("completedWorkers", "0 Workers");
         return;
     }
 
     terminal.innerHTML = "";
 
-    events.forEach((event) => {
+    for (const event of events) {
         const line = document.createElement("p");
-        const timestamp = formatTimestamp(event.timestamp);
-        const level = String(event.level || "info").toUpperCase();
 
         line.className = getLogClass(event.level);
+
+        const timestamp = event.timestamp
+            ? new Date(event.timestamp).toLocaleTimeString(
+                  [],
+                  {
+                      hour12: false,
+                  }
+              )
+            : "--:--:--";
+
         line.textContent =
-            `[${timestamp}] ${level}: ${event.message || ""}`;
+            `[${timestamp}] ` +
+            `${String(
+                event.level || "info"
+            ).toUpperCase()}: ` +
+            `${event.message || ""}`;
 
         terminal.appendChild(line);
-    });
+    }
 
-    renderedEventCount = events.length;
     terminal.scrollTop = terminal.scrollHeight;
 
-    document.getElementById(
-        "eventCount"
-    ).textContent = `${events.length} Events`;
+    setText(
+        "eventCount",
+        `${events.length} Event${
+            events.length === 1 ? "" : "s"
+        }`
+    );
 
-    const workers = getUniqueWorkers(events);
+    const workerCount =
+        collectWorkers(events).length;
 
-    document.getElementById(
-        "completedWorkers"
-    ).textContent =
-        `${workers.length} Worker${workers.length === 1 ? "" : "s"}`;
+    setText(
+        "completedWorkers",
+        `${workerCount} Worker${
+            workerCount === 1 ? "" : "s"
+        }`
+    );
 }
 
-function renderWorkerGrid(events, currentAction) {
-    const workerGrid = document.getElementById("workerGrid");
-    const workers = getUniqueWorkers(events);
+function renderWorkers(events, currentWorker) {
+    const workerGrid = document.getElementById(
+        "workerGrid"
+    );
+
+    if (!workerGrid) {
+        return;
+    }
+
+    const workers = collectWorkers(events);
 
     if (!workers.length) {
         workerGrid.innerHTML = `
-            <div class="bg-surface border border-border p-md rounded-xl">
-                <p class="text-body-sm text-on-surface-variant">
-                    Waiting for the AI agent to choose its first worker.
-                </p>
+            <div
+                class="bg-surface border border-border p-md rounded-xl"
+            >
+                Waiting for the AI agent to select workers...
             </div>
         `;
+
         return;
     }
 
     workerGrid.innerHTML = workers
         .map((worker) => {
-            const isCurrent = worker === currentAction;
-            const label = formatWorkerName(worker);
+            const isCurrent =
+                worker === currentWorker;
 
             return `
                 <article
@@ -250,51 +389,45 @@ function renderWorkerGrid(events, currentAction) {
                         isCurrent
                             ? "border-primary"
                             : "border-border"
-                    } p-md rounded-xl hover:shadow-md transition-shadow"
+                    } p-md rounded-xl"
                 >
-                    <div class="flex justify-between items-start mb-sm">
-                        <div
-                            class="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-primary"
+                    <div
+                        class="flex justify-between items-start gap-sm"
+                    >
+                        <span
+                            class="material-symbols-outlined text-primary"
                         >
-                            <span class="material-symbols-outlined">
-                                ${getWorkerIcon(worker)}
-                            </span>
-                        </div>
+                            ${getWorkerIcon(worker)}
+                        </span>
 
                         <span
                             class="${
                                 isCurrent
-                                    ? "bg-primary/10 text-primary"
-                                    : "bg-success/10 text-success"
-                            } px-xs py-0.5 rounded-full text-label-sm font-label-sm"
+                                    ? "text-primary"
+                                    : "text-success"
+                            } text-label-sm font-semibold"
                         >
-                            ${isCurrent ? "Running" : "Selected"}
+                            ${
+                                isCurrent
+                                    ? "Running"
+                                    : "Selected"
+                            }
                         </span>
                     </div>
 
-                    <h3 class="text-body-lg font-semibold mb-1">
-                        ${escapeHtml(label)}
+                    <h3 class="font-semibold mt-sm">
+                        ${escapeHtml(
+                            friendlyName(worker)
+                        )}
                     </h3>
 
-                    <p class="text-body-sm text-on-surface-variant">
-                        ${escapeHtml(getWorkerDescription(worker))}
-                    </p>
-
-                    <div
-                        class="mt-md pt-sm border-t border-border flex justify-between items-center"
+                    <p
+                        class="text-body-sm text-on-surface-variant mt-xs"
                     >
-                        <span
-                            class="text-label-sm font-label-sm text-on-surface-variant"
-                        >
-                            ${isCurrent ? "In progress" : "Activity recorded"}
-                        </span>
-
-                        <span
-                            class="material-symbols-outlined text-on-surface-variant"
-                        >
-                            ${isCurrent ? "sync" : "check_circle"}
-                        </span>
-                    </div>
+                        ${escapeHtml(
+                            getWorkerDescription(worker)
+                        )}
+                    </p>
                 </article>
             `;
         })
@@ -302,46 +435,98 @@ function renderWorkerGrid(events, currentAction) {
 }
 
 function renderInsight(scan) {
-    const insight = document.getElementById("aiInsight");
+    const insight = document.getElementById(
+        "aiInsight"
+    );
+
+    if (!insight) {
+        return;
+    }
 
     if (scan.status === "COMPLETED") {
         insight.textContent =
-            "The AI-guided assessment has completed. Your structured report is ready.";
+            "The assessment is complete. Open the report to review findings, CVSS scores and recommendations.";
     } else if (scan.status === "FAILED") {
         insight.textContent =
             scan.error ||
-            "The assessment stopped because an error occurred.";
+            "The assessment failed before completion.";
     } else {
         insight.textContent =
-            `The AI agent is currently coordinating ${
-                formatWorkerName(scan.current_action || "initialization")
-            } for ${scan.target}.`;
+            `The AI agent is coordinating ` +
+            `${friendlyName(
+                scan.current_action ||
+                    "initialization"
+            )} for ${scan.target || "the target"}.`;
     }
 }
 
-function getUniqueWorkers(events) {
-    const workers = events
-        .map((event) => event.tool_name)
-        .filter(Boolean)
-        .filter((worker) => worker !== "generate_report");
-
-    return [...new Set(workers)];
+function collectWorkers(events) {
+    return [
+        ...new Set(
+            events
+                .map((event) => event.tool_name)
+                .filter(Boolean)
+                .filter(
+                    (worker) =>
+                        worker !== "generate_report"
+                )
+        ),
+    ];
 }
 
-function formatWorkerName(workerName) {
-    if (!workerName) {
-        return "Waiting";
+function enableReportButton() {
+    const button = document.getElementById(
+        "viewReportButton"
+    );
+
+    if (button) {
+        button.disabled = false;
+    }
+}
+
+function stopPolling() {
+    if (pollTimer) {
+        window.clearInterval(pollTimer);
+        pollTimer = null;
+    }
+}
+
+function clampProgress(progress) {
+    if (!Number.isFinite(progress)) {
+        return 0;
     }
 
+    return Math.max(
+        0,
+        Math.min(100, Math.round(progress))
+    );
+}
+
+function getLogClass(level) {
+    switch (String(level || "").toLowerCase()) {
+        case "error":
+            return "text-error-container";
+
+        case "warning":
+            return "text-warning";
+
+        case "success":
+            return "text-success";
+
+        default:
+            return "text-surface-bright/80";
+    }
+}
+
+function friendlyName(value) {
     const aliases = {
-        queued: "Queued",
         initializing: "Initialization",
-        complete: "Report Complete",
-        failed: "Assessment Failed",
+        initialization: "Initialization",
+        complete: "Complete",
         dns_lookup: "DNS Lookup",
         reverse_dns_lookup: "Reverse DNS Lookup",
         port_scan: "Port Scan",
-        ssl_check: "SSL Certificate Check",
+        ssl_check: "SSL Check",
         http_headers: "HTTP Headers",
         cookie_analysis: "Cookie Analysis",
         robots_txt_parse: "robots.txt Parser",
@@ -349,11 +534,14 @@ function formatWorkerName(workerName) {
         whois_lookup: "WHOIS Lookup",
         calculate_cvss: "CVSS Calculator",
         generate_report: "Report Generator",
+        IN_PROGRESS: "In Progress",
+        COMPLETED: "Completed",
+        FAILED: "Failed",
     };
 
     return (
-        aliases[workerName] ||
-        workerName
+        aliases[value] ||
+        String(value || "Waiting")
             .replaceAll("_", " ")
             .replace(/\b\w/g, (character) =>
                 character.toUpperCase()
@@ -361,37 +549,7 @@ function formatWorkerName(workerName) {
     );
 }
 
-function getWorkerDescription(workerName) {
-    const descriptions = {
-        dns_lookup:
-            "Retrieves public DNS records and target infrastructure information.",
-        reverse_dns_lookup:
-            "Attempts to resolve discovered IP addresses back to hostnames.",
-        port_scan:
-            "Checks authorized common ports and identifies visible services.",
-        ssl_check:
-            "Inspects certificate validity, expiry, protocol, and cipher information.",
-        http_headers:
-            "Checks public HTTP responses for important security headers.",
-        cookie_analysis:
-            "Examines response cookies for Secure and HttpOnly attributes.",
-        robots_txt_parse:
-            "Parses publicly available robots.txt directives.",
-        sitemap_parse:
-            "Discovers publicly listed sitemap URLs and endpoints.",
-        whois_lookup:
-            "Retrieves publicly available domain-registration information.",
-        calculate_cvss:
-            "Calculates an official CVSS v3.1 base score from supplied metrics.",
-    };
-
-    return (
-        descriptions[workerName] ||
-        "SentinelScan worker activity."
-    );
-}
-
-function getWorkerIcon(workerName) {
+function getWorkerIcon(worker) {
     const icons = {
         dns_lookup: "dns",
         reverse_dns_lookup: "travel_explore",
@@ -405,48 +563,72 @@ function getWorkerIcon(workerName) {
         calculate_cvss: "speed",
     };
 
-    return icons[workerName] || "security";
+    return icons[worker] || "security";
 }
 
-function getLogClass(level) {
-    const classes = {
-        success: "text-success",
-        error: "text-error-container",
-        warning: "text-warning",
-        info: "text-surface-bright/80",
+function getWorkerDescription(worker) {
+    const descriptions = {
+        dns_lookup:
+            "Retrieves public DNS records.",
+        reverse_dns_lookup:
+            "Resolves IP addresses to public hostnames.",
+        port_scan:
+            "Checks the configured authorized port set.",
+        ssl_check:
+            "Inspects certificate and negotiated TLS details.",
+        http_headers:
+            "Checks important HTTP security headers.",
+        cookie_analysis:
+            "Inspects cookie security attributes.",
+        robots_txt_parse:
+            "Parses publicly available robots.txt directives.",
+        sitemap_parse:
+            "Discovers publicly listed sitemap URLs.",
+        whois_lookup:
+            "Retrieves public domain registration information.",
+        calculate_cvss:
+            "Calculates supported CVSS v3.1 base scores.",
     };
 
-    return classes[level] || classes.info;
-}
-
-function formatTimestamp(timestamp) {
-    if (!timestamp) {
-        return "--:--:--";
-    }
-
-    return new Date(timestamp).toLocaleTimeString([], {
-        hour12: false,
-    });
+    return (
+        descriptions[worker] ||
+        "SentinelScan worker activity."
+    );
 }
 
 function showError(message) {
-    const errorBox = document.getElementById("dashboardError");
+    const errorBox = document.getElementById(
+        "dashboardError"
+    );
+
+    if (!errorBox) {
+        console.error(message);
+        return;
+    }
 
     errorBox.textContent = message;
     errorBox.classList.remove("hidden");
 }
 
 function clearError() {
-    const errorBox = document.getElementById("dashboardError");
+    const errorBox = document.getElementById(
+        "dashboardError"
+    );
+
+    if (!errorBox) {
+        return;
+    }
 
     errorBox.textContent = "";
     errorBox.classList.add("hidden");
 }
 
-function stopPolling() {
-    if (pollTimer !== null) {
-        window.clearInterval(pollTimer);
-        pollTimer = null;
+function setText(elementId, value) {
+    const element =
+        document.getElementById(elementId);
+
+    if (element) {
+        element.textContent = String(value);
     }
 }
 
