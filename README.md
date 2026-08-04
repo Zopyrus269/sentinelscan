@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ SENTINELSCAN 🛡️
+#  SENTINELSCAN 
 
 ### ⚡ The Autonomous Penetration Tester — An AI-Driven Reconnaissance Engine ⚡
 
