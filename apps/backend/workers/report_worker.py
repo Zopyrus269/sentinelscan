@@ -55,8 +55,8 @@ def generate_report(target: str, findings: List[Dict[str, Any]],
 
         # Compute overall risk summary tally
         risk_summary = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFORMATIONAL": 0}
-        for score in cvss_scores:
-            severity = score.get("severity", "INFORMATIONAL").upper()
+        for finding in findings:
+            severity = finding.get("severity", "INFORMATIONAL").upper()
             if severity in risk_summary:
                 risk_summary[severity] += 1
             else:
@@ -212,7 +212,7 @@ def _generate_pdf(pdf_path: str, target: str, timestamp: str, scan_id: str, risk
         finding_data.append(row)
         find_style.add('BACKGROUND', (0, i), (-1, i), sev_colors.get(sev, colors.white))
         
-    finding_table = Table(finding_data, colWidths=[1*inch, 2*inch, 2.25*inch, 2.25*inch])
+    finding_table = Table(finding_data, colWidths=[1.5*inch, 1.85*inch, 2.075*inch, 2.075*inch])
     finding_table.setStyle(find_style)
     story.append(finding_table)
     
@@ -269,7 +269,7 @@ def _generate_pdf(pdf_path: str, target: str, timestamp: str, scan_id: str, risk
         rec_data.append(row)
         rec_style.add('BACKGROUND', (0, i), (-1, i), sev_colors.get(sev, colors.white))
         
-    rec_table = Table(rec_data, colWidths=[1*inch, 3*inch, 3.5*inch])
+    rec_table = Table(rec_data, colWidths=[1.5*inch, 2.9*inch, 3.1*inch])
     rec_table.setStyle(rec_style)
     story.append(rec_table)
     
