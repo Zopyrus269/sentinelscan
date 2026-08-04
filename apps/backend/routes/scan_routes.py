@@ -8,10 +8,14 @@ duration.
 """
 
 import json
+import logging
 import os
 import threading
+import traceback
 from datetime import datetime, timezone
 from typing import Tuple
+
+logger = logging.getLogger(__name__)
 
 from flask import Blueprint, jsonify, request, send_file, Response
 
@@ -64,6 +68,7 @@ def _run_scan_background(scan_id: str, target: str) -> None:
                 error=result.get("error", "Scan did not complete"),
             )
     except Exception as e:
+        logger.error("Scan %s failed: %s", scan_id, e, exc_info=True)
         add_scan_event(scan_id, level="error", message=str(e))
         update_scan(scan_id, status="FAILED", current_action=None, completed_at=datetime.now(timezone.utc).isoformat(), error=str(e))
 
