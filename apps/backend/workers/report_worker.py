@@ -13,12 +13,15 @@ from typing import List, Dict, Any
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle, KeepTogether, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 
 
 def generate_report(target: str, findings: List[Dict[str, Any]], 
-                    cvss_scores: List[Dict[str, Any]], simple_explanation: str = "") -> Dict[str, Any]:
+                    cvss_scores: List[Dict[str, Any]], simple_explanation: str = "",
+                    worker_coverage: List[Dict[str, Any]] = None, scan_duration: float = 0.0) -> Dict[str, Any]:
     """
     Generates JSON and PDF reports summarizing the assessment findings.
 
@@ -27,12 +30,17 @@ def generate_report(target: str, findings: List[Dict[str, Any]],
         findings: The list of raw findings and summaries from the workers.
         cvss_scores: The list of calculated CVSS scores.
         simple_explanation: A markdown string explaining the findings in simple terms.
+        worker_coverage: List of worker executions with status and duration.
+        scan_duration: Total duration of the scan.
 
     Returns:
         dict: A dictionary containing paths to the generated PDF and JSON reports,
               or an error dictionary if generation fails.
     """
     try:
+        if worker_coverage is None:
+            worker_coverage = []
+            
         # Generate unique scan identifier
         scan_id = str(uuid.uuid4())
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -58,9 +66,11 @@ def generate_report(target: str, findings: List[Dict[str, Any]],
         json_report = {
             "target": target,
             "scan_timestamp": timestamp,
+            "scan_duration": scan_duration,
             "overall_risk_summary": risk_summary,
             "findings": findings,
             "cvss_scores": cvss_scores,
+            "worker_coverage": worker_coverage,
             "simple_explanation": simple_explanation
         }
 
@@ -69,7 +79,7 @@ def generate_report(target: str, findings: List[Dict[str, Any]],
             json.dump(json_report, f, indent=2)
 
         # Generate PDF report
-        _generate_pdf(pdf_path, target, timestamp, risk_summary, findings, cvss_scores)
+        _generate_pdf(pdf_path, target, timestamp, scan_id, risk_summary, findings, cvss_scores, worker_coverage, scan_duration)
 
         # Return relative paths as requested
         return {
@@ -84,67 +94,199 @@ def generate_report(target: str, findings: List[Dict[str, Any]],
         }
 
 
-def _generate_pdf(pdf_path: str, target: str, timestamp: str, risk_summary: Dict[str, int], 
-                  findings: List[Dict[str, Any]], cvss_scores: List[Dict[str, Any]]) -> None:
+def _generate_pdf(pdf_path: str, target: str, timestamp: str, scan_id: str, risk_summary: Dict[str, int], 
+                  findings: List[Dict[str, Any]], cvss_scores: List[Dict[str, Any]], 
+                  worker_coverage: List[Dict[str, Any]], scan_duration: float) -> None:
     """Helper method to generate the PDF report using reportlab."""
-    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+    doc = BaseDocTemplate(pdf_path, pagesize=letter, leftMargin=0.5*inch, rightMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch)
     styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=24, spaceAfter=4, textColor=colors.black)
+    subtitle_style = ParagraphStyle('ReportSubtitle', parent=styles['Normal'], fontSize=10, textColor=colors.grey, spaceAfter=20)
+    section_title = ParagraphStyle('SectionTitle', parent=styles['Heading2'], fontSize=16, spaceBefore=20, spaceAfter=10, textColor=colors.black)
+    
+    # Colors
+    header_bg = colors.HexColor('#0f172a')
+    sev_colors = {
+        "CRITICAL": colors.HexColor('#ffebee'),
+        "HIGH": colors.HexColor('#ffebee'),
+        "MEDIUM": colors.HexColor('#fff9c4'),
+        "LOW": colors.HexColor('#e3f2fd'),
+        "INFORMATIONAL": colors.HexColor('#f5f5f5')
+    }
+    
+    def header_footer(canvas, doc):
+        canvas.saveState()
+        # Header
+        canvas.setFont('Helvetica-Bold', 12)
+        canvas.setFillColor(colors.HexColor('#0ea5e9'))
+        canvas.drawString(0.5*inch, letter[1] - 0.5*inch, "SentinelScan")
+        canvas.setStrokeColor(colors.lightgrey)
+        canvas.line(0.5*inch, letter[1] - 0.6*inch, letter[0] - 0.5*inch, letter[1] - 0.6*inch)
+        # Footer
+        canvas.setFont('Helvetica', 9)
+        canvas.setFillColor(colors.grey)
+        canvas.drawString(0.5*inch, 0.4*inch, "Authorized external security assessment")
+        canvas.drawRightString(letter[0] - 0.5*inch, 0.4*inch, f"Page {doc.page}")
+        canvas.restoreState()
+        
+    frame = Frame(doc.leftMargin, doc.bottomMargin + 0.3*inch, doc.width, doc.height - 0.8*inch, id='normal')
+    template = PageTemplate(id='test', frames=frame, onPage=header_footer)
+    doc.addPageTemplates([template])
+    
     story = []
-
-    # Title
-    title_style = styles['Title']
+    
+    # --- PAGE 1 ---
     story.append(Paragraph("SentinelScan Security Assessment Report", title_style))
-    story.append(Spacer(1, 12))
-    story.append(Paragraph(f"<b>Target:</b> {target}", styles['Normal']))
-    story.append(Paragraph(f"<b>Scan Date:</b> {timestamp}", styles['Normal']))
-    story.append(Spacer(1, 24))
-
+    story.append(Paragraph(f"Report ID: {scan_id}", subtitle_style))
+    
+    # Assessment Metadata Table
+    # Max CVSS calculation
+    max_cvss = max([float(s.get("base_score", 0)) for s in cvss_scores]) if cvss_scores else 0.0
+    risk_label = "HIGH OBSERVED RISK" if max_cvss >= 7.0 else "MEDIUM OBSERVED RISK" if max_cvss >= 4.0 else "LOW OBSERVED RISK"
+    
+    meta_data = [
+        [f"Target: {target}", f"Generated: {timestamp}"],
+        [f"Observed score: {max_cvss}/10", f"Risk label: {risk_label}"],
+        [f"Maximum CVSS: {max_cvss}", "Report version: 3.0"]
+    ]
+    meta_table = Table(meta_data, colWidths=[3.75*inch, 3.75*inch])
+    meta_table.setStyle(TableStyle([
+        ('TEXTCOLOR', (0,0), (-1,-1), colors.darkgrey),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+    ]))
+    story.append(meta_table)
+    
     # Executive Summary
-    story.append(Paragraph("Executive Summary", styles['Heading2']))
+    story.append(Paragraph("Executive Summary", section_title))
     summary_text = (f"This automated assessment targeted {target}. "
                     f"The overall findings indicate {risk_summary.get('CRITICAL', 0)} CRITICAL, "
                     f"{risk_summary.get('HIGH', 0)} HIGH, {risk_summary.get('MEDIUM', 0)} MEDIUM, "
                     f"{risk_summary.get('LOW', 0)} LOW, and {risk_summary.get('INFORMATIONAL', 0)} INFORMATIONAL issues.")
     story.append(Paragraph(summary_text, styles['Normal']))
-    story.append(Spacer(1, 24))
-
-    # Findings Section
-    story.append(Paragraph("Findings", styles['Heading2']))
-    for finding in findings:
-        worker_name = finding.get("worker", "Unknown Worker")
-        summary = finding.get("summary", "No summary provided.")
-        story.append(Paragraph(f"<b>Worker:</b> {worker_name}", styles['Heading3']))
-        story.append(Paragraph(summary, styles['Normal']))
-        story.append(Spacer(1, 12))
-
-    story.append(Spacer(1, 12))
-
-    # CVSS Scoring Section
-    story.append(Paragraph("CVSS Scoring", styles['Heading2']))
-    if cvss_scores:
-        data = [["Finding", "Vector", "Base Score", "Severity"]]
+    
+    # Risk Summary
+    story.append(Paragraph("Risk Summary", section_title))
+    risk_data = [["Severity", "Count"]]
+    for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"]:
+        risk_data.append([sev, str(risk_summary.get(sev, 0))])
+    
+    t_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), header_bg),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ])
+    for i, sev in enumerate(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"], 1):
+        t_style.add('BACKGROUND', (0, i), (-1, i), sev_colors[sev])
         
-        # Prepare styles based on severity
-        severity_colors = {
-            "CRITICAL": colors.red,
-            "HIGH": colors.red,
-            "MEDIUM": colors.orange,
-            "LOW": colors.yellow,
-            "INFORMATIONAL": colors.lightgrey
-        }
-
-        # Background color applied row by row
-        table_style = TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    risk_table = Table(risk_data, colWidths=[2*inch, 2*inch])
+    risk_table.setStyle(t_style)
+    story.append(risk_table)
+    
+    story.append(PageBreak())
+    
+    # --- PAGE 2 ---
+    story.append(Paragraph("Assessment Findings", section_title))
+    finding_data = [["Severity", "Finding", "What it means", "Recommendation"]]
+    find_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), header_bg),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0,0), (-1,-1), 'TOP')
+    ])
+    
+    for i, finding in enumerate(findings, 1):
+        sev = finding.get("severity", "INFORMATIONAL").upper()
+        row = [
+            Paragraph(sev, styles['Normal']),
+            Paragraph(finding.get("summary", ""), styles['Normal']),
+            Paragraph(finding.get("what_it_means", ""), styles['Normal']),
+            Paragraph(finding.get("recommendation", ""), styles['Normal'])
+        ]
+        finding_data.append(row)
+        find_style.add('BACKGROUND', (0, i), (-1, i), sev_colors.get(sev, colors.white))
+        
+    finding_table = Table(finding_data, colWidths=[1*inch, 2*inch, 2.25*inch, 2.25*inch])
+    finding_table.setStyle(find_style)
+    story.append(finding_table)
+    
+    story.append(Spacer(1, 20))
+    
+    story.append(Paragraph("Worker Coverage", section_title))
+    worker_data = [["Worker", "Status", "Duration", "Result"]]
+    for w in worker_coverage:
+        worker_data.append([
+            Paragraph(w.get("worker", ""), styles['Normal']),
+            w.get("status", ""),
+            f"{w.get('duration', 0):.2f}s",
+            Paragraph(w.get("result", ""), styles['Normal'])
         ])
-
-        for i, score in enumerate(cvss_scores, start=1):
+    
+    worker_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), header_bg),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0,0), (-1,-1), 'TOP')
+    ])
+    worker_table = Table(worker_data, colWidths=[1.5*inch, 1*inch, 1*inch, 4*inch])
+    worker_table.setStyle(worker_style)
+    story.append(worker_table)
+    
+    story.append(PageBreak())
+    
+    # --- PAGE 3 ---
+    story.append(Paragraph("Recommendations and Technical Summary", section_title))
+    
+    story.append(Paragraph("Prioritized Recommendations", styles['Heading3']))
+    rec_data = [["Priority", "Issue", "Recommended action"]]
+    rec_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), header_bg),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0,0), (-1,-1), 'TOP')
+    ])
+    # sort by severity
+    sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFORMATIONAL": 4}
+    sorted_findings = sorted(findings, key=lambda x: sev_order.get(x.get("severity", "INFORMATIONAL").upper(), 5))
+    
+    for i, finding in enumerate(sorted_findings, 1):
+        sev = finding.get("severity", "INFORMATIONAL").upper()
+        row = [
+            Paragraph(sev, styles['Normal']),
+            Paragraph(finding.get("summary", ""), styles['Normal']),
+            Paragraph(finding.get("recommendation", ""), styles['Normal'])
+        ]
+        rec_data.append(row)
+        rec_style.add('BACKGROUND', (0, i), (-1, i), sev_colors.get(sev, colors.white))
+        
+    rec_table = Table(rec_data, colWidths=[1*inch, 3*inch, 3.5*inch])
+    rec_table.setStyle(rec_style)
+    story.append(rec_table)
+    
+    story.append(Spacer(1, 20))
+    
+    story.append(Paragraph("CVSS Scoring", styles['Heading3']))
+    if cvss_scores:
+        cvss_data = [["Finding", "Vector", "Score", "Severity"]]
+        cvss_style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), header_bg),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0,0), (-1,-1), 'TOP')
+        ])
+        for i, score in enumerate(cvss_scores, 1):
             sev = score.get("severity", "INFORMATIONAL").upper()
             row = [
                 Paragraph(score.get("finding", ""), styles['Normal']),
@@ -152,22 +294,39 @@ def _generate_pdf(pdf_path: str, target: str, timestamp: str, risk_summary: Dict
                 str(score.get("base_score", "")),
                 Paragraph(sev, styles['Normal'])
             ]
-            data.append(row)
+            cvss_data.append(row)
+            cvss_style.add('BACKGROUND', (0, i), (-1, i), sev_colors.get(sev, colors.white))
             
-            # Apply color to the severity cell (column 3)
-            bg_color = severity_colors.get(sev, colors.white)
-            table_style.add('BACKGROUND', (3, i), (3, i), bg_color)
-            
-        t = Table(data, colWidths=[170, 120, 60, 100])
-        t.setStyle(table_style)
-        story.append(t)
+        cvss_table = Table(cvss_data, colWidths=[3.5*inch, 2*inch, 1*inch, 1*inch])
+        cvss_table.setStyle(cvss_style)
+        story.append(cvss_table)
     else:
         story.append(Paragraph("No scored findings.", styles['Normal']))
-
-    story.append(Spacer(1, 36))
     
-    # Footer/Disclaimer
-    disclaimer = "This report was generated by an authorized automated assessment tool (SentinelScan)."
-    story.append(Paragraph(f"<i>{disclaimer}</i>", styles['Normal']))
-
+    story.append(Spacer(1, 20))
+    
+    story.append(Paragraph("Assessment Metadata", styles['Heading3']))
+    completed = len([w for w in worker_coverage if w.get("status") == "Completed"])
+    failed = len([w for w in worker_coverage if w.get("status") != "Completed"])
+    ameta_data = [
+        ["Duration", f"{scan_duration:.2f} seconds", "Workers", str(len(worker_coverage))],
+        ["Completed", str(completed), "Not applicable", "0"],
+        ["Failed", str(failed), "Assessment type", "External AI-Driven"]
+    ]
+    ameta_table = Table(ameta_data, colWidths=[1.5*inch, 2.25*inch, 1.5*inch, 2.25*inch])
+    ameta_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('BACKGROUND', (2, 0), (2, -1), colors.lightgrey),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+    ]))
+    story.append(ameta_table)
+    
+    story.append(Spacer(1, 20))
+    story.append(Paragraph("Limitations and Disclaimer", styles['Heading3']))
+    story.append(Paragraph("• This is an automated assessment and may contain false positives.", styles['Normal']))
+    story.append(Paragraph("• Findings are based on external observability and point-in-time checks.", styles['Normal']))
+    
     doc.build(story)

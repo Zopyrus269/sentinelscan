@@ -258,9 +258,11 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "description": (
                         "List of findings gathered during the scan. Each "
                         "item should be an object with 'worker' (which "
-                        "tool produced it), 'summary' (a plain-English "
-                        "summary you write), and 'raw_data' (the tool's "
-                        "raw output)."
+                        "tool produced it), 'severity' (CRITICAL, HIGH, MEDIUM, LOW, or INFORMATIONAL), "
+                        "'summary' (a plain-English summary you write), "
+                        "'what_it_means' (a simple explanation of the technical finding), "
+                        "'recommendation' (actionable remediation advice), "
+                        "and 'raw_data' (the tool's raw output)."
                     ),
                     "items": {"type": "object"},
                 },
