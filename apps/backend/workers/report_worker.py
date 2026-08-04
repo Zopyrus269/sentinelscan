@@ -17,14 +17,16 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 
 
-def generate_report(target: str, findings: List[Dict[str, Any]], cvss_scores: List[Dict[str, Any]]) -> Dict[str, str]:
+def generate_report(target: str, findings: List[Dict[str, Any]], 
+                    cvss_scores: List[Dict[str, Any]], simple_explanation: str = "") -> Dict[str, Any]:
     """
     Generates JSON and PDF reports summarizing the assessment findings.
 
     Args:
-        target: The domain or IP that was assessed.
-        findings: List of dicts representing worker outputs and AI summaries.
-        cvss_scores: List of dicts containing CVSS score data.
+        target: The domain or IP that was scanned.
+        findings: The list of raw findings and summaries from the workers.
+        cvss_scores: The list of calculated CVSS scores.
+        simple_explanation: A markdown string explaining the findings in simple terms.
 
     Returns:
         dict: A dictionary containing paths to the generated PDF and JSON reports,
@@ -58,7 +60,8 @@ def generate_report(target: str, findings: List[Dict[str, Any]], cvss_scores: Li
             "scan_timestamp": timestamp,
             "overall_risk_summary": risk_summary,
             "findings": findings,
-            "cvss_scores": cvss_scores
+            "cvss_scores": cvss_scores,
+            "simple_explanation": simple_explanation
         }
 
         # Write JSON to disk

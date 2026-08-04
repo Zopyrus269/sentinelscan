@@ -125,10 +125,16 @@ def get_report_json(scan_id: str):
         return _error(f"Report not ready. Scan status is '{scan['status']}'.", 404)
 
     json_path = scan.get("json_path")
-    if not json_path or not os.path.exists(json_path):
+    if not json_path:
+        return _error("Report file not found on disk.", 404)
+        
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+    absolute_json_path = os.path.join(project_root, json_path)
+    
+    if not os.path.exists(absolute_json_path):
         return _error("Report file not found on disk.", 404)
 
-    with open(json_path, "r", encoding="utf-8") as f:
+    with open(absolute_json_path, "r", encoding="utf-8") as f:
         report_data = json.load(f)
     return jsonify(report_data)
 
@@ -143,7 +149,13 @@ def get_report_pdf(scan_id: str):
         return _error(f"Report not ready. Scan status is '{scan['status']}'.", 404)
 
     pdf_path = scan.get("pdf_path")
-    if not pdf_path or not os.path.exists(pdf_path):
+    if not pdf_path:
+        return _error("Report file not found on disk.", 404)
+        
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+    absolute_pdf_path = os.path.join(project_root, pdf_path)
+    
+    if not os.path.exists(absolute_pdf_path):
         return _error("Report file not found on disk.", 404)
 
-    return send_file(pdf_path, mimetype="application/pdf", as_attachment=True)
+    return send_file(absolute_pdf_path, mimetype="application/pdf", as_attachment=True)

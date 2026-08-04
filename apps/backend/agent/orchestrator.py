@@ -95,6 +95,7 @@ def run_scan(
                     target=tool_args.get("target", target),
                     findings=tool_args.get("findings", []),
                     cvss_scores=tool_args.get("cvss_scores", []),
+                    simple_explanation=tool_args.get("simple_explanation", "")
                 )
                 return {
                     "status": "complete",
