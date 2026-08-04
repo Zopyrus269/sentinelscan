@@ -57,12 +57,12 @@ The result: a system where the *agent* — not the developer — decides the sha
                                  ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                GEMINI AI AGENT   (the only brain)                │
-│                                                                    │
+│                                                                  │
 │  1. Decide which tool to run next                                │
 │  2. Call that worker via worker_dispatch                         │
 │  3. Read the result, go back to step 1                           │
 │     ...repeats until confident...                                │
-│                                                                    │
+│                                                                  │
 │  4. Scores findings (CVSS)                                       │
 │  5. Calls generate_report  ->  loop ends                         │
 └──────────────────────────────────────────────────────────────────┘
@@ -70,7 +70,7 @@ The result: a system where the *agent* — not the developer — decides the sha
                                  ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │         11 SINGLE-PURPOSE WORKERS  (zero business logic)         │
-│                                                                    │
+│                                                                  │
 │  Reverse DNS | DNS | Port Scanner | SSL Check                    │
 │  WHOIS | Sitemap | Cookies | HTTP Headers                        │
 │  robots.txt | CVSS Scoring | Report Generator                    │
