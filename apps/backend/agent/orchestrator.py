@@ -25,6 +25,10 @@ never calls generate_report.
 """
 
 from typing import Any, Callable, Dict, Optional
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 from google.genai import types
 
@@ -74,9 +78,30 @@ def run_scan(
         )
     ]
     failure_counts: Dict[str, int] = {}
+    
+    scan_start_time = time.time()
+    worker_coverage: List[Dict[str, Any]] = []
 
     for iteration in range(1, max_iterations + 1):
-        response = client.generate(history)
+        try:
+            response = client.generate(history)
+        except Exception as e:
+            logger.warning(f"AI API unavailable or failed: {e}")
+            scan_duration = time.time() - scan_start_time
+            result = generate_report(
+                target=target,
+                findings=[],
+                cvss_scores=[],
+                simple_explanation=f"Scan aborted due to AI API error: {e}",
+                worker_coverage=worker_coverage,
+                scan_duration=scan_duration
+            )
+            return {
+                "status": "complete",
+                "report": result,
+                "iterations": iteration,
+                "reason": "generate_report called due to API exception",
+            }
 
         # Always append the model's own turn back into history verbatim
         # (per Google's guidance -- do not reconstruct it manually).
@@ -91,10 +116,14 @@ def run_scan(
                 on_progress(iteration=iteration, max_iterations=max_iterations, tool_name=tool_name)
 
             if tool_name == "generate_report":
+                scan_duration = time.time() - scan_start_time
                 result = generate_report(
                     target=tool_args.get("target", target),
                     findings=tool_args.get("findings", []),
                     cvss_scores=tool_args.get("cvss_scores", []),
+                    simple_explanation=tool_args.get("simple_explanation", ""),
+                    worker_coverage=worker_coverage,
+                    scan_duration=scan_duration
                 )
                 return {
                     "status": "complete",
@@ -103,8 +132,19 @@ def run_scan(
                     "reason": "generate_report called",
                 }
 
+            tool_start_time = time.time()
             result = dispatch_tool(tool_name, tool_args)
+            tool_duration = time.time() - tool_start_time
+            
             is_failure = isinstance(result, dict) and "error" in result
+            
+            # Record coverage
+            worker_coverage.append({
+                "worker": tool_name.replace("_", " ").title(),
+                "status": "Completed",
+                "duration": tool_duration,
+                "result": "Completed with structured evidence." if not is_failure else f"Failed: {result.get('error', 'Unknown')}"
+            })
 
             if is_failure:
                 failure_counts[tool_name] = failure_counts.get(tool_name, 0) + 1

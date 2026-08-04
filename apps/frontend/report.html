@@ -11,7 +11,8 @@
 
     <title>SentinelScan | Security Assessment Report</title>
 
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono&display=swap"
@@ -592,6 +593,28 @@
                         Back to Dashboard
                     </button>
                 </div>
+            </div>
+        </section>
+
+        <!-- Executive Explanation (Simple Terms) -->
+        <section class="mb-lg" id="simpleExplanationSection" style="display: none;">
+            <div class="mb-md">
+                <h2
+                    class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-sm"
+                >
+                    <span class="material-symbols-outlined text-primary">
+                        text_snippet
+                    </span>
+                    Executive Explanation (Simple Terms)
+                </h2>
+                <p class="text-body-sm text-on-surface-variant mt-1">
+                    An easy-to-understand breakdown of what the scan discovered.
+                </p>
+            </div>
+            <div
+                class="bg-surface border border-border rounded-xl p-lg prose max-w-none text-on-surface"
+                id="simpleExplanationContent"
+            >
             </div>
         </section>
 
