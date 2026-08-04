@@ -48,32 +48,33 @@ The result: a system where the *agent* — not the developer — decides the sha
 ## 🏛️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         FLASK FRONTEND (dumb UI)                     │
-│   dashboard → live scan progress   |   report → PDF / JSON viewer    │
-└───────────────────────────────┬────────────────────────────────────-┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    FLASK FRONTEND  (dumb UI)                     │
+│  dashboard  ->  live scan progress                               │
+│  report     ->  PDF / JSON viewer                                │
+└──────────────────────────────────────────────────────────────────┘
                                  │  target + consent
                                  ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                   GEMINI AI AGENT  (the only brain)                  │
-│                                                                        │
-│    ┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐ │
-│    │  Decide next │ ──▶ │  Call worker via  │ ──▶ │  Read result,    │ │
-│    │  tool to run │     │  worker_dispatch  │     │  decide again    │ │
-│    └─────────────┘     └──────────────────┘     └─────────┬───────┘ │
-│           ▲                                                 │        │
-│           └─────────────────── loop until confident ────────┘        │
-│                                                                        │
-│   scores findings (CVSS) → calls generate_report → loop terminates   │
-└───────────────────────────────┬────────────────────────────────────-┘
+┌──────────────────────────────────────────────────────────────────┐
+│                GEMINI AI AGENT   (the only brain)                │
+│                                                                    │
+│  1. Decide which tool to run next                                │
+│  2. Call that worker via worker_dispatch                         │
+│  3. Read the result, go back to step 1                           │
+│     ...repeats until confident...                                │
+│                                                                    │
+│  4. Scores findings (CVSS)                                       │
+│  5. Calls generate_report  ->  loop ends                         │
+└──────────────────────────────────────────────────────────────────┘
                                  │  tool calls
                                  ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│              11 SINGLE-PURPOSE WORKERS (zero business logic)         │
-│                                                                        │
-│  Reverse DNS │ DNS │ Port Scanner │ SSL Check │ WHOIS │ Sitemap       │
-│  Cookies │ HTTP Headers │ robots.txt │ CVSS Scoring │ Report Gen      │
-└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│         11 SINGLE-PURPOSE WORKERS  (zero business logic)         │
+│                                                                    │
+│  Reverse DNS | DNS | Port Scanner | SSL Check                    │
+│  WHOIS | Sitemap | Cookies | HTTP Headers                        │
+│  robots.txt | CVSS Scoring | Report Generator                    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
