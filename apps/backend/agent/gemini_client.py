@@ -58,7 +58,7 @@ RULES:
 
 DEFAULT_MODEL_NAME = "gemini-flash-lite-latest"
 MIN_SECONDS_BETWEEN_CALLS = 2.0
-MAX_RETRIES = 5
+MAX_RETRIES = 6
 INITIAL_BACKOFF_SECONDS = 2.0
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
