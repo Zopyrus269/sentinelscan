@@ -44,6 +44,8 @@ def save_completed_scan(
     """
     try:
         db = get_db()
+        if not db:
+            return False
         doc_ref = db.collection("users").document(uid).collection("scans").document(scan_id)
         
         data = {
@@ -81,6 +83,8 @@ def get_user_scan_history(uid: str) -> List[Dict[str, Any]]:
     """
     try:
         db = get_db()
+        if not db:
+            return []
         scans_ref = db.collection("users").document(uid).collection("scans")
         
         # Use .select() to only fetch metadata fields, avoiding the memory overhead of the full JSON payload
@@ -115,6 +119,8 @@ def get_scan(uid: str, scan_id: str) -> Optional[Dict[str, Any]]:
     """
     try:
         db = get_db()
+        if not db:
+            return None
         doc_ref = db.collection("users").document(uid).collection("scans").document(scan_id)
         doc = doc_ref.get()
         
@@ -139,6 +145,8 @@ def scan_exists(uid: str, scan_id: str) -> bool:
     """
     try:
         db = get_db()
+        if not db:
+            return False
         doc_ref = db.collection("users").document(uid).collection("scans").document(scan_id)
         # Empty field mask fetches minimum data just to check existence
         doc = doc_ref.get(field_paths=[])

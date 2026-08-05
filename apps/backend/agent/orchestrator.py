@@ -135,7 +135,7 @@ def run_scan(
             result = dispatch_tool(tool_name, tool_args)
             tool_duration = time.time() - tool_start_time
             
-            is_failure = isinstance(result, dict) and "error" in result
+            is_failure = isinstance(result, dict) and result.get("error") is not None
             
             # Record coverage
             worker_coverage.append({

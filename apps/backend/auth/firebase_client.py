@@ -13,9 +13,14 @@ _SERVICE_ACCOUNT_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "secrets", "firebase-service-account.json"),
 )
 
-_cred = credentials.Certificate(_SERVICE_ACCOUNT_PATH)
-firebase_app = firebase_admin.initialize_app(_cred)
-db = firestore.client()
+try:
+    _cred = credentials.Certificate(_SERVICE_ACCOUNT_PATH)
+    firebase_app = firebase_admin.initialize_app(_cred)
+    db = firestore.client()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Firebase not configured or failed to initialize: {e}")
+    db = None
 
 
 def get_db():

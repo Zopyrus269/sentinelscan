@@ -77,8 +77,13 @@ def _run_scan_background(scan_id: str, target: str, uid: str = None) -> None:
     """Runs the agent scan on a background thread, updating scan_store as it progresses."""
     update_scan(scan_id, status="IN_PROGRESS")
 
+    unique_tools = set()
+
     def on_progress(iteration: int, max_iterations: int, tool_name: str) -> None:
-        percent = min(99, round((iteration / max_iterations) * 100))
+        if tool_name != "generate_report":
+            unique_tools.add(tool_name)
+        # Give ~9% progress for each unique worker started, capping at 95% until complete
+        percent = min(95, 5 + (len(unique_tools) * 9))
         update_scan(scan_id, current_action=tool_name, progress_percent=percent)
         add_scan_event(scan_id, level="info", message=f"Running {tool_name}", tool_name=tool_name)
 

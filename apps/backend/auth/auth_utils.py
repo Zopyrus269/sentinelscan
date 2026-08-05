@@ -35,6 +35,12 @@ def require_auth(f: Callable) -> Callable:
         try:
             decoded_token = firebase_auth.verify_id_token(id_token)
         except Exception as e:
+            if "default Firebase app does not exist" in str(e) or "FirebaseApp" in str(e):
+                return jsonify({
+                    "error": "Service Unavailable",
+                    "message": "Authentication is disabled on the server.",
+                    "code": 503,
+                }), 503
             return jsonify({
                 "error": "Unauthorized",
                 "message": f"Invalid or expired authentication token: {e}",

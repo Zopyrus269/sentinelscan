@@ -32,6 +32,10 @@ async function syncSessionWithBackend(user) {
     });
     if (!res.ok) {
       console.error("Session sync failed:", res.status, await res.text());
+      if (res.status === 503) {
+        // Backend doesn't have Firebase, hide account features
+        profileButton.style.display = "none";
+      }
     }
   } catch (err) {
     console.error("Session sync error:", err);
@@ -131,26 +135,35 @@ function applyThemeToggleUI(theme) {
 }
 
 async function loadCurrentTheme() {
-  if (!currentUser) return;
-  try {
-    const idToken = await currentUser.getIdToken();
-    const res = await fetch("/api/v1/auth/me", {
-      headers: { "Authorization": `Bearer ${idToken}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      applyThemeToggleUI(data.theme || "light");
+  let theme = localStorage.getItem("sentinelscan_theme") || "light";
+  
+  if (currentUser) {
+    try {
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch("/api/v1/auth/me", {
+        headers: { "Authorization": `Bearer ${idToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.theme) {
+            theme = data.theme;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load theme from backend:", err);
     }
-  } catch (err) {
-    console.error("Failed to load theme:", err);
   }
+  applyThemeToggleUI(theme);
 }
 
 async function toggleTheme() {
-  if (!currentUser) return;
   const isDark = themeToggleButton.getAttribute("aria-checked") === "true";
   const newTheme = isDark ? "light" : "dark";
   applyThemeToggleUI(newTheme);
+  localStorage.setItem("sentinelscan_theme", newTheme);
+
+  if (!currentUser) return;
+  
   try {
     const idToken = await currentUser.getIdToken();
     const res = await fetch("/api/v1/auth/theme", {
@@ -163,11 +176,9 @@ async function toggleTheme() {
     });
     if (!res.ok) {
       console.error("Theme update failed:", res.status, await res.text());
-      applyThemeToggleUI(isDark ? "dark" : "light");
     }
   } catch (err) {
     console.error("Theme update error:", err);
-    applyThemeToggleUI(isDark ? "dark" : "light");
   }
 }
 
@@ -367,3 +378,6 @@ accountTabSettings.addEventListener("click", () => switchAccountTab("settings"))
 accountTabHistory.addEventListener("click", () => switchAccountTab("history"));
 
 themeToggleButton.addEventListener("click", toggleTheme);
+
+// Initialize theme on page load
+loadCurrentTheme();

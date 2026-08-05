@@ -25,6 +25,9 @@ def create_session():
     (light theme) on first login.
     """
     db = get_db()
+    if not db:
+        return jsonify({"uid": g.user["uid"], "email": g.user["email"], "name": g.user["name"], "theme": "light"})
+
     user_ref = db.collection("users").document(g.user["uid"])
     user_doc = user_ref.get()
 
@@ -55,6 +58,13 @@ def create_session():
 def get_current_user():
     """Returns the logged-in user's Firestore profile."""
     db = get_db()
+    if not db:
+        return jsonify({
+            "error": "Service Unavailable",
+            "message": "User profiles are disabled without Firebase DB.",
+            "code": 503,
+        }), 503
+
     user_doc = db.collection("users").document(g.user["uid"]).get()
     if not user_doc.exists:
         return jsonify({
@@ -79,5 +89,6 @@ def update_theme():
         }), 400
 
     db = get_db()
-    db.collection("users").document(g.user["uid"]).update({"theme": theme})
+    if db:
+        db.collection("users").document(g.user["uid"]).update({"theme": theme})
     return jsonify({"theme": theme})
