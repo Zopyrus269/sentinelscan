@@ -264,13 +264,25 @@
                     New Scan
                 </button>
 
-                <div
-                    class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-primary-fixed text-primary"
+                <div class="relative" id="profileButtonWrapper">
+                  <button
+                    id="profileButton"
+                    class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-primary-fixed text-primary overflow-hidden"
                     aria-label="SentinelScan profile"
-                >
-                    <span class="material-symbols-outlined text-[18px]">
-                        shield_person
+                  >
+                    <span id="profileIconDefault" class="material-symbols-outlined text-[18px]">
+                      shield_person
                     </span>
+                    <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" />
+                  </button>
+                  <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-lg border border-border bg-background shadow-lg z-50">
+                    <div class="px-4 py-3 border-b border-border">
+                      <p id="profileEmail" class="text-sm truncate"></p>
+                    </div>
+                    <button id="signOutButton" class="w-full text-left px-4 py-2 text-sm hover:bg-primary-fixed">
+                      Sign out
+                    </button>
+                  </div>
                 </div>
             </div>
         </nav>
@@ -715,5 +727,6 @@
         src="/static/js/app.js"
         defer
     ></script>
+    <script type="module" src="/static/js/auth.js"></script>
 </body>
 </html>

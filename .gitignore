@@ -99,3 +99,4 @@ reports/*.json
 !reports/.gitkeep
 apps/backend/agent/gemini_cache.sqlite3
 secrets/
+auth_session.json
