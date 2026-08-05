@@ -671,7 +671,13 @@
                     </div>
                 </div>
                 <div id="accountPanelHistory" class="account-panel hidden">
-                    <p class="text-sm text-on-surface-variant py-6 text-center">Scan history isn't available yet — coming soon.</p>
+                    <div id="historyLoading" class="hidden text-sm text-on-surface-variant py-6 text-center">Loading history...</div>
+                    <div id="historyEmpty" class="hidden text-sm text-on-surface-variant py-6 text-center">
+                        <p>No scan history yet.</p>
+                        <p class="mt-2">Run your first scan to see it here.</p>
+                    </div>
+                    <div id="historyError" class="hidden text-sm text-error py-6 text-center"></div>
+                    <div id="historyList" class="flex flex-col gap-4 py-2"></div>
                 </div>
             </div>
         </div>

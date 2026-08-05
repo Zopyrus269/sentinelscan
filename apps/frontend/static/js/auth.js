@@ -177,6 +177,152 @@ function closeAccountModal() {
   document.body.style.overflow = "";
 }
 
+async function loadHistory() {
+  if (!currentUser) return;
+  const historyLoading = document.getElementById("historyLoading");
+  const historyEmpty = document.getElementById("historyEmpty");
+  const historyError = document.getElementById("historyError");
+  const historyList = document.getElementById("historyList");
+  
+  historyLoading.classList.remove("hidden");
+  historyEmpty.classList.add("hidden");
+  historyError.classList.add("hidden");
+  historyList.innerHTML = "";
+
+  try {
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch("/api/v1/history", {
+      headers: { "Authorization": `Bearer ${idToken}` }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Failed to load history (${res.status})`);
+    }
+    
+    const data = await res.json();
+    historyLoading.classList.add("hidden");
+    
+    if (!data || data.length === 0) {
+      historyEmpty.classList.remove("hidden");
+      return;
+    }
+    
+    data.forEach(scan => {
+      const card = document.createElement("div");
+      card.className = "border border-border rounded-lg p-4 bg-surface-container-lowest";
+      
+      const startedAt = scan.started_at ? new Date(scan.started_at).toLocaleString() : "Unknown";
+      const completedAt = scan.completed_at ? new Date(scan.completed_at).toLocaleString() : "Pending";
+      const statusColor = scan.status === "COMPLETED" ? "text-primary" : "text-error";
+      
+      let summaryHtml = "";
+      if (scan.summary) {
+        summaryHtml = `<p class="text-sm text-on-surface-variant mt-2 line-clamp-2">${scan.summary}</p>`;
+      }
+      
+      card.innerHTML = `
+        <div class="flex justify-between items-start mb-2">
+            <h3 class="font-medium text-on-background">${scan.target}</h3>
+            <span class="text-xs font-bold ${statusColor}">${scan.status}</span>
+        </div>
+        <div class="text-xs text-on-surface-variant mb-2">
+            <div>Started: ${startedAt}</div>
+            <div>Completed: ${completedAt}</div>
+        </div>
+        ${summaryHtml}
+        <div class="flex flex-wrap gap-2 mt-4">
+            <button data-id="${scan.scan_id}" class="view-report-btn text-xs font-medium bg-primary text-on-primary px-3 py-1.5 rounded hover:opacity-90 transition-opacity">View Report</button>
+            <button data-id="${scan.scan_id}" data-type="pdf" class="download-history-btn text-xs font-medium border border-border text-on-surface px-3 py-1.5 rounded hover:bg-surface-container-low transition-colors">Download PDF</button>
+            <button data-id="${scan.scan_id}" data-type="json" class="download-history-btn text-xs font-medium border border-border text-on-surface px-3 py-1.5 rounded hover:bg-surface-container-low transition-colors">Download JSON</button>
+        </div>
+      `;
+      historyList.appendChild(card);
+    });
+    
+    document.querySelectorAll(".view-report-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+         const scanId = e.target.getAttribute("data-id");
+         const btnEl = e.target;
+         const originalText = btnEl.textContent;
+         
+         btnEl.textContent = "Loading...";
+         btnEl.disabled = true;
+
+         try {
+            const idToken = await currentUser.getIdToken();
+            const res = await fetch(`/api/v1/history/${encodeURIComponent(scanId)}`, {
+                headers: { "Authorization": `Bearer ${idToken}` }
+            });
+            if (!res.ok) throw new Error("Failed to fetch historical report");
+            
+            const data = await res.json();
+            sessionStorage.setItem("sentinelscan_historical_report", JSON.stringify(data));
+            window.open(`/report?history_id=${encodeURIComponent(scanId)}`, "_blank");
+         } catch (err) {
+            alert("Error loading report: " + err.message);
+         } finally {
+            btnEl.textContent = originalText;
+            btnEl.disabled = false;
+         }
+      });
+    });
+    
+    document.querySelectorAll(".download-history-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+         const scanId = e.target.getAttribute("data-id");
+         const type = e.target.getAttribute("data-type");
+         const btnEl = e.target;
+         const originalText = btnEl.textContent;
+         
+         btnEl.innerHTML = `<span class="material-symbols-outlined text-[14px] align-middle mr-1 animate-spin">progress_activity</span>Downloading...`;
+         btnEl.disabled = true;
+
+         try {
+            const idToken = await currentUser.getIdToken();
+            const res = await fetch(`/api/v1/reports/${encodeURIComponent(scanId)}/${type}`, {
+                headers: { "Authorization": `Bearer ${idToken}` }
+            });
+            
+            if (!res.ok) {
+                let msg = "Download failed.";
+                try {
+                    const err = await res.json();
+                    msg = err.message || err.error || msg;
+                } catch (jsonErr) {}
+                throw new Error(msg);
+            }
+            
+            const blob = await res.blob();
+            if (blob.size === 0) throw new Error("The downloaded file was empty.");
+            
+            const objectUrl = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = objectUrl;
+            anchor.download = `sentinelscan_report_${scanId}.${type}`;
+            anchor.style.display = "none";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            
+         } catch (err) {
+            alert("Error downloading file: " + err.message);
+         } finally {
+            btnEl.textContent = originalText;
+            btnEl.disabled = false;
+         }
+      });
+    });
+    
+  } catch (err) {
+    historyLoading.classList.add("hidden");
+    historyError.textContent = "An error occurred while loading your history. Please try again.";
+    historyError.classList.remove("hidden");
+    console.error("History load error:", err);
+  }
+}
+
 function switchAccountTab(tab) {
   const isSettings = tab === "settings";
   accountPanelSettings.classList.toggle("hidden", !isSettings);
@@ -189,6 +335,10 @@ function switchAccountTab(tab) {
   accountTabHistory.classList.toggle("text-primary", !isSettings);
   accountTabHistory.classList.toggle("border-transparent", isSettings);
   accountTabHistory.classList.toggle("text-on-surface-variant", isSettings);
+  
+  if (!isSettings) {
+      loadHistory();
+  }
 }
 
 openAccountButton.addEventListener("click", (e) => {

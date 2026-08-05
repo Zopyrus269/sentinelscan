@@ -26,6 +26,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function getScanId() {
     const queryParams = new URLSearchParams(window.location.search);
+    
+    // Check if we are viewing a historical scan
+    const historyId = queryParams.get("history_id");
+    if (historyId) {
+        return historyId;
+    }
 
     return (
         queryParams.get("scan_id") ||
@@ -90,22 +96,41 @@ async function loadReport() {
     clearError();
 
     try {
-        activeScan = await fetchScan(activeScanId);
+        const queryParams = new URLSearchParams(window.location.search);
+        
+        if (queryParams.has("history_id")) {
+            // Load historical report from session storage (populated by auth.js)
+            const historicalDataStr = sessionStorage.getItem("sentinelscan_historical_report");
+            
+            if (!historicalDataStr) {
+                throw new Error("Historical report data not found. Please open this report from the dashboard history tab.");
+            }
+            
+            activeScan = JSON.parse(historicalDataStr);
+            activeReport = activeScan.report_data || {};
+            
+            if (!activeReport || Object.keys(activeReport).length === 0) {
+                 throw new Error("This historical scan does not contain a JSON report payload.");
+            }
+        } else {
+            // Load active runtime scan from API
+            activeScan = await fetchScan(activeScanId);
 
-        if (activeScan.status !== "COMPLETED") {
-            if (activeScan.status === "FAILED") {
+            if (activeScan.status !== "COMPLETED") {
+                if (activeScan.status === "FAILED") {
+                    throw new Error(
+                        activeScan.error ||
+                        "The assessment failed before a report was generated."
+                    );
+                }
+
                 throw new Error(
-                    activeScan.error ||
-                    "The assessment failed before a report was generated."
+                    "The assessment is not complete yet. Return to the dashboard and wait for completion."
                 );
             }
 
-            throw new Error(
-                "The assessment is not complete yet. Return to the dashboard and wait for completion."
-            );
+            activeReport = await fetchJsonReport(activeScanId);
         }
-
-        activeReport = await fetchJsonReport(activeScanId);
 
         renderScanMetadata(activeScan);
         renderReport(activeReport);
@@ -1082,7 +1107,41 @@ async function downloadReport(
     `;
 
     try {
-        const response = await fetch(url);
+        const headers = {};
+        
+        try {
+            const { getAuth } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+            const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+            
+            if (getApps().length === 0) {
+                initializeApp({
+                    apiKey: "AIzaSyBvWgaqLbG9la-77P__L5WACBQ4t3kkCFU",
+                    authDomain: "sentinelscan-3f82d.firebaseapp.com",
+                    projectId: "sentinelscan-3f82d",
+                    storageBucket: "sentinelscan-3f82d.firebasestorage.app",
+                    messagingSenderId: "60214574079",
+                    appId: "1:60214574079:web:5c6e5cd5004ffe6902c5ca"
+                });
+            }
+            
+            const auth = getAuth();
+            const user = await new Promise(resolve => {
+                const unsubscribe = auth.onAuthStateChanged(u => {
+                    unsubscribe();
+                    resolve(u);
+                });
+            });
+            
+            if (user) {
+                const token = await user.getIdToken();
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+        } catch (authError) {
+            console.warn("Could not retrieve auth token for download:", authError);
+            // Gracefully proceed without token (e.g. unauthenticated context)
+        }
+
+        const response = await fetch(url, { headers });
 
         if (!response.ok) {
             let message = "Report download failed.";
