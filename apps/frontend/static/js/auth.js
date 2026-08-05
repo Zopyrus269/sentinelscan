@@ -40,9 +40,15 @@ async function syncSessionWithBackend(user) {
 
 function showLoggedInUI(user) {
   if (user.photoURL) {
-    profileIconDefault.classList.add("hidden");
+    profileAvatar.onerror = () => {
+      profileAvatar.classList.add("hidden");
+      profileIconDefault.classList.remove("hidden");
+    };
+    profileAvatar.onload = () => {
+      profileIconDefault.classList.add("hidden");
+      profileAvatar.classList.remove("hidden");
+    };
     profileAvatar.src = user.photoURL;
-    profileAvatar.classList.remove("hidden");
   } else {
     profileIconDefault.classList.remove("hidden");
     profileAvatar.classList.add("hidden");
@@ -95,3 +101,111 @@ signOutButton.addEventListener("click", async (e) => {
     console.error("Sign-out error:", err);
   }
 });
+
+const openAccountButton = document.getElementById("openAccountButton");
+const accountModal = document.getElementById("accountModal");
+const accountModalBackdrop = document.getElementById("accountModalBackdrop");
+const accountModalCloseButton = document.getElementById("accountModalCloseButton");
+const accountTabSettings = document.getElementById("accountTabSettings");
+const accountTabHistory = document.getElementById("accountTabHistory");
+const accountPanelSettings = document.getElementById("accountPanelSettings");
+const accountPanelHistory = document.getElementById("accountPanelHistory");
+const themeToggleButton = document.getElementById("themeToggleButton");
+const themeToggleKnob = document.getElementById("themeToggleKnob");
+
+function applyThemeToggleUI(theme) {
+  const isDark = theme === "dark";
+  themeToggleButton.setAttribute("aria-checked", isDark ? "true" : "false");
+  themeToggleButton.classList.toggle("bg-primary", isDark);
+  themeToggleButton.classList.toggle("bg-surface-container-low", !isDark);
+  themeToggleKnob.classList.toggle("translate-x-6", isDark);
+  themeToggleKnob.classList.toggle("translate-x-1", !isDark);
+}
+
+async function loadCurrentTheme() {
+  if (!currentUser) return;
+  try {
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch("/api/v1/auth/me", {
+      headers: { "Authorization": `Bearer ${idToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      applyThemeToggleUI(data.theme || "light");
+    }
+  } catch (err) {
+    console.error("Failed to load theme:", err);
+  }
+}
+
+async function toggleTheme() {
+  if (!currentUser) return;
+  const isDark = themeToggleButton.getAttribute("aria-checked") === "true";
+  const newTheme = isDark ? "light" : "dark";
+  applyThemeToggleUI(newTheme);
+  try {
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch("/api/v1/auth/theme", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ theme: newTheme })
+    });
+    if (!res.ok) {
+      console.error("Theme update failed:", res.status, await res.text());
+      applyThemeToggleUI(isDark ? "dark" : "light");
+    }
+  } catch (err) {
+    console.error("Theme update error:", err);
+    applyThemeToggleUI(isDark ? "dark" : "light");
+  }
+}
+
+function openAccountModal() {
+  profileDropdown.classList.add("hidden");
+  accountModal.classList.remove("hidden");
+  accountModal.classList.add("flex");
+  document.body.style.overflow = "hidden";
+  loadCurrentTheme();
+}
+
+function closeAccountModal() {
+  accountModal.classList.add("hidden");
+  accountModal.classList.remove("flex");
+  document.body.style.overflow = "";
+}
+
+function switchAccountTab(tab) {
+  const isSettings = tab === "settings";
+  accountPanelSettings.classList.toggle("hidden", !isSettings);
+  accountPanelHistory.classList.toggle("hidden", isSettings);
+  accountTabSettings.classList.toggle("border-primary", isSettings);
+  accountTabSettings.classList.toggle("text-primary", isSettings);
+  accountTabSettings.classList.toggle("border-transparent", !isSettings);
+  accountTabSettings.classList.toggle("text-on-surface-variant", !isSettings);
+  accountTabHistory.classList.toggle("border-primary", !isSettings);
+  accountTabHistory.classList.toggle("text-primary", !isSettings);
+  accountTabHistory.classList.toggle("border-transparent", isSettings);
+  accountTabHistory.classList.toggle("text-on-surface-variant", isSettings);
+}
+
+openAccountButton.addEventListener("click", (e) => {
+  e.stopPropagation();
+  openAccountModal();
+});
+
+accountModalCloseButton.addEventListener("click", closeAccountModal);
+accountModalBackdrop.addEventListener("click", closeAccountModal);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && accountModal.classList.contains("flex")) {
+    closeAccountModal();
+  }
+});
+
+accountTabSettings.addEventListener("click", () => switchAccountTab("settings"));
+accountTabHistory.addEventListener("click", () => switchAccountTab("history"));
+
+themeToggleButton.addEventListener("click", toggleTheme);
