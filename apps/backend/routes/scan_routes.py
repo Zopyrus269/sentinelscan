@@ -22,7 +22,10 @@ from flask import Blueprint, jsonify, request, send_file, Response
 
 from apps.backend.agent.orchestrator import run_scan
 from apps.backend.models.scan_store import create_scan, get_scan, list_scans, update_scan, add_scan_event
-from firebase_admin import auth as firebase_auth
+try:
+    from firebase_admin import auth as firebase_auth
+except ImportError:
+    firebase_auth = None
 from apps.backend.models.history_store import get_scan as get_history_scan
 import tempfile
 

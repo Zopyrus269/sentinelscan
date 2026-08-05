@@ -7,7 +7,10 @@ This module is independent of Flask routes, UI logic, and scan execution logic.
 
 import logging
 from typing import Any, Dict, List, Optional
-from firebase_admin import firestore
+try:
+    from firebase_admin import firestore
+except ImportError:
+    firestore = None
 
 from apps.backend.auth.firebase_client import get_db
 

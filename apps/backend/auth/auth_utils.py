@@ -9,7 +9,10 @@ import functools
 from typing import Callable
 
 from flask import request, jsonify, g
-from firebase_admin import auth as firebase_auth
+try:
+    from firebase_admin import auth as firebase_auth
+except ImportError:
+    firebase_auth = None
 
 
 def require_auth(f: Callable) -> Callable:
