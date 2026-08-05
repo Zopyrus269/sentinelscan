@@ -220,25 +220,6 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         },
     },
     {
-        "name": "ddos_resilience_check",
-        "description": (
-            "Passively assesses the target's DDoS mitigation infrastructure "
-            "by checking HTTP headers, DNS CNAME chains, Anycast routing, "
-            "and IP ASN/Org data. Use this to determine if the target is "
-            "protected by a CDN/WAF or if its origin IP is directly exposed."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "target": {
-                    "type": "string",
-                    "description": "The URL or domain to inspect, e.g. 'https://example.com'.",
-                },
-            },
-            "required": ["target"],
-        },
-    },
-    {
         "name": "generate_report",
         "description": (
             "Compiles all findings and CVSS scores gathered so far into "
@@ -275,16 +256,8 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     ),
                     "items": {"type": "object"},
                 },
-                "simple_explanation": {
-                    "type": "string",
-                    "description": (
-                        "A simple, conversational explanation of the findings in Markdown format. "
-                        "Include a markdown table with 'Finding', 'Severity', and 'What it means', "
-                        "followed by a few paragraphs explaining the overall results simply for a non-technical audience."
-                    )
-                },
             },
-            "required": ["target", "findings", "cvss_scores", "simple_explanation"],
+            "required": ["target", "findings", "cvss_scores"],
         },
     },
 ]

@@ -34,7 +34,6 @@ from apps.backend.workers.report_worker import generate_report
 from apps.backend.workers.cookie_worker import cookie_worker
 from apps.backend.workers.headers_worker import headers_worker
 from apps.backend.workers.robots_worker import robots_worker
-from apps.backend.workers.ddos_resilience_worker import ddos_resilience_worker
 
 import apps.backend.workers.ssl_worker as ssl_worker
 import apps.backend.workers.sitemap_worker as sitemap_worker
@@ -95,7 +94,6 @@ TOOL_DISPATCH: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     "http_headers": lambda args: headers_worker(args["target"]),
     "cookie_analysis": lambda args: cookie_worker(args["target"]),
     "robots_txt_parse": lambda args: robots_worker(args["target"]),
-    "ddos_resilience_check": lambda args: ddos_resilience_worker(args["target"]),
     "ssl_check": _call_ssl_worker,
     "sitemap_parse": _call_sitemap_worker,
     "calculate_cvss": _call_cvss_worker,

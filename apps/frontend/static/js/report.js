@@ -276,7 +276,6 @@ function renderReport(report) {
         cvssScores,
         maximumCvss
     );
-    renderSimpleExplanation(report);
     renderFindings(findings, cvssScores);
     renderCvssScores(cvssScores);
     renderWorkerFindings(findings);
@@ -1440,16 +1439,3 @@ function escapeHtml(value) {
 }
 
 
-function renderSimpleExplanation(report) {
-    const section = document.getElementById("simpleExplanationSection");
-    const content = document.getElementById("simpleExplanationContent");
-    
-    if (!section || !content) return;
-    
-    if (report.simple_explanation) {
-        section.style.display = "block";
-        content.innerHTML = window.marked ? window.marked.parse(report.simple_explanation) : report.simple_explanation;
-    } else {
-        section.style.display = "none";
-    }
-}

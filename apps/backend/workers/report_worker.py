@@ -20,7 +20,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 
 
 def generate_report(target: str, findings: List[Dict[str, Any]], 
-                    cvss_scores: List[Dict[str, Any]], simple_explanation: str = "",
+                    cvss_scores: List[Dict[str, Any]],
                     worker_coverage: List[Dict[str, Any]] = None, scan_duration: float = 0.0) -> Dict[str, Any]:
     """
     Generates JSON and PDF reports summarizing the assessment findings.
@@ -29,7 +29,6 @@ def generate_report(target: str, findings: List[Dict[str, Any]],
         target: The domain or IP that was scanned.
         findings: The list of raw findings and summaries from the workers.
         cvss_scores: The list of calculated CVSS scores.
-        simple_explanation: A markdown string explaining the findings in simple terms.
         worker_coverage: List of worker executions with status and duration.
         scan_duration: Total duration of the scan.
 
@@ -70,8 +69,7 @@ def generate_report(target: str, findings: List[Dict[str, Any]],
             "overall_risk_summary": risk_summary,
             "findings": findings,
             "cvss_scores": cvss_scores,
-            "worker_coverage": worker_coverage,
-            "simple_explanation": simple_explanation
+            "worker_coverage": worker_coverage
         }
 
         # Write JSON to disk
