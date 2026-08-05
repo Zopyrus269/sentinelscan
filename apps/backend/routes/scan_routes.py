@@ -14,6 +14,7 @@ import threading
 import traceback
 from datetime import datetime, timezone
 from typing import Tuple
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,27 @@ def _error(message: str, code: int) -> Tuple[Response, int]:
         "message": message,
         "code": code,
     }), code
+
+
+# Load and clean the blocklist from the environment
+env_domains = os.getenv("BLOCKED_DOMAINS", "google.com,youtube.com,facebook.com")
+BLOCKED_DOMAINS = [d.strip().lower() for d in env_domains.split(",") if d.strip()]
+
+def is_domain_blocked(target_url: str) -> bool:
+    if not target_url:
+        return False
+        
+    clean_target = target_url.lower()
+    for prefix in ["https://", "http://", "www."]:
+        clean_target = clean_target.replace(prefix, "")
+        
+    clean_target = clean_target.split('/')[0].split(':')[0]
+    
+    for blocked in BLOCKED_DOMAINS:
+        if clean_target == blocked or clean_target.endswith(f".{blocked}"):
+            return True
+            
+    return False
 
 
 def _run_scan_background(scan_id: str, target: str, uid: str = None) -> None:
@@ -123,6 +145,9 @@ def start_scan():
 
     if not target:
         return _error("Request body must include a non-empty 'target' string.", 400)
+
+    if is_domain_blocked(target):
+        return jsonify({"error": f"Security Policy: Scanning '{target}' is restricted and not permitted."}), 403
 
     # Attempt to extract UID using the existing authentication flow
     uid = None

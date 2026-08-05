@@ -120,6 +120,14 @@ function applyThemeToggleUI(theme) {
   themeToggleButton.classList.toggle("bg-surface-container-low", !isDark);
   themeToggleKnob.classList.toggle("translate-x-6", isDark);
   themeToggleKnob.classList.toggle("translate-x-1", !isDark);
+  
+  if (isDark) {
+    document.documentElement.classList.remove("light");
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+    document.documentElement.classList.add("light");
+  }
 }
 
 async function loadCurrentTheme() {
