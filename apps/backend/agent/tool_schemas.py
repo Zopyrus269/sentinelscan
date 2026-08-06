@@ -30,8 +30,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "The domain name to look up, e.g. 'example.com'.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["target"],
+            "required": ["target", "reasoning"],
         },
     },
     {
@@ -48,8 +58,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "The IPv4 or IPv6 address to reverse-resolve.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["ip"],
+            "required": ["ip", "reasoning"],
         },
     },
     {
@@ -75,8 +95,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                         "ports is scanned."
                     ),
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["target"],
+            "required": ["target", "reasoning"],
         },
     },
     {
@@ -97,8 +127,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "integer",
                     "description": "The HTTPS port to connect to. Defaults to 443 if omitted.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["target"],
+            "required": ["target", "reasoning"],
         },
     },
     {
@@ -115,8 +155,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "The URL to inspect, e.g. 'https://example.com'.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["target"],
+            "required": ["target", "reasoning"],
         },
     },
     {
@@ -133,8 +183,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "The URL to inspect, e.g. 'https://example.com'.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["target"],
+            "required": ["target", "reasoning"],
         },
     },
     {
@@ -151,8 +211,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "The URL to check, e.g. 'https://example.com'.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["target"],
+            "required": ["target", "reasoning"],
         },
     },
     {
@@ -169,8 +239,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "The URL to fetch the sitemap for, e.g. 'https://example.com'.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["url"],
+            "required": ["url", "reasoning"],
         },
     },
     {
@@ -187,8 +267,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "The domain or IP address to look up.",
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["target"],
+            "required": ["target", "reasoning"],
         },
     },
     {
@@ -215,8 +305,18 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                         "S=Scope, C=Confidentiality, I=Integrity, A=Availability."
                     ),
                 },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short (1-2 sentence), plain-English explanation of why "
+                        "you are calling this tool right now. If this is your first "
+                        "tool call, explain why it's a sensible starting point. "
+                        "Otherwise, base it specifically on what you learned from "
+                        "the previous tool's result."
+                    ),
+                },
             },
-            "required": ["base_metrics"],
+            "required": ["base_metrics", "reasoning"],
         },
     },
     {

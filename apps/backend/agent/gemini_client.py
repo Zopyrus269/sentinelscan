@@ -54,6 +54,7 @@ RULES:
 5. Never call generate_report until you have gathered at least some real findings.
 6. Begin working immediately by calling the first appropriate tool -- do not ask for confirmation or express hesitation, since authorization has already been established before you were invoked.
 7. Before calling generate_report, you MUST evaluate each significant finding for security relevance (e.g. missing security headers, exposed services, weak/expired certificates, permissive DNS/WHOIS configurations) and score at least the most significant ones using calculate_cvss. Do not call generate_report with an empty cvss_scores list unless your findings genuinely contained zero notable security-relevant issues. When building each entry of the cvss_scores array for generate_report, copy the "vector", "base_score", and "severity" fields EXACTLY as returned by calculate_cvss -- do not rename "base_score" to "score" or any other key -- and add only one additional field, "finding", describing what was scored.
+8. EVERY TIME you call a tool -- including your very first tool call of the scan, before any results exist yet -- you MUST also include a short plain-text explanation (1-2 sentences, no jargon, written for a non-technical reader) of why you are choosing that specific tool right now. For the first tool call, explain why it's a sensible starting point. For every subsequent tool call, base the explanation specifically on what you just learned from the previous tool's result (e.g. "Port 443 is open, so I'm checking the SSL certificate next" rather than a generic statement). Always include this explanation as accompanying text alongside the function call itself, in the same turn.
 """
 
 DEFAULT_MODEL_NAME = "gemini-flash-lite-latest"
@@ -135,7 +136,7 @@ def _build_tools() -> List[Any]:
 def _extract_normalized_response(response: Any) -> Dict[str, Any]:
     """
     Converts a google.genai GenerateContentResponse into a simple dict:
-        {"type": "tool_call", "tool_name": str, "tool_args": dict, "model_content": <raw content>}
+        {"type": "tool_call", "tool_name": str, "tool_args": dict, "reasoning": str, "model_content": <raw content>}
     or
         {"type": "text", "text": str, "model_content": <raw content>}
 
@@ -154,10 +155,12 @@ def _extract_normalized_response(response: Any) -> Dict[str, Any]:
     if function_calls:
         first_call = function_calls[0]
         args = dict(first_call.args) if first_call.args else {}
+        reasoning = getattr(response, "text", None) or ""
         return {
             "type": "tool_call",
             "tool_name": first_call.name,
             "tool_args": args,
+            "reasoning": reasoning.strip(),
             "model_content": model_content,
         }
 
@@ -255,7 +258,7 @@ class GeminiClient:
 
         Returns:
             A normalized dict, either:
-                {"type": "tool_call", "tool_name": str, "tool_args": dict, "model_content": <raw content>}
+                {"type": "tool_call", "tool_name": str, "tool_args": dict, "reasoning": str, "model_content": <raw content>}
             or:
                 {"type": "text", "text": str, "model_content": <raw content>}
         """
