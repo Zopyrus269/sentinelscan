@@ -23,6 +23,16 @@ const signOutButton = document.getElementById("signOutButton");
 
 let currentUser = null;
 
+window.getCurrentUserIdToken = async function () {
+  if (!currentUser) return null;
+  try {
+    return await currentUser.getIdToken();
+  } catch (err) {
+    console.error("Failed to get ID token:", err);
+    return null;
+  }
+};
+
 async function syncSessionWithBackend(user) {
   try {
     const idToken = await user.getIdToken();

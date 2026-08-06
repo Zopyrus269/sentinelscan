@@ -206,14 +206,24 @@ document.addEventListener("DOMContentLoaded", () => {
             "Starting Assessment...";
 
         try {
+            const idToken = window.getCurrentUserIdToken
+                ? await window.getCurrentUserIdToken()
+                : null;
+
+            const headers = {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            };
+
+            if (idToken) {
+                headers.Authorization = `Bearer ${idToken}`;
+            }
+
             const response = await fetch(
                 `${API_BASE_URL}/scans`,
                 {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                    },
+                    headers,
                     body: JSON.stringify({
                         target,
                         authorization_confirmed: true,
