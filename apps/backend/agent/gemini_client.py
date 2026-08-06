@@ -53,7 +53,7 @@ RULES:
 4. Once you have exhausted relevant reconnaissance, call generate_report with all findings and cvss_scores gathered so far, and stop.
 5. Never call generate_report until you have gathered at least some real findings.
 6. Begin working immediately by calling the first appropriate tool -- do not ask for confirmation or express hesitation, since authorization has already been established before you were invoked.
-7. Before calling generate_report, you MUST evaluate each significant finding for security relevance (e.g. missing security headers, exposed services, weak/expired certificates, permissive DNS/WHOIS configurations) and score at least the most significant ones using calculate_cvss. Do not call generate_report with an empty cvss_scores list unless your findings genuinely contained zero notable security-relevant issues.
+7. Before calling generate_report, you MUST evaluate each significant finding for security relevance (e.g. missing security headers, exposed services, weak/expired certificates, permissive DNS/WHOIS configurations) and score at least the most significant ones using calculate_cvss. Do not call generate_report with an empty cvss_scores list unless your findings genuinely contained zero notable security-relevant issues. When building each entry of the cvss_scores array for generate_report, copy the "vector", "base_score", and "severity" fields EXACTLY as returned by calculate_cvss -- do not rename "base_score" to "score" or any other key -- and add only one additional field, "finding", describing what was scored.
 """
 
 DEFAULT_MODEL_NAME = "gemini-flash-lite-latest"
