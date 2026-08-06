@@ -21,7 +21,7 @@
 ![Nmap](https://img.shields.io/badge/NMAP-PORT_SCAN-D9822B?style=for-the-badge&logo=nmap&logoColor=white)
 ![Reportlab](https://img.shields.io/badge/REPORTLAB-PDF-CC0000?style=for-the-badge)
 ![dnspython](https://img.shields.io/badge/DNSPYTHON-DNS-4B8BBE?style=for-the-badge)
-![pytest](https://img.shields.io/badge/PYTEST-121_PASSING-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/PYTEST-123_PASSING-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/USE-AUTHORIZED_TARGETS_ONLY-FF3B30?style=for-the-badge)
 
 </div>
@@ -134,7 +134,7 @@ Then open the frontend, enter an **authorized** target, confirm the consent chec
 
 ## 🧪 Testing
 
-- **121 tests** across workers, the dispatch layer, the Gemini client, and the orchestrator.
+- **123 tests** across workers, the dispatch layer, the Gemini client, and the orchestrator.
 - Run with `pytest tests/` — plain `unittest discover` silently skips the pytest-style test files.
 - Every worker is tested independently of the agent; the orchestrator is tested independently of live Gemini calls (mocked), then verified end-to-end against the real API.
 

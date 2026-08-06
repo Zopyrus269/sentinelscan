@@ -41,9 +41,9 @@ import apps.backend.workers.cvss_worker as cvss_worker
 import apps.backend.workers.whois_worker as whois_worker
 
 
-def _unwrap_dhanush_result(result):
+def _unwrap_worker_envelope(result):
     """
-    Normalizes Dhanush's {worker, status, data, error} envelope shape
+    Normalizes the {worker, status, data, error} envelope shape returned by some workers
     to a flat dict, matching the convention every other worker uses.
     """
     if isinstance(result, dict) and "status" in result and "data" in result:
@@ -62,25 +62,25 @@ def _call_ssl_worker(args: Dict[str, Any]) -> Dict[str, Any]:
     payload: Dict[str, Any] = {"target": args["target"]}
     if "port" in args and args["port"] is not None:
         payload["port"] = args["port"]
-    return _unwrap_dhanush_result(ssl_worker.run_worker(payload))
+    return _unwrap_worker_envelope(ssl_worker.run_worker(payload))
 
 
 def _call_sitemap_worker(args: Dict[str, Any]) -> Dict[str, Any]:
     """Adapts sitemap_parse(url) -> sitemap_worker.run_worker({...})."""
     payload: Dict[str, Any] = {"url": args["url"]}
-    return _unwrap_dhanush_result(sitemap_worker.run_worker(payload))
+    return _unwrap_worker_envelope(sitemap_worker.run_worker(payload))
 
 
 def _call_cvss_worker(args: Dict[str, Any]) -> Dict[str, Any]:
     """Adapts calculate_cvss(base_metrics) -> cvss_worker.run_worker({...})."""
     payload: Dict[str, Any] = {"base_metrics": args["base_metrics"]}
-    return _unwrap_dhanush_result(cvss_worker.run_worker(payload))
+    return _unwrap_worker_envelope(cvss_worker.run_worker(payload))
 
 
 def _call_whois_worker(args: Dict[str, Any]) -> Dict[str, Any]:
     """Adapts whois_lookup(target) -> whois_worker.run_worker({...})."""
     payload: Dict[str, Any] = {"target": args["target"]}
-    return _unwrap_dhanush_result(whois_worker.run_worker(payload))
+    return _unwrap_worker_envelope(whois_worker.run_worker(payload))
 
 
 # Maps each Gemini-facing tool name to a callable that accepts the
