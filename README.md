@@ -140,15 +140,31 @@ Then open the frontend, enter an **authorized** target, confirm the consent chec
 
 ---
 
-## 👥 Team
+## 🧭 Project Status
+SentinelScan started as a college project and is now a working, end-to-end platform: 11 reconnaissance/analysis workers, a live Gemini-driven agent orchestration layer, and a full Flask frontend — built with a resume-quality engineering standard rather than as a rushed MVP.
 
-Built by a 3-person team as a resume-quality college project — not a rushed MVP.
+---
 
-| Member | Focus |
-|---|---|
-| **Shreyas** | AI Agent, orchestration, Reverse DNS / DNS / Port Scanner / Report Generator workers |
-| **Dhanush** | SSL, Sitemap, CVSS, WHOIS workers; frontend integration |
-| **Sanjana** | Cookies, HTTP Headers, robots.txt workers |
+## 🤝 Contributing
+
+SentinelScan is open to contributions from the community. To keep the codebase consistent and reliable, please follow this process:
+
+1. **Fork the repository** and create a new branch for your change (e.g. `feature/your-feature-name` or `fix/your-fix-name`).
+2. **Make your changes** following the existing project conventions:
+   - Workers are single-purpose, zero-logic functions — no analysis, judgment, or severity scoring inside a worker.
+   - All reasoning and decision-making belongs in the Gemini agent layer, not in the frontend or the workers.
+   - Include or update tests for any code you add or change (`pytest tests/`).
+3. **Open a Pull Request** against the `main` branch, with a clear description of what the change does and why.
+4. **Wait for review.** A maintainer will review your PR, run the test suite, and may request changes.
+5. **Once approved and merged**, you'll be recognized as a contributor to the project.
+
+Please do not submit pull requests containing active exploitation code, DDoS tooling, or anything beyond passive/read-only reconnaissance — this project's scope is strictly authorized, non-destructive security assessment.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
