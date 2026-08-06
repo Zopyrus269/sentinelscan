@@ -308,7 +308,7 @@ function getMaximumCvss(cvssScores) {
     }
 
     return cvssScores.reduce((maximum, item) => {
-        const score = Number(item.base_score);
+        const score = Number(item.score);
 
         if (!Number.isFinite(score)) {
             return maximum;
@@ -581,8 +581,8 @@ function renderFindings(findings, cvssScores) {
                 : "INFORMATIONAL";
 
             const baseScore = score &&
-                Number.isFinite(Number(score.base_score))
-                ? Number(score.base_score).toFixed(1)
+                Number.isFinite(Number(score.score))
+                ? Number(score.score).toFixed(1)
                 : null;
 
             const severityStyle =
@@ -740,7 +740,7 @@ function renderCvssScores(cvssScores) {
             const style = getSeverityStyle(severity);
 
             const numericScore =
-                Number(score.base_score);
+                Number(score.score);
 
             const baseScore =
                 Number.isFinite(numericScore)
@@ -1025,7 +1025,7 @@ function buildRecommendations(findings, cvssScores) {
     }
 
     const highRiskScores = cvssScores.filter((score) => {
-        return Number(score.base_score || 0) >= 7;
+        return Number(score.score || 0) >= 7;
     });
 
     if (highRiskScores.length) {
