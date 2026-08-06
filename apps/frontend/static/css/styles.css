@@ -156,7 +156,7 @@ img {
 }
 
 .hidden {
-    display: none !important;
+    display: none;
 }
 
 @media (max-width: 640px) {
