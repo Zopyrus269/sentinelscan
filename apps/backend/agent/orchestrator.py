@@ -116,10 +116,16 @@ def run_scan(
 
         if response["type"] == "tool_call":
             tool_name = response["tool_name"]
-            tool_args = response["tool_args"]
+            tool_args = dict(response["tool_args"])
+            reasoning = tool_args.pop("reasoning", "").strip()
 
             if on_progress is not None:
-                on_progress(iteration=iteration, max_iterations=max_iterations, tool_name=tool_name)
+                on_progress(
+                    iteration=iteration,
+                    max_iterations=max_iterations,
+                    tool_name=tool_name,
+                    reasoning=reasoning,
+                )
 
             if tool_name == "generate_report":
                 scan_duration = time.time() - scan_start_time
@@ -148,7 +154,8 @@ def run_scan(
                 "worker": tool_name.replace("_", " ").title(),
                 "status": "Completed",
                 "duration": tool_duration,
-                "result": "Completed with structured evidence." if not is_failure else f"Failed: {result.get('error', 'Unknown')}"
+                "result": "Completed with structured evidence." if not is_failure else f"Failed: {result.get('error', 'Unknown')}",
+                "reasoning": reasoning,
             })
 
             if is_failure:

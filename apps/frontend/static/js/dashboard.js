@@ -377,7 +377,7 @@ function renderWorkers(events, currentWorker) {
     }
 
     workerGrid.innerHTML = workers
-        .map((worker) => {
+        .map(({ tool_name: worker, reasoning }) => {
             const isCurrent =
                 worker === currentWorker;
 
@@ -423,7 +423,7 @@ function renderWorkers(events, currentWorker) {
                         class="text-body-sm text-on-surface-variant mt-xs"
                     >
                         ${escapeHtml(
-                            getWorkerDescription(worker)
+                            reasoning || getWorkerDescription(worker)
                         )}
                     </p>
                 </article>
@@ -459,17 +459,18 @@ function renderInsight(scan) {
 }
 
 function collectWorkers(events) {
-    return [
-        ...new Set(
-            events
-                .map((event) => event.tool_name)
-                .filter(Boolean)
-                .filter(
-                    (worker) =>
-                        worker !== "generate_report"
-                )
-        ),
-    ];
+    const seen = new Map();
+
+    events
+        .filter((event) => event.tool_name && event.tool_name !== "generate_report")
+        .forEach((event) => {
+            seen.set(event.tool_name, event.reasoning || "");
+        });
+
+    return [...seen.entries()].map(([tool_name, reasoning]) => ({
+        tool_name,
+        reasoning,
+    }));
 }
 
 function enableReportButton() {

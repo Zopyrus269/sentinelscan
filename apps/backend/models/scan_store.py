@@ -44,7 +44,7 @@ def update_scan(scan_id: str, **fields: Any) -> None:
             _SCANS[scan_id].update(fields)
 
 
-def add_scan_event(scan_id: str, level: str, message: str, tool_name: Optional[str] = None) -> None:
+def add_scan_event(scan_id: str, level: str, message: str, tool_name: Optional[str] = None, reasoning: Optional[str] = None) -> None:
     """Appends an event to the scan's events list."""
     with _lock:
         if scan_id in _SCANS:
@@ -53,6 +53,7 @@ def add_scan_event(scan_id: str, level: str, message: str, tool_name: Optional[s
                 "level": level,
                 "message": message,
                 "tool_name": tool_name,
+                "reasoning": reasoning,
             })
 
 
