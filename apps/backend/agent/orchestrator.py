@@ -90,9 +90,15 @@ def run_scan(
             scan_duration = time.time() - scan_start_time
             result = generate_report(
                 target=target,
-                findings=[],
+                findings=[{
+                    "worker": "orchestrator",
+                    "severity": "INFORMATIONAL",
+                    "summary": f"Scan aborted due to AI API error: {e}",
+                    "what_it_means": "The scan could not complete because the AI orchestration service was unavailable or returned an error.",
+                    "recommendation": "Retry the scan. If the issue persists, check the Gemini API key and service status.",
+                    "raw_data": str(e)
+                }],
                 cvss_scores=[],
-                simple_explanation=f"Scan aborted due to AI API error: {e}",
                 worker_coverage=worker_coverage,
                 scan_duration=scan_duration
             )

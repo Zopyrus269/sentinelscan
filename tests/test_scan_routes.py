@@ -108,8 +108,15 @@ class TestScanRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json()["target"], "example.com")
 
-    def test_get_report_pdf_for_nonexistent_scan_returns_404(self):
+    def test_get_report_pdf_for_nonexistent_scan_unauthenticated_returns_401(self):
         resp = self.client.get("/api/v1/reports/does-not-exist/pdf")
+        self.assertEqual(resp.status_code, 401)
+
+    def test_get_report_pdf_for_nonexistent_scan_authenticated_returns_404(self):
+        from unittest.mock import patch
+        with patch("apps.backend.routes.scan_routes._verify_token_inline", return_value="fake-uid-123"):
+            with patch("apps.backend.routes.scan_routes.get_history_scan", return_value=None):
+                resp = self.client.get("/api/v1/reports/does-not-exist/pdf")
         self.assertEqual(resp.status_code, 404)
 
 
