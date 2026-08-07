@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "knowledge-vault": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./knowledge"]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__knowledge-vault__*"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/post_commit_vault_reminder.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
