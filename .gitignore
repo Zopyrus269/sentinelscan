@@ -100,3 +100,9 @@ reports/*.json
 apps/backend/agent/gemini_cache.sqlite3
 secrets/
 auth_session.json
+
+# Claude Code local-only files
+.claude/settings.local.json
+
+# Obsidian vault local state (not project content)
+.obsidian/
