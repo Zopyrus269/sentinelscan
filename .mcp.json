@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "knowledge-vault": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:/Dev/SentinelScan-Project/knowledge"]
+      "command": "node",
+      "args": [
+        "./node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
+        "C:/Dev/SentinelScan-Project/knowledge"
+      ]
     }
   }
 }
