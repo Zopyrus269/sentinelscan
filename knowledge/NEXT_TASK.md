@@ -10,7 +10,7 @@ This file is always **overwritten**, not appended — it reflects the current ha
 
 ## What's next
 
-Nothing feature-related is queued yet. The immediate next step (if continuing this session's work) is finishing the AI-workflow setup itself: `.mcp.json`, `.claude/settings.json` (permissions + post-commit hook), and an end-to-end dry run. See `knowledge/daily-logs/2026-08-07.md` for the build sequence and what's done so far.
+The AI-workflow setup (CLAUDE.md, knowledge vault, filesystem MCP, post-commit hook) is built and committed. One verification step remains: **restart/reconnect Claude Code** so the new `.mcp.json` server is picked up, then confirm the `knowledge-vault` MCP connection works (list `knowledge/` via the tool; confirm an out-of-vault read attempt is refused). After that, the workflow is ready for real feature requests — no further setup work is queued.
 
 ## Why
 
@@ -18,7 +18,7 @@ The user asked for a persistent AI development workflow (planning-gate, frontend
 
 ## Blockers
 
-None currently known. One thing to verify empirically once `.mcp.json` exists: whether `@modelcontextprotocol/server-filesystem`'s relative path arg (`./knowledge`) actually resolves against the project root as expected, or whether a local absolute-path workaround is needed post-clone.
+None. The one open item (MCP live-connection check) is a verification step, not a blocker — the relative-path resolution it would check was already confirmed empirically by running the server manually (see `knowledge/daily-logs/2026-08-07.md`).
 
 ## Links
 
