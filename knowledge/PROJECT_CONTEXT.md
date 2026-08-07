@@ -6,7 +6,7 @@ updated_by: claude-code
 
 # Project Context
 
-Living "state of the union" for SentinelScan. This file changes as the project evolves — for the unchanging product vision, see `docs/PRD.md`. For the static system design, see `docs/ARCHITECTURE.md` (and `knowledge/ARCHITECTURE.md` for deltas not yet folded back into it).
+Living "state of the union" for SentinelScan. This file changes as the project evolves — for the unchanging product vision, see `docs/PRD.md`. For the static system design, see `docs/ARCHITECTURE.md` (and [[ARCHITECTURE]] for deltas not yet folded back into it).
 
 ## What SentinelScan is
 
@@ -18,7 +18,7 @@ Scope is strictly passive/read-only reconnaissance for explicitly authorized tar
 
 Public-release polish. The project started as a college project and is now a working end-to-end platform. Recent commits (as of 2026-08-07) focused on preparing the repo for public release: renaming internal helpers, updating README, adding contributing guidelines and license section, removing internal team attribution.
 
-This session's work: setting up a persistent Claude Code development workflow (this knowledge vault, `CLAUDE.md`, MCP filesystem access, and an automatic post-commit vault-update nudge) — see `knowledge/daily-logs/2026-08-07.md`.
+This session's work: setting up a persistent Claude Code development workflow (this knowledge vault, `CLAUDE.md`, MCP filesystem access, and an automatic post-commit vault-update nudge), followed same-day by a workflow audit that found and fixed an MCP scoping gap and a duplicate Obsidian vault root — see [[2026-08-07]].
 
 ## What works end-to-end today
 
@@ -44,7 +44,12 @@ This session's work: setting up a persistent Claude Code development workflow (t
 - `README.md` has an uncommitted local modification as of 2026-08-07 (pre-dates this session's work, not investigated).
 - README test-count mismatch noted above.
 
-None of the above were touched as part of the AI-workflow setup — see `knowledge/daily-logs/2026-08-07.md` for why.
+None of the above were touched as part of the AI-workflow setup or its audit — see [[2026-08-07]] for why.
+
+## Workflow tooling status (as of 2026-08-07 audit)
+
+- `knowledge-vault` MCP is now correctly scoped to `knowledge/` only (fixed: `.mcp.json` used a relative path that wasn't resolving against the intended root; switched to an absolute path — verified directly against the MCP protocol). The live Claude Code session still needs a reconnect to pick this up; see [[NEXT_TASK]].
+- The vault's Obsidian setup previously had two `.obsidian/` directories (repo root and `knowledge/`); the stale root one was removed. `knowledge/` is now the sole, canonical vault root.
 
 ## Required reading before architectural changes
 
