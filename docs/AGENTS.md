@@ -1,3 +1,5 @@
+> **Superseded by `CLAUDE.md` for Claude Code sessions.** This file remains the instructions document for the Antigravity coding agent; Claude Code reads `CLAUDE.md` at the repo root instead.
+
 # Agent Instructions (Antigravity)
 
 As the Antigravity coding agent working on the SentinelScan repository, you must adhere strictly to the following guidelines in all future sessions:
