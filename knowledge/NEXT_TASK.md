@@ -10,12 +10,12 @@ This file is always **overwritten**, not appended — it reflects the current ha
 
 ## What's next
 
-Three things are now done, verified, and committed (see [[2026-08-09]] for full detail):
+**Immediate next task: deployment.** Three prior things are done, verified, and committed (see [[2026-08-09]] for full detail):
 1. Synced local `main` with upstream (4 commits it had missed).
 2. Fixed the first round of user-reported bugs (dark-mode CSS, Gemini 401, dead footer links).
-3. Built and fully verified the team secrets bootstrap system — teammates can now run `python scripts/bootstrap_env.py` to fetch shared dev secrets from Firestore instead of manually re-typing them, gated to allowlisted developers via their own Google Sign-In (no shared password, reuses the site's existing auth). See `scripts/README.md` for the full setup/usage flow.
+3. Built and fully verified the team secrets bootstrap system — teammates can now run `python scripts/bootstrap_env.py` to fetch shared dev secrets from Firestore instead of manually re-typing them, gated to allowlisted developers via their own Google Sign-In (no shared password, reuses the site's existing auth). See `scripts/README.md` for the full setup/usage flow, and a **teammate-facing handoff doc was given directly in chat** (not stored in this vault verbatim — it's an external deliverable for the user to share with their team, covering the same setup/usage flow in a form meant to leave the repo).
 
-**Only remaining deferred item: Deployment.** User wants a free hosting platform with auto-deploy on `git push` to `main`, so the team can add features/fix bugs while the site stays live. Not yet scoped in detail. Candidates identified but not evaluated in depth: Render or Railway (both support GitHub auto-deploy on a free tier). Needs its own plan once started — this is a new feature/infra change, so enter plan mode first per `CLAUDE.md` §6. Things that plan will need to cover:
+**Deployment, not yet started.** User wants a free hosting platform with GitHub auto-deploy on push to `main`, so the team can keep shipping features/fixes while the site stays live. Not yet scoped in detail. Candidates identified but not evaluated in depth: Render or Railway (both support GitHub auto-deploy on a free tier). Needs its own plan once started — this is a new feature/infra change, so enter plan mode first per `CLAUDE.md` §6. Things that plan will need to cover:
 - Build/start commands for a Flask app that also serves static frontend files.
 - Env var provisioning on the host — decide whether to wire in the new secrets-bootstrap system (item 3 above) so the deployed server pulls its own secrets from Firestore at boot, vs. just setting them manually in the host's dashboard once. The bootstrap system's `bootstrap_env.py` script only really becomes useful for *teammates* once a live URL exists to point `--server-url` at, so deployment and item 3 are linked.
 - Whether SQLite (`DATABASE_URL=sqlite:///...`) persistence survives redeploys on the chosen host, or whether a hosted Postgres is needed (see `docs/ARCHITECTURE.md`'s note that SQLite was always intended to be swappable).
@@ -31,6 +31,10 @@ Three things are now done, verified, and committed (see [[2026-08-09]] for full 
 - **Always run the local dev server as `http://localhost:5000`.** Firebase's authorized-domains whitelist for this project only covers `localhost` — a different host/port breaks Google Sign-In popups (both normal site login and the secrets-bootstrap OAuth exchange) unless that origin is deliberately added to Firebase first.
 - **When creating any new Google Cloud OAuth client for this project, verify the project selector shows `sentinelscan-3f82d` (project number `60214574079`) before creating it.** GCP will silently let you create credentials in an unrelated project, and Firebase will reject tokens from the wrong one with `INVALID_IDP_RESPONSE` — this happened once already during the bootstrap system's setup, see [[2026-08-09]].
 - **Restart the Flask dev server after any `.env` change** — `load_dotenv()` only runs at process startup, there's no hot-reload for env files.
+
+## Note: secrets bootstrap is not automatic on `git pull`
+
+A teammate must manually run `python scripts/bootstrap_env.py` after pulling — there is no `post-merge` git hook wired up yet to trigger it automatically (this was noted as an "optional nicety" during planning but not built). If the user asks for pull-triggered automation later, add a `post-merge` hook following the same pattern as the existing `.claude/hooks/post_commit_vault_reminder.py`.
 
 ## Blockers
 
