@@ -52,7 +52,7 @@ img {
 .glass-card {
     background: rgba(255, 255, 255, 0.82);
     backdrop-filter: blur(8px);
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--ss-border);
 }
 
 /* Authorization modal */
@@ -377,6 +377,26 @@ html.dark .report-json,
 html.dark pre,
 html.dark code {
     border-color: var(--ss-border);
+}
+
+html.dark #modalScrollableContent::-webkit-scrollbar-thumb,
+html.dark .terminal-container::-webkit-scrollbar-thumb,
+html.dark .report-json::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+html.dark #modalScrollableContent::-webkit-scrollbar-thumb:hover,
+html.dark .terminal-container::-webkit-scrollbar-thumb:hover,
+html.dark .report-json::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+html.dark .text-error {
+    color: #ffb4ab !important;
+}
+
+html.dark .text-warning {
+    color: #fcd34d !important;
 }
 
 html.dark ::selection {

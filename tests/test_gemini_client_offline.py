@@ -63,7 +63,7 @@ class TestGeminiClientOffline(unittest.TestCase):
             mock_client_instance = MagicMock()
             mock_client_instance.models.generate_content = generate_content_mock
             MockClientClass.return_value = mock_client_instance
-            client = GeminiClient(api_key="AIza-fake-test-key", cache_db_path=self.cache_path)
+            client = GeminiClient(api_key="fake-test-key", cache_db_path=self.cache_path)
         return client
 
     def test_text_response_parsing(self):
