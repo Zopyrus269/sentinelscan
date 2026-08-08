@@ -7,7 +7,7 @@ agent loop can invoke ANY tool the same way:
 
     result = dispatch_tool(tool_name, tool_args)
 
-This matters because our 11 workers were built by 3 different people
+This matters because our workers were built by multiple people
 and ended up with two different calling conventions:
 
   - 7 workers (Reverse DNS, DNS, Port Scanner, Report Generator,
@@ -34,6 +34,7 @@ from apps.backend.workers.report_worker import generate_report
 from apps.backend.workers.cookie_worker import cookie_worker
 from apps.backend.workers.headers_worker import headers_worker
 from apps.backend.workers.robots_worker import robots_worker
+from apps.backend.workers.ddos_worker import ddos_resilience_check
 
 import apps.backend.workers.ssl_worker as ssl_worker
 import apps.backend.workers.sitemap_worker as sitemap_worker
@@ -72,8 +73,11 @@ def _call_sitemap_worker(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _call_cvss_worker(args: Dict[str, Any]) -> Dict[str, Any]:
-    """Adapts calculate_cvss(base_metrics) -> cvss_worker.run_worker({...})."""
-    payload: Dict[str, Any] = {"base_metrics": args["base_metrics"]}
+    """Adapts the single or batch CVSS phase to ``cvss_worker.run_worker``."""
+    if "items" in args:
+        payload: Dict[str, Any] = {"items": args.get("items", [])}
+    else:
+        payload = {"base_metrics": args["base_metrics"]}
     return _unwrap_worker_envelope(cvss_worker.run_worker(payload))
 
 
@@ -94,6 +98,7 @@ TOOL_DISPATCH: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     "http_headers": lambda args: headers_worker(args["target"]),
     "cookie_analysis": lambda args: cookie_worker(args["target"]),
     "robots_txt_parse": lambda args: robots_worker(args["target"]),
+    "ddos_resilience_check": lambda args: ddos_resilience_check(args["target"]),
     "ssl_check": _call_ssl_worker,
     "sitemap_parse": _call_sitemap_worker,
     "calculate_cvss": _call_cvss_worker,

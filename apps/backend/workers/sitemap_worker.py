@@ -15,8 +15,8 @@ import requests
 
 
 WORKER_NAME = "sitemap"
-DEFAULT_TIMEOUT = 10.0
-USER_AGENT = "SentinelScan-SitemapWorker/1.0"
+DEFAULT_TIMEOUT = 15.0
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 
 def normalize_sitemap_url(raw_url: str) -> str:

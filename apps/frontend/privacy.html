@@ -1,6 +1,17 @@
 <!DOCTYPE html>
-<html class="light" lang="en">
+<html lang="en">
 <head>
+    <script>
+        (() => {
+            const key = "sentinelscan_theme";
+            const stored = localStorage.getItem(key);
+            const preference = ["light", "dark", "system"].includes(stored) ? stored : "system";
+            const dark = preference === "dark" || (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.toggle("dark", dark);
+            document.documentElement.classList.toggle("light", !dark);
+            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        })();
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SentinelScan privacy policy and data handling practices.">
@@ -35,6 +46,7 @@
         };
     </script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/js/theme.js" defer></script>
 </head>
 <body class="bg-background text-on-background selection:bg-primary selection:text-on-primary">
     <header class="border-b border-border bg-surface">

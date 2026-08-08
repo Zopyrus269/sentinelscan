@@ -11,7 +11,7 @@ The AI Agent is the core orchestration engine of SentinelScan, leveraging the Go
 - Finding correlation
 - Severity determination
 - Recommendation generation
-- Overall Security Score generation (project-defined score)
+- CVSS-aware report handoff; the final 0-100 security gauge is derived deterministically by the Report Generator from the maximum validated CVSS score
 - Executive Summary generation
 - Complete report preparation
 
@@ -32,15 +32,31 @@ AVAILABLE TOOLS:
 - cookie_analysis
 - robots_txt_parse
 - sitemap_parse
+- ddos_resilience_check
 - calculate_cvss
 - generate_report
 
 RULES:
 1. Do not repeat tools unnecessarily unless checking a newly discovered sub-target or port.
 2. If a port scan reveals HTTP(80) or HTTPS(443), you should follow up with web-specific tools (ssl_check, http_headers, etc.).
-3. Once you have exhausted all relevant reconnaissance tools based on the attack surface, invoke `generate_report` and finish.
-4. Your responses must be strictly formatted as a tool call or a completion message.
+3. `ddos_resilience_check` is passive and informational only. It must never generate attack traffic, and absence of a public CDN/WAF indicator must not be treated as proof of missing DDoS protection or as a CVSS vulnerability by itself.
+4. Once you have exhausted all relevant reconnaissance tools based on the attack surface, invoke `generate_report` and finish.
+5. Your responses must be strictly formatted as a tool call or a completion message.
 ```
+
+
+## Security Score Display Mapping
+SentinelScan keeps the official CVSS v3.1 base score separate from its 0-100 project posture gauge. The report layer maps the **maximum validated positive CVSS score** into the requested display band:
+
+| CVSS severity | CVSS range | Overall security score |
+| --- | ---: | ---: |
+| Critical | 9.0-10.0 | 0-10 / 100 |
+| High | 7.0-8.9 | 10-30 / 100 |
+| Medium | 4.0-6.9 | 30-60 / 100 |
+| Low | 0.1-3.9 | 60-80 / 100 |
+| None / Informational | 0.0 or N/A | 100 / 100 |
+
+The mapping is linearly interpolated within each CVSS band. Informational-only observations do not receive CVSS and cannot lower the gauge. The 0-100 value is a SentinelScan project display metric, **not an official CVSS metric**.
 
 ## Tool Definitions (Callable Functions)
 Workers are exposed to Gemini via Gemini's Function Calling API. Each tool requires a JSON schema defining its parameters.

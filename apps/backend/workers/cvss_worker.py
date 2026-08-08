@@ -234,20 +234,73 @@ def format_error_response(error_message: str) -> Dict[str, Any]:
 
 
 def run_worker(input_payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Validate input payload, compute CVSS v3.1 Base Score, and return result.
+    """Validate input and compute CVSS v3.1 scores.
 
-    Args:
-        input_payload (Dict[str, Any]): Input dictionary containing 'base_metrics'.
+    Backward-compatible input forms:
 
-    Returns:
-        Dict[str, Any]: Standardized JSON-serializable response payload.
+    1. Single finding::
+
+        {"base_metrics": {...}}
+
+    2. One SentinelScan scoring phase containing multiple retained findings::
+
+        {
+            "items": [
+                {
+                    "finding": "...",
+                    "evidence": "...",
+                    "recommendation": "...",
+                    "base_metrics": {...}
+                }
+            ]
+        }
+
+    The worker only performs CVSS mathematics. It does not decide which
+    observations are vulnerabilities and it does not invent base metrics.
     """
     if not isinstance(input_payload, dict):
         return format_error_response("Input payload must be a JSON object.")
 
+    if "items" in input_payload:
+        items = input_payload.get("items")
+        if not isinstance(items, list):
+            return format_error_response("'items' must be a JSON array.")
+
+        scores = []
+        errors = []
+        for index, item in enumerate(items):
+            if not isinstance(item, dict):
+                errors.append({"index": index, "error": "Item must be a JSON object."})
+                continue
+
+            base_metrics = item.get("base_metrics")
+            validation_error = validate_metrics(base_metrics)
+            if validation_error:
+                errors.append({"index": index, "finding": item.get("finding"), "error": validation_error})
+                continue
+
+            vector = build_vector_string(base_metrics)
+            score = calculate_base_score(base_metrics)
+            severity = determine_severity(score)
+            scores.append({
+                "finding": item.get("finding", f"Finding {index + 1}"),
+                "evidence": item.get("evidence"),
+                "recommendation": item.get("recommendation", ""),
+                "vector": vector,
+                "base_score": score,
+                "severity": severity,
+            })
+
+        return format_success_response({
+            "scores": scores,
+            "scored_count": len(scores),
+            "input_count": len(items),
+            "errors": errors,
+        })
+
     if "base_metrics" not in input_payload:
         return format_error_response(
-            "Missing required field 'base_metrics' in input payload."
+            "Missing required field 'base_metrics' (or batch field 'items') in input payload."
         )
 
     base_metrics = input_payload["base_metrics"]
@@ -266,7 +319,6 @@ def run_worker(input_payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     return format_success_response(data)
-
 
 def main() -> None:
     """CLI Entry point for executing the CVSS worker.

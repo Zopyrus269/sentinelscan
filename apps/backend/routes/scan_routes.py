@@ -80,15 +80,70 @@ def _run_scan_background(scan_id: str, target: str, uid: str = None) -> None:
     """Runs the agent scan on a background thread, updating scan_store as it progresses."""
     update_scan(scan_id, status="IN_PROGRESS")
 
-    unique_tools = set()
+    evidence_tools = {
+        "dns_lookup", "reverse_dns_lookup", "whois_lookup", "ssl_check",
+        "http_headers", "cookie_analysis", "robots_txt_parse", "sitemap_parse",
+        "port_scan", "ddos_resilience_check",
+    }
+    completed_evidence = set()
 
-    def on_progress(iteration: int, max_iterations: int, tool_name: str, reasoning: str = "") -> None:
-        if tool_name != "generate_report":
-            unique_tools.add(tool_name)
-        # Give ~9% progress for each unique worker started, capping at 95% until complete
-        percent = min(95, 5 + (len(unique_tools) * 9))
-        update_scan(scan_id, current_action=tool_name, progress_percent=percent)
-        add_scan_event(scan_id, level="info", message=f"Running {tool_name}", tool_name=tool_name, reasoning=reasoning)
+    def on_progress(
+        iteration: int,
+        max_iterations: int,
+        tool_name: str,
+        reasoning: str = "",
+        phase: str = "selected",
+        action: str = "",
+        summary: str = "",
+        status: str = "",
+        duration: float = 0.0,
+        **_: object,
+    ) -> None:
+        """Translate agent stages into monotonic UI progress and reasoning logs."""
+        if phase == "completed" and tool_name in evidence_tools:
+            completed_evidence.add(tool_name)
+
+        if tool_name in evidence_tools:
+            # 5-80% is reserved for the ten evidence categories.
+            percent = 5 + int(round((len(completed_evidence) / 10.0) * 75))
+            if phase == "selected" and not completed_evidence:
+                percent = 5
+        elif tool_name == "calculate_cvss":
+            percent = 90 if phase == "selected" else 96
+        elif tool_name == "generate_report":
+            percent = 97 if phase == "selected" else 99
+        else:
+            percent = 5
+
+        current = "Complete" if phase == "completed" and tool_name == "generate_report" else tool_name
+        update_scan(scan_id, current_action=current, progress_percent=min(99, percent))
+
+        if phase == "selected":
+            message = f"AI selected {tool_name}."
+            if action:
+                message += f" Action: {action}"
+            add_scan_event(
+                scan_id,
+                level="info",
+                message=message,
+                tool_name=tool_name,
+                reasoning=reasoning,
+                phase="selected",
+                worker_status="RUNNING",
+                action=action,
+            )
+        else:
+            result_text = summary or f"{tool_name} finished with status {status or 'COMPLETED'}."
+            add_scan_event(
+                scan_id,
+                level="info" if str(status).upper() not in {"FAILED", "TIMEOUT", "UNREACHABLE"} else "warning",
+                message=f"{tool_name} {str(status or 'COMPLETED').lower()}: {result_text}",
+                tool_name=tool_name,
+                reasoning=reasoning,
+                phase="completed",
+                worker_status=str(status or "COMPLETED").upper(),
+                action=action,
+            )
 
     try:
         result = run_scan(target, on_progress=on_progress)
@@ -97,7 +152,7 @@ def _run_scan_background(scan_id: str, target: str, uid: str = None) -> None:
             update_scan(
                 scan_id,
                 status="COMPLETED",
-                current_action=None,
+                current_action="Complete",
                 progress_percent=100,
                 completed_at=datetime.now(timezone.utc).isoformat(),
                 pdf_path=report.get("pdf_path"),
@@ -265,12 +320,34 @@ def get_report_pdf(scan_id: str):
         return _error("No report data found for this historical scan.", 404)
         
     # Regenerate PDF from historical JSON
-    from apps.backend.workers.report_worker import _generate_pdf
+    from apps.backend.workers.report_worker import (
+        _generate_pdf, _risk_label, _severity_for_cvss, security_score_from_cvss,
+    )
     
     tmp_dir = tempfile.gettempdir()
     tmp_pdf_path = os.path.join(tmp_dir, f"sentinelscan_{scan_id}.pdf")
     
     try:
+        maximum_cvss = report_data.get("maximum_cvss")
+        try:
+            maximum_cvss = float(maximum_cvss) if maximum_cvss is not None else None
+        except (TypeError, ValueError):
+            maximum_cvss = None
+
+        security_score = int(
+            report_data.get("security_score")
+            if report_data.get("security_score") is not None
+            else security_score_from_cvss(maximum_cvss)
+        )
+        maximum_cvss_severity = str(
+            report_data.get("maximum_cvss_severity")
+            or _severity_for_cvss(maximum_cvss)
+        )
+        risk_label = str(
+            report_data.get("risk_label")
+            or _risk_label(maximum_cvss)
+        )
+
         _generate_pdf(
             pdf_path=tmp_pdf_path,
             target=report_data.get("target", "Unknown"),
@@ -280,7 +357,11 @@ def get_report_pdf(scan_id: str):
             findings=report_data.get("findings", []),
             cvss_scores=report_data.get("cvss_scores", []),
             worker_coverage=report_data.get("worker_coverage", []),
-            scan_duration=report_data.get("scan_duration", 0.0)
+            scan_duration=report_data.get("scan_duration", 0.0),
+            security_score=security_score,
+            maximum_cvss=maximum_cvss,
+            maximum_cvss_severity=maximum_cvss_severity,
+            risk_label=risk_label,
         )
         return send_file(tmp_pdf_path, mimetype="application/pdf", as_attachment=True)
     except Exception as e:

@@ -65,14 +65,22 @@ Workers are isolated Python scripts. They take inputs (usually a domain or IP), 
 - **Error Handling**: Handles invalid XML parsing gracefully.
 - **Dependencies**: `requests`, `BeautifulSoup`
 
-### 10. CVSS Scoring Worker
+### 10. Passive DDoS Resilience Worker
+- **Purpose**: Passively inspects public DNS and HTTP metadata for observable CDN, WAF, reverse-proxy, edge-network, rate-limit, and challenge indicators.
+- **Input**: `{"target": "string"}`
+- **Output JSON**: Includes `posture` (`DETECTED`, `NOT_OBSERVED`, or `INCONCLUSIVE`), provider indicators, relevant headers, DNS metadata, rate-limit indicators, and explicit limitations.
+- **Safety**: Performs no flooding, stress testing, load generation, exploitation, or availability testing. Absence of indicators does not prove protection is absent.
+- **CVSS**: Informational only; the worker returns no vulnerability findings by itself and must not be scored solely because no provider indicator is visible.
+- **Dependencies**: `requests`, `socket` (built-in)
+
+### 11. CVSS Scoring Worker
 - **Purpose**: Calculates standard CVSSv3 scores based on vulnerability vectors found by the agent. Note that the AI Agent (Gemini) is responsible for inferring the CVSS base metrics (AV, AC, PR, UI, S, C, I, A) from the raw findings of other workers before calling this tool. The CVSS worker does not perform interpretation; it is strictly for mathematical calculation.
 - **Input**: `{"base_metrics": {"AV": "N", "AC": "L", "PR": "N", "UI": "N", "S": "U", "C": "H", "I": "H", "A": "H"}}`
 - **Output JSON**: `{"vector": "CVSS:3.1/...", "base_score": 9.8, "severity": "CRITICAL"}`
 - **Error Handling**: Validates metric inputs against CVSS specifications.
 - **Dependencies**: Native python math / static lookup tables.
 
-### 11. Report Generator Worker
+### 12. Report Generator Worker
 - **Purpose**: Formats AI-generated report data into PDF and JSON deliverables. It performs ZERO analysis.
 - **Input**: Fully prepared JSON from the AI Agent (`{"executive_summary": "...", "findings": [...], "recommendations": [...], "overall_security_score": 85, "cvss_scores": [...], "metadata": {...}}`)
 - **Output JSON**: `{"pdf_path": "/reports/scan_1.pdf", "json_path": "/reports/scan_1.json"}`

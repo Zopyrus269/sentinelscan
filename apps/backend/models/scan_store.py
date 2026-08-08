@@ -44,17 +44,42 @@ def update_scan(scan_id: str, **fields: Any) -> None:
             _SCANS[scan_id].update(fields)
 
 
-def add_scan_event(scan_id: str, level: str, message: str, tool_name: Optional[str] = None, reasoning: Optional[str] = None) -> None:
-    """Appends an event to the scan's events list."""
+def add_scan_event(
+    scan_id: str,
+    level: str,
+    message: str,
+    tool_name: Optional[str] = None,
+    reasoning: Optional[str] = None,
+    phase: Optional[str] = None,
+    worker_status: Optional[str] = None,
+    action: Optional[str] = None,
+    **extra: Any,
+) -> None:
+    """Append a structured scan event used by the live dashboard.
+
+    ``phase``, ``worker_status`` and ``action`` are emitted by the AI
+    orchestrator progress callback.  Keeping them in the scan event is
+    important because the frontend uses these fields to distinguish selected,
+    completed, failed and not-applicable stages.  ``**extra`` keeps this store
+    forwards-compatible with additional non-sensitive UI metadata.
+    """
+    event = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "level": level,
+        "message": message,
+        "tool_name": tool_name,
+        "reasoning": reasoning,
+        "phase": phase,
+        "worker_status": worker_status,
+        "action": action,
+    }
+
+    # Preserve only explicitly supplied extra metadata.
+    event.update({key: value for key, value in extra.items() if value is not None})
+
     with _lock:
         if scan_id in _SCANS:
-            _SCANS[scan_id]["events"].append({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "level": level,
-                "message": message,
-                "tool_name": tool_name,
-                "reasoning": reasoning,
-            })
+            _SCANS[scan_id]["events"].append(event)
 
 
 def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:
