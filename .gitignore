@@ -100,6 +100,7 @@ reports/*.json
 apps/backend/agent/gemini_cache.sqlite3
 secrets/
 auth_session.json
+scripts/oauth_client.json
 
 # Claude Code local-only files
 .claude/settings.local.json
