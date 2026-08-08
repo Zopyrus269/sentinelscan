@@ -10,33 +10,41 @@ This file is always **overwritten**, not appended — it reflects the current ha
 
 ## What's next
 
-The `origin/main` sync and the 3 bugs found during the user's first round of manual testing (dark-mode borders, Gemini 401, dead footer links) are all fixed, verified, and committed. See [[2026-08-09]] for full detail. The app is running locally on `localhost:5000` and was confirmed working by the user.
+Three things are now done, verified, and committed (see [[2026-08-09]] for full detail):
+1. Synced local `main` with upstream (4 commits it had missed).
+2. Fixed the first round of user-reported bugs (dark-mode CSS, Gemini 401, dead footer links).
+3. Built and fully verified the team secrets bootstrap system — teammates can now run `python scripts/bootstrap_env.py` to fetch shared dev secrets from Firestore instead of manually re-typing them, gated to allowlisted developers via their own Google Sign-In (no shared password, reuses the site's existing auth). See `scripts/README.md` for the full setup/usage flow.
 
-Two explicitly deferred items, in the order the user is expected to want them (confirm before starting either):
-
-1. **Team secrets bootstrap system.** The user asked for teammates to automatically get the correct shared API keys/secrets after pulling `main`, instead of manually re-entering them, and for production secrets to live server-side (not in the public repo). Design already scoped and approved in spirit but explicitly put on hold by the user pending this round's verification (now done) — needs an explicit "go" before building:
-   - New Firestore doc `config/secrets` (shared dev values), new `developers/{uid}` allowlist collection, a `require_developer` decorator layered on the existing `require_auth` (`apps/backend/auth/auth_utils.py`), a new protected endpoint (`GET /api/v1/dev/bootstrap-secrets`), and a `scripts/bootstrap_env.py` a teammate runs to fetch and write their local `.env`.
-   - Deliberately reuses the existing Firebase Admin SDK / `require_auth` pattern already in the codebase rather than inventing a new auth mechanism.
-   - Fully useful only once the app is deployed (the bootstrap script calls a live backend URL) — ties directly into item 2.
-2. **Deployment.** User wants a free hosting platform with auto-deploy on `git push` to `main`, so the team can add features/fix bugs while the site stays live. Candidates identified but not yet scoped in detail: Render or Railway (both support GitHub auto-deploy on a free tier). Needs its own plan once started: build/start commands, env var provisioning (or wiring in item 1's bootstrap instead of manual dashboard env vars), whether SQLite persistence survives redeploys, secrets handling for the Firebase service account.
+**Only remaining deferred item: Deployment.** User wants a free hosting platform with auto-deploy on `git push` to `main`, so the team can add features/fix bugs while the site stays live. Not yet scoped in detail. Candidates identified but not evaluated in depth: Render or Railway (both support GitHub auto-deploy on a free tier). Needs its own plan once started — this is a new feature/infra change, so enter plan mode first per `CLAUDE.md` §6. Things that plan will need to cover:
+- Build/start commands for a Flask app that also serves static frontend files.
+- Env var provisioning on the host — decide whether to wire in the new secrets-bootstrap system (item 3 above) so the deployed server pulls its own secrets from Firestore at boot, vs. just setting them manually in the host's dashboard once. The bootstrap system's `bootstrap_env.py` script only really becomes useful for *teammates* once a live URL exists to point `--server-url` at, so deployment and item 3 are linked.
+- Whether SQLite (`DATABASE_URL=sqlite:///...`) persistence survives redeploys on the chosen host, or whether a hosted Postgres is needed (see `docs/ARCHITECTURE.md`'s note that SQLite was always intended to be swappable).
+- Secrets handling for `secrets/firebase-service-account.json` — this is the one credential that can't come from the bootstrap system itself (it's what makes the bootstrap system work), so it needs to be set directly as a host secret/env var.
+- **Whatever origin the deployed site ends up on must be added to Firebase's authorized domains list**, or Google Sign-In (both normal site login and the bootstrap OAuth exchange) will break there — see the standing constraint below.
+- A production-appropriate OAuth client may be needed alongside (or instead of) the current Desktop-app one used for local bootstrap testing, if the deployed environment changes how teammates would run the bootstrap script (e.g. still locally, pointed at the prod URL — Desktop app flow still works fine for that case, likely no change needed, but worth double-checking during deployment planning).
 
 ## Standing rules for this engagement (apply to all future sessions, not just this one)
 
-- **Never spawn a subagent without asking the user first and stating the reason** — overrides the general cost-aware sub-agent policy in `CLAUDE.md` §8; approval must come first regardless of task size.
-- **Never write to `knowledge/` while implementation work is in progress** — read-only during active work; writes (this file, daily-logs, ARCHITECTURE.md deltas) only happen after everything for that unit of work is implemented, tested, and committed.
-- **All frontend work (HTML/CSS/JS under `apps/frontend/`) is delegated to Gemini 3.1 Pro**, not implemented directly — write a self-contained prompt, output it in chat for the user to run through Gemini (which has folder access), wait for their heads-up, then review and integrate the diff before continuing. This supersedes the `CLAUDE.md` §7 "write a plan file to `knowledge/frontend-plans/`" workflow for this engagement — the user wants the actual prompt pasted in chat, not a handoff file.
+- **Never spawn a subagent without asking the user first and stating the reason.**
+- **Never write to `knowledge/` while implementation work is in progress** — read-only during active work; writes only after everything for that unit of work is implemented, tested, and committed.
+- **All frontend work (HTML/CSS/JS under `apps/frontend/`) is delegated to Gemini 3.1 Pro** via an in-chat prompt (not a `knowledge/frontend-plans/` handoff file) — write a self-contained prompt, output it in chat, wait for the user's heads-up, then review and integrate.
+- **Always run the local dev server as `http://localhost:5000`.** Firebase's authorized-domains whitelist for this project only covers `localhost` — a different host/port breaks Google Sign-In popups (both normal site login and the secrets-bootstrap OAuth exchange) unless that origin is deliberately added to Firebase first.
+- **When creating any new Google Cloud OAuth client for this project, verify the project selector shows `sentinelscan-3f82d` (project number `60214574079`) before creating it.** GCP will silently let you create credentials in an unrelated project, and Firebase will reject tokens from the wrong one with `INVALID_IDP_RESPONSE` — this happened once already during the bootstrap system's setup, see [[2026-08-09]].
+- **Restart the Flask dev server after any `.env` change** — `load_dotenv()` only runs at process startup, there's no hot-reload for env files.
 
 ## Blockers
 
-None currently. Both deferred items above are waiting on the user's go-ahead, not on any technical blocker.
+None. Deployment is waiting on the user to start that conversation, not on any technical blocker.
 
 ## Other findings (not yet acted on, flagged for awareness)
 
-- `.agents/skills/ui-ux-pro-max/` — a design-guidance skill the user installed locally, used successfully for the dark-mode fix. Currently untracked in git; not yet decided whether it should be committed to the repo for teammates to use too, or is a personal local tool. Ask before adding it.
-- Carried over from 2026-08-07, still untouched: `headless_auth_test.py` hardcoded test JWT, empty untracked `LICENSE.md`, README's stale "123 tests" claim (actual count keeps shifting as tests are added upstream — don't trust the README number, run `pytest` for the real one).
+- `.agents/skills/ui-ux-pro-max/` — a design-guidance skill the user installed locally, used successfully for the dark-mode fix. Still untracked in git; still not decided whether to commit it for teammates to use too. Ask before adding it.
+- Carried over from 2026-08-07, still untouched: `headless_auth_test.py` hardcoded test JWT, empty untracked `LICENSE.md`, README's stale test-count claim.
+- `config/secrets` in Firestore currently only has `GEMINI_API_KEY` and `DATABASE_URL` — `FLASK_SECRET_KEY` and `BLOCKED_DOMAINS` aren't set in the admin's local `.env` so they were skipped during seeding. Not blocking anything today (the app falls back to a dev default for `FLASK_SECRET_KEY`), but worth setting properly before deployment — a production deployment should not run on the `"dev-secret-key"` fallback.
 
 ## Links
 
 - Latest daily log: [[2026-08-09]]
 - Previous daily log: [[2026-08-07]]
-- Open frontend handoff plans: none (this engagement uses the in-chat Gemini-prompt workflow instead, see standing rules above).
+- `scripts/README.md` — team secrets bootstrap setup/usage instructions.
+- Open frontend handoff plans: none (in-chat Gemini-prompt workflow used instead).

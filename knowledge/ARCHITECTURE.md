@@ -1,6 +1,6 @@
 ---
 type: knowledge-vault-core
-last_updated: 2026-08-07
+last_updated: 2026-08-09
 updated_by: claude-code
 ---
 
@@ -41,3 +41,11 @@ Each entry: date, what changed, why, where.
 - This closes both known failure modes together: the absolute path arg removes spawn-cwd ambiguity, and pinning to `2025.7.1` (confirmed roots-handshake-free by source audit) removes the MCP roots-protocol override present in `2025.8.21+` that otherwise silently widens `allowedDirectories` to the client's reported workspace root on every connect.
 - Live-verified end-to-end after a genuine cold restart (2026-08-07): `list_allowed_directories` → `C:\Dev\SentinelScan-Project\knowledge` only; `knowledge/NEXT_TASK.md` read → success; `docs/PRD.md` read → access denied.
 - This closes out the MCP scoping saga tracked across the entries above. See [[NEXT_TASK]] for current state (setup complete, ready for feature work).
+
+## 2026-08-09: Team secrets bootstrap system added (new Firestore collections + auth layer)
+
+- New Firestore document `config/secrets` (shared dev-environment values: `GEMINI_API_KEY`, `DATABASE_URL`, etc.) and new Firestore collection `developers/{uid}` (an admin-managed allowlist; a doc's mere existence grants access, its content isn't used for anything).
+- New `require_developer` decorator in `apps/backend/auth/auth_utils.py`, always used stacked on top of the existing `require_auth` (never standalone) — it assumes `g.user` is already populated. New route `GET /api/v1/dev/bootstrap-secrets` (`apps/backend/routes/dev_routes.py`, blueprint `dev_bp`) is the only consumer so far.
+- This is the first place in the codebase with an authorization layer beyond "is this a logged-in user" (`require_auth` alone) — everywhere else (auth/history/scan routes) only checks identity, not role. Precedent for any future role-gated endpoint: add a decorator, not a new token-verification mechanism; stack it after `require_auth`.
+- Still consistent with the existing pattern that only the trusted Flask backend ever talks to Firestore directly (via the Admin SDK, which bypasses security rules by design) — there is still no Firestore security-rules file anywhere in this repo, and this change doesn't introduce one. Access control for these two new collections is enforced entirely by `require_developer`, same as `users` is already enforced entirely by `require_auth`.
+- New `scripts/` directory: dev tooling only, never imported by or run as part of the deployed Flask app. `admin_seed_secrets.py` / `admin_add_developer.py` are one-off admin scripts; `bootstrap_env.py` is what teammates run. See `scripts/README.md` and [[2026-08-09]] for the full flow and a real wrong-GCP-project gotcha hit and fixed during setup.
