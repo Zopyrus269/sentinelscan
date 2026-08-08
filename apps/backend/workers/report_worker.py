@@ -2321,10 +2321,10 @@ def _generate_pdf(
         finding_data,
 
         colWidths=[
-            1.2 * inch,
+            1.4 * inch,
             2.0 * inch,
-            2.15 * inch,
-            2.15 * inch,
+            2.05 * inch,
+            2.05 * inch,
         ],
     )
 
