@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: sentinelscan
+    env: python
+    plan: free
+    branch: main
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 1 --bind 0.0.0.0:$PORT apps.backend.app:app
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FLASK_SECRET_KEY
+        sync: false
+      - key: BLOCKED_DOMAINS
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_PATH
+        sync: false
