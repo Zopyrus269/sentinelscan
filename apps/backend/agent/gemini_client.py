@@ -194,6 +194,14 @@ class GeminiClient:
                 "No Gemini API key provided. Set GEMINI_API_KEY in your .env file "
                 "or pass api_key explicitly."
             )
+        if not resolved_key.startswith("AIza"):
+            raise ValueError(
+                "GEMINI_API_KEY does not look like a Gemini Developer API key "
+                "(expected it to start with 'AIza'). This is usually the wrong "
+                "credential type (e.g. an OAuth token or a different Google API "
+                "key) pasted into .env. Get a valid key from "
+                "https://aistudio.google.com/apikey."
+            )
 
         self._client = genai.Client(api_key=resolved_key)
         self._model_name = model_name

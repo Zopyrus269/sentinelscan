@@ -59,6 +59,14 @@ def create_app() -> Flask:
     def serve_terms():
         return send_from_directory(FRONTEND_DIR, "terms.html")
 
+    @app.route("/api-reference")
+    def serve_api_reference():
+        return send_from_directory(FRONTEND_DIR, "api-reference.html")
+
+    @app.route("/responsible-disclosure")
+    def serve_responsible_disclosure():
+        return send_from_directory(FRONTEND_DIR, "responsible-disclosure.html")
+
     @app.route("/<path:filename>")
     def serve_static(filename):
         return send_from_directory(FRONTEND_DIR, filename)
