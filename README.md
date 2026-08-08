@@ -92,10 +92,11 @@ The result: a system where the *agent* — not the developer — decides the sha
 | | Cookies | Cookie flag and attribute analysis (`Secure`, `HttpOnly`, `SameSite`) |
 | | Sitemap | `sitemap.xml` discovery and structure parsing |
 | | robots.txt | Crawl directive parsing and disallowed-path discovery |
+| | Passive DDoS Resilience | Non-intrusive inspection of public CDN/WAF/edge/rate-limit indicators; no attack traffic |
 | **Analysis & Output** | CVSS Scoring | Pure-math severity scoring — no judgment calls, math only |
 | | Report Generator | Formats Gemini's findings into a PDF (`reportlab`) + JSON report — zero analysis of its own |
 
-All 11 workers are unit-tested independently of the agent, so each one's correctness can be verified in isolation before it's ever handed to Gemini.
+All 12 workers are designed to be independently testable of the agent, so each one's correctness can be verified in isolation before it's ever handed to Gemini.
 
 ---
 

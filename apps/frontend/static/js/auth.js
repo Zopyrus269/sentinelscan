@@ -78,13 +78,15 @@ function showLoggedOutUI() {
   profileDropdown.classList.add("hidden");
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   if (user) {
     showLoggedInUI(user);
-    syncSessionWithBackend(user);
+    await syncSessionWithBackend(user);
+    await loadCurrentTheme();
   } else {
     showLoggedOutUI();
+    await loadCurrentTheme();
   }
 });
 
@@ -128,25 +130,14 @@ const themeToggleButton = document.getElementById("themeToggleButton");
 const themeToggleKnob = document.getElementById("themeToggleKnob");
 
 function applyThemeToggleUI(theme) {
-  const isDark = theme === "dark";
-  themeToggleButton.setAttribute("aria-checked", isDark ? "true" : "false");
-  themeToggleButton.classList.toggle("bg-primary", isDark);
-  themeToggleButton.classList.toggle("bg-surface-container-low", !isDark);
-  themeToggleKnob.classList.toggle("translate-x-6", isDark);
-  themeToggleKnob.classList.toggle("translate-x-1", !isDark);
-  
-  if (isDark) {
-    document.documentElement.classList.remove("light");
-    document.documentElement.classList.add("dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-    document.documentElement.classList.add("light");
+  if (window.SentinelTheme) {
+    window.SentinelTheme.apply(theme || "system");
   }
 }
 
 async function loadCurrentTheme() {
-  let theme = localStorage.getItem("sentinelscan_theme") || "light";
-  
+  let theme = localStorage.getItem("sentinelscan_theme") || "system";
+
   if (currentUser) {
     try {
       const idToken = await currentUser.getIdToken();
@@ -155,25 +146,22 @@ async function loadCurrentTheme() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.theme) {
-            theme = data.theme;
+        if (["light", "dark", "system"].includes(data.theme)) {
+          theme = data.theme;
         }
       }
     } catch (err) {
       console.error("Failed to load theme from backend:", err);
     }
   }
+
+  localStorage.setItem("sentinelscan_theme", theme);
   applyThemeToggleUI(theme);
 }
 
-async function toggleTheme() {
-  const isDark = themeToggleButton.getAttribute("aria-checked") === "true";
-  const newTheme = isDark ? "light" : "dark";
-  applyThemeToggleUI(newTheme);
-  localStorage.setItem("sentinelscan_theme", newTheme);
-
-  if (!currentUser) return;
-  
+async function persistCurrentTheme() {
+  if (!currentUser || !window.SentinelTheme) return;
+  const theme = window.SentinelTheme.getPreference();
   try {
     const idToken = await currentUser.getIdToken();
     const res = await fetch("/api/v1/auth/theme", {
@@ -182,7 +170,7 @@ async function toggleTheme() {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${idToken}`
       },
-      body: JSON.stringify({ theme: newTheme })
+      body: JSON.stringify({ theme })
     });
     if (!res.ok) {
       console.error("Theme update failed:", res.status, await res.text());
@@ -387,7 +375,12 @@ document.addEventListener("keydown", (e) => {
 accountTabSettings.addEventListener("click", () => switchAccountTab("settings"));
 accountTabHistory.addEventListener("click", () => switchAccountTab("history"));
 
-themeToggleButton.addEventListener("click", toggleTheme);
+// The global theme controller owns click handling so the account toggle
+// cannot fire twice and immediately switch back. Persist user preference
+// to the backend after the global controller changes it.
+window.addEventListener("sentinelscan:themechange", () => {
+  if (currentUser) persistCurrentTheme();
+});
 
-// Initialize theme on page load
+// Sync an authenticated user preference after Firebase restores the user.
 loadCurrentTheme();

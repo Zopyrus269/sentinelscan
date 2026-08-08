@@ -1,9 +1,40 @@
-"""SentinelScan SSL Worker module.
-
-This module provides a stateless worker that inspects SSL/TLS certificates and
-negotiated TLS parameters for a target host, returning structured JSON output
-in accordance with SentinelScan specifications.
 """
+SentinelScan SSL/TLS Worker
+
+Performs a bounded external TLS inspection for an authorized target.
+
+The worker checks:
+
+- TLS connection availability
+- certificate trust validation
+- hostname validation
+- certificate validity period
+- certificate issuer / subject where available
+- negotiated TLS protocol
+- negotiated cipher
+- days until certificate expiry
+
+Important behavior:
+
+If the normal verified TLS connection fails because of a certificate
+verification problem such as:
+
+- expired certificate
+- self-signed certificate
+- untrusted issuer
+- hostname mismatch
+- incomplete trust chain
+
+the worker RETAINS that verification failure as real evidence.
+
+It then attempts an unverified connection only to collect additional
+certificate metadata.
+
+Failure of the metadata fallback does NOT erase the original
+certificate-verification evidence.
+"""
+
+from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
@@ -12,87 +43,24 @@ import socket
 import ssl
 import sys
 import tempfile
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 
 WORKER_NAME = "ssl"
+
 DEFAULT_PORT = 443
+
 DEFAULT_TIMEOUT = 10.0
 
 
-def format_dn(dn_sequence: Any) -> str:
-    """Format a Distinguished Name (DN) tuple sequence into a readable string.
+# ============================================================
+# Response helpers
+# ============================================================
 
-    Args:
-        dn_sequence (Any): Sequence of RDN tuples returned by ssl.getpeercert().
+def format_success_response(
+    data: Dict[str, Any],
+) -> Dict[str, Any]:
 
-    Returns:
-        str: Comma-separated string representation (e.g. 'CN=example.com, O=Org').
-    """
-    if not dn_sequence:
-        return ""
-    parts = []
-    if isinstance(dn_sequence, (tuple, list)):
-        for rdn in dn_sequence:
-            if isinstance(rdn, (tuple, list)):
-                for item in rdn:
-                    if isinstance(item, (tuple, list)) and len(item) == 2:
-                        key, val = item
-                        parts.append(f"{key}={val}")
-    return ", ".join(parts)
-
-
-def parse_cert_date(date_str: Optional[str]) -> Optional[datetime]:
-    """Parse SSL certificate date string into a UTC datetime object.
-
-    Args:
-        date_str (Optional[str]): GMT date string (e.g. 'May 15 00:00:00 2025 GMT').
-
-    Returns:
-        Optional[datetime]: Timezone-aware UTC datetime object, or None if invalid.
-    """
-    if not date_str or not isinstance(date_str, str):
-        return None
-    try:
-        dt = datetime.strptime(date_str, "%b %d %H:%M:%S %Y GMT")
-        return dt.replace(tzinfo=timezone.utc)
-    except ValueError:
-        return None
-
-
-def decode_unverified_cert(der_bytes: bytes) -> Dict[str, Any]:
-    """Decode binary DER certificate into a dictionary format.
-
-    Args:
-        der_bytes (bytes): Raw binary DER-encoded certificate.
-
-    Returns:
-        Dict[str, Any]: Decoded peer certificate dictionary.
-    """
-    try:
-        pem_str = ssl.DER_cert_to_PEM_cert(der_bytes)
-        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pem")
-        try:
-            tmp_file.write(pem_str.encode("utf-8"))
-            tmp_file.close()
-            decoded = ssl._ssl._test_decode_cert(tmp_file.name)
-            return decoded or {}
-        finally:
-            if os.path.exists(tmp_file.name):
-                os.remove(tmp_file.name)
-    except Exception:
-        return {}
-
-
-def format_success_response(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Format success output dictionary matching SentinelScan schema.
-
-    Args:
-        data (Dict[str, Any]): Extracted SSL certificate data.
-
-    Returns:
-        Dict[str, Any]: Standardized success payload.
-    """
     return {
         "worker": WORKER_NAME,
         "status": "success",
@@ -101,15 +69,10 @@ def format_success_response(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def format_error_response(error_message: str) -> Dict[str, Any]:
-    """Format error output dictionary matching SentinelScan schema.
+def format_error_response(
+    error_message: str,
+) -> Dict[str, Any]:
 
-    Args:
-        error_message (str): Detailed error message.
-
-    Returns:
-        Dict[str, Any]: Standardized error payload.
-    """
     return {
         "worker": WORKER_NAME,
         "status": "error",
@@ -118,216 +81,1200 @@ def format_error_response(error_message: str) -> Dict[str, Any]:
     }
 
 
-def fetch_ssl_details(
-    target: str, port: int, timeout: float = DEFAULT_TIMEOUT
-) -> Tuple[Dict[str, Any], str, str, bool]:
-    """Establish SSL connection and retrieve certificate dictionary, protocol, and cipher.
+# ============================================================
+# Certificate helpers
+# ============================================================
 
-    Attempts verified SSL context connection first. If certificate verification fails
-    (e.g. self-signed or expired certificate), falls back to an unverified context
-    connection to retrieve certificate metadata.
+def format_dn(
+    dn_sequence: Any,
+) -> str:
 
-    Args:
-        target (str): Target hostname or IP.
-        port (int): Port number.
-        timeout (float): Network socket timeout in seconds.
+    if not dn_sequence:
 
-    Returns:
-        Tuple[Dict[str, Any], str, str, bool]: Tuple containing:
-            - cert (Dict[str, Any]): Parsed certificate dictionary.
-            - protocol (str): Negotiated TLS protocol version.
-            - cipher (str): Negotiated cipher suite name.
-            - cert_verified (bool): True if verified by default SSL context, False otherwise.
+        return ""
 
-    Raises:
-        socket.gaierror: On DNS resolution failure.
-        ConnectionRefusedError: On connection refused.
-        socket.timeout: On connection timeout.
-        ssl.SSLError: On fatal SSL handshake/protocol failure.
-    """
-    cert: Dict[str, Any] = {}
-    protocol: str = ""
-    cipher: str = ""
-    cert_verified: bool = False
+    parts = []
 
-    # 1. Attempt verified connection
+    if isinstance(
+        dn_sequence,
+        (tuple, list),
+    ):
+
+        for rdn in dn_sequence:
+
+            if not isinstance(
+                rdn,
+                (tuple, list),
+            ):
+
+                continue
+
+            for item in rdn:
+
+                if (
+                    isinstance(
+                        item,
+                        (tuple, list),
+                    )
+                    and len(item) == 2
+                ):
+
+                    key, value = item
+
+                    parts.append(
+                        f"{key}={value}"
+                    )
+
+    return ", ".join(parts)
+
+
+def parse_cert_date(
+    date_str: Optional[str],
+) -> Optional[datetime]:
+
+    if not date_str:
+
+        return None
+
+    if not isinstance(
+        date_str,
+        str,
+    ):
+
+        return None
+
     try:
-        context = ssl.create_default_context()
-        with socket.create_connection((target, port), timeout=timeout) as sock:
-            with context.wrap_socket(sock, server_hostname=target) as sslsock:
-                cert = sslsock.getpeercert() or {}
-                protocol = sslsock.version() or ""
-                cipher_info = sslsock.cipher()
-                cipher = cipher_info[0] if cipher_info else ""
-                cert_verified = True
-                return cert, protocol, cipher, cert_verified
-    except (ssl.SSLCertVerificationError, ssl.SSLError) as ssl_err:
-        # 2. Fallback to unverified context for self-signed or expired certificates
-        try:
-            unverified_ctx = ssl.create_default_context()
-            unverified_ctx.check_hostname = False
-            unverified_ctx.verify_mode = ssl.CERT_NONE
 
-            with socket.create_connection((target, port), timeout=timeout) as sock:
-                with unverified_ctx.wrap_socket(sock, server_hostname=target) as sslsock:
-                    raw_der = sslsock.getpeercert(binary_form=True)
-                    if raw_der:
-                        cert = decode_unverified_cert(raw_der)
-                    protocol = sslsock.version() or ""
-                    cipher_info = sslsock.cipher()
-                    cipher = cipher_info[0] if cipher_info else ""
-                    cert_verified = False
-                    return cert, protocol, cipher, cert_verified
-        except Exception:
-            raise ssl_err
+        parsed = datetime.strptime(
+            date_str,
+            "%b %d %H:%M:%S %Y GMT",
+        )
+
+        return parsed.replace(
+            tzinfo=timezone.utc
+        )
+
+    except ValueError:
+
+        return None
 
 
-def perform_ssl_inspection(
-    target: str, port: int = DEFAULT_PORT, timeout: float = DEFAULT_TIMEOUT
+def decode_der_certificate(
+    der_bytes: bytes,
 ) -> Dict[str, Any]:
-    """Execute SSL/TLS inspection for target host, port, and timeout.
-
-    Args:
-        target (str): Target domain name or IP address.
-        port (int): Network port number.
-        timeout (float): Connection timeout in seconds.
-
-    Returns:
-        Dict[str, Any]: Standardized response dictionary.
     """
-    if not target or not isinstance(target, str) or not target.strip():
-        return format_error_response("Target host must be a non-empty string.")
+    Decode a DER certificate using Python's built-in SSL decoder.
 
-    clean_target = target.strip()
+    Failure here is intentionally non-fatal.
+    """
+
+    if not der_bytes:
+
+        return {}
+
+    temp_path = None
 
     try:
-        cert, protocol, cipher, cert_verified = fetch_ssl_details(
-            clean_target, port, timeout
-        )
-    except socket.gaierror as err:
-        return format_error_response(
-            f"DNS resolution failed for target '{clean_target}': {str(err)}"
-        )
-    except ConnectionRefusedError as err:
-        return format_error_response(
-            f"Connection refused for target '{clean_target}:{port}': {str(err)}"
-        )
-    except (socket.timeout, TimeoutError):
-        return format_error_response(
-            f"Connection timed out for target '{clean_target}:{port}' after {timeout}s."
-        )
-    except ssl.SSLError as err:
-        return format_error_response(
-            f"SSL handshake failed for target '{clean_target}:{port}': {str(err)}"
-        )
-    except (socket.error, OSError) as err:
-        return format_error_response(
-            f"Connection error for target '{clean_target}:{port}': {str(err)}"
-        )
-    except Exception as err:
-        return format_error_response(f"SSL inspection failed: {str(err)}")
 
-    if not cert:
-        return format_error_response(
-            f"No SSL certificate retrieved for target '{clean_target}:{port}'."
+        pem_text = (
+            ssl.DER_cert_to_PEM_cert(
+                der_bytes
+            )
         )
 
-    # Extract required fields
-    issuer_str = format_dn(cert.get("issuer"))
-    subject_str = format_dn(cert.get("subject"))
-    serial_number = str(cert.get("serialNumber", ""))
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=".pem",
+            delete=False,
+        ) as temp_file:
 
-    valid_from_dt = parse_cert_date(cert.get("notBefore"))
-    valid_to_dt = parse_cert_date(cert.get("notAfter"))
+            temp_path = (
+                temp_file.name
+            )
 
-    now_utc = datetime.now(timezone.utc)
-    is_time_valid = bool(
-        valid_from_dt and valid_to_dt and valid_from_dt <= now_utc <= valid_to_dt
+            temp_file.write(
+                pem_text
+            )
+
+        decoded = (
+            ssl._ssl._test_decode_cert(
+                temp_path
+            )
+        )
+
+        if isinstance(
+            decoded,
+            dict,
+        ):
+
+            return decoded
+
+        return {}
+
+    except Exception:
+
+        return {}
+
+    finally:
+
+        if (
+            temp_path
+            and os.path.exists(
+                temp_path
+            )
+        ):
+
+            try:
+
+                os.remove(
+                    temp_path
+                )
+
+            except OSError:
+
+                pass
+
+
+# ============================================================
+# Verification classification
+# ============================================================
+
+def classify_verification_failure(
+    message: str,
+) -> str:
+
+    lowered = str(
+        message or ""
+    ).lower()
+
+    if "expired" in lowered:
+
+        return (
+            "CERTIFICATE_EXPIRED"
+        )
+
+    if (
+        "not yet valid"
+        in lowered
+    ):
+
+        return (
+            "CERTIFICATE_NOT_YET_VALID"
+        )
+
+    if (
+        "hostname"
+        in lowered
+        or "doesn't match"
+        in lowered
+        or "does not match"
+        in lowered
+        or "ip address mismatch"
+        in lowered
+    ):
+
+        return (
+            "HOSTNAME_MISMATCH"
+        )
+
+    if (
+        "self-signed"
+        in lowered
+        or "self signed"
+        in lowered
+    ):
+
+        return (
+            "SELF_SIGNED_CERTIFICATE"
+        )
+
+    if (
+        "unable to get local issuer"
+        in lowered
+        or "unable to get issuer"
+        in lowered
+        or "certificate verify failed"
+        in lowered
+    ):
+
+        return (
+            "CERTIFICATE_TRUST_FAILURE"
+        )
+
+    return (
+        "CERTIFICATE_VERIFICATION_FAILED"
     )
-    is_valid = cert_verified and is_time_valid
 
-    days_until_expiry = (valid_to_dt - now_utc).days if valid_to_dt else 0
 
-    data = {
-        "issuer": issuer_str,
-        "subject": subject_str,
-        "valid_from": valid_from_dt.isoformat() if valid_from_dt else None,
-        "valid_to": valid_to_dt.isoformat() if valid_to_dt else None,
-        "serial_number": serial_number,
-        "protocol": protocol,
-        "cipher": cipher,
-        "is_valid": is_valid,
-        "days_until_expiry": days_until_expiry,
+# ============================================================
+# Verified TLS connection
+# ============================================================
+
+def verified_tls_connection(
+    target: str,
+    port: int,
+    timeout: float,
+) -> Dict[str, Any]:
+    """
+    Attempt a fully verified TLS connection.
+
+    Raises SSLCertVerificationError if certificate validation fails.
+    """
+
+    context = (
+        ssl.create_default_context()
+    )
+
+    context.check_hostname = True
+
+    context.verify_mode = (
+        ssl.CERT_REQUIRED
+    )
+
+    with socket.create_connection(
+        (target, port),
+        timeout=timeout,
+    ) as raw_socket:
+
+        with context.wrap_socket(
+            raw_socket,
+            server_hostname=target,
+        ) as tls_socket:
+
+            certificate = (
+                tls_socket.getpeercert()
+                or {}
+            )
+
+            cipher_info = (
+                tls_socket.cipher()
+            )
+
+            return {
+                "certificate":
+                    certificate,
+
+                "protocol":
+                    tls_socket.version()
+                    or "",
+
+                "cipher":
+                    (
+                        cipher_info[0]
+                        if cipher_info
+                        else ""
+                    ),
+            }
+
+
+# ============================================================
+# Unverified metadata connection
+# ============================================================
+
+def unverified_tls_connection(
+    target: str,
+    port: int,
+    timeout: float,
+) -> Dict[str, Any]:
+    """
+    Connect without certificate verification.
+
+    This is ONLY used after a certificate verification failure
+    so SentinelScan can retain metadata from the invalid certificate.
+
+    It does not make the connection trusted.
+    """
+
+    context = (
+        ssl.SSLContext(
+            ssl.PROTOCOL_TLS_CLIENT
+        )
+    )
+
+    context.check_hostname = False
+
+    context.verify_mode = (
+        ssl.CERT_NONE
+    )
+
+    with socket.create_connection(
+        (target, port),
+        timeout=timeout,
+    ) as raw_socket:
+
+        with context.wrap_socket(
+            raw_socket,
+            server_hostname=target,
+        ) as tls_socket:
+
+            der_certificate = (
+                tls_socket.getpeercert(
+                    binary_form=True
+                )
+            )
+
+            decoded_certificate = (
+                decode_der_certificate(
+                    der_certificate
+                    or b""
+                )
+            )
+
+            cipher_info = (
+                tls_socket.cipher()
+            )
+
+            return {
+                "certificate":
+                    decoded_certificate,
+
+                "certificate_present":
+                    bool(
+                        der_certificate
+                    ),
+
+                "protocol":
+                    tls_socket.version()
+                    or "",
+
+                "cipher":
+                    (
+                        cipher_info[0]
+                        if cipher_info
+                        else ""
+                    ),
+            }
+
+
+# ============================================================
+# Hostname validation helper
+# ============================================================
+
+def check_hostname_from_certificate(
+    certificate: Dict[str, Any],
+    target: str,
+) -> Optional[bool]:
+
+    if not certificate:
+
+        return None
+
+    try:
+
+        ssl.match_hostname(
+            certificate,
+            target,
+        )
+
+        return True
+
+    except (
+        ssl.CertificateError,
+        ValueError,
+    ):
+
+        return False
+
+    except Exception:
+
+        return None
+
+
+# ============================================================
+# Build normalized evidence
+# ============================================================
+
+def build_certificate_data(
+    certificate: Dict[str, Any],
+    target: str,
+    protocol: str,
+    cipher: str,
+    certificate_verified: bool,
+    verification_error: Optional[str],
+    verification_code: Optional[int],
+    fallback_metadata_error: Optional[str] = None,
+    certificate_present: Optional[bool] = None,
+) -> Dict[str, Any]:
+
+    issuer = format_dn(
+        certificate.get(
+            "issuer"
+        )
+    )
+
+    subject = format_dn(
+        certificate.get(
+            "subject"
+        )
+    )
+
+    serial_number = str(
+        certificate.get(
+            "serialNumber",
+            "",
+        )
+    )
+
+    valid_from = (
+        parse_cert_date(
+            certificate.get(
+                "notBefore"
+            )
+        )
+    )
+
+    valid_to = (
+        parse_cert_date(
+            certificate.get(
+                "notAfter"
+            )
+        )
+    )
+
+    now = datetime.now(
+        timezone.utc
+    )
+
+    not_yet_valid = False
+
+    expired = False
+
+    if valid_from:
+
+        not_yet_valid = (
+            now < valid_from
+        )
+
+    if valid_to:
+
+        expired = (
+            now > valid_to
+        )
+
+    time_valid: Optional[bool]
+
+    if (
+        valid_from is None
+        or valid_to is None
+    ):
+
+        time_valid = None
+
+    else:
+
+        time_valid = (
+            not not_yet_valid
+            and not expired
+        )
+
+    if valid_to:
+
+        days_until_expiry = (
+            valid_to
+            - now
+        ).days
+
+    else:
+
+        days_until_expiry = None
+
+    hostname_valid = (
+        check_hostname_from_certificate(
+            certificate,
+            target,
+        )
+    )
+
+    # --------------------------------------------------------
+    # Overall certificate validity
+    #
+    # Verified system trust is authoritative here.
+    #
+    # If normal certificate verification failed, the
+    # certificate must NOT become valid merely because the
+    # second unverified metadata connection succeeded.
+    # --------------------------------------------------------
+
+    is_valid = bool(
+        certificate_verified
+        and (
+            time_valid
+            is not False
+        )
+        and (
+            hostname_valid
+            is not False
+        )
+    )
+
+    validation_issue = None
+
+    if verification_error:
+
+        validation_issue = (
+            classify_verification_failure(
+                verification_error
+            )
+        )
+
+    elif expired:
+
+        validation_issue = (
+            "CERTIFICATE_EXPIRED"
+        )
+
+    elif not_yet_valid:
+
+        validation_issue = (
+            "CERTIFICATE_NOT_YET_VALID"
+        )
+
+    elif hostname_valid is False:
+
+        validation_issue = (
+            "HOSTNAME_MISMATCH"
+        )
+
+    return {
+
+        "target":
+            target,
+
+        "port":
+            None,
+
+        "issuer":
+            issuer,
+
+        "subject":
+            subject,
+
+        "serial_number":
+            serial_number,
+
+        "valid_from":
+            (
+                valid_from.isoformat()
+                if valid_from
+                else None
+            ),
+
+        "valid_to":
+            (
+                valid_to.isoformat()
+                if valid_to
+                else None
+            ),
+
+        "days_until_expiry":
+            days_until_expiry,
+
+        "protocol":
+            protocol,
+
+        "cipher":
+            cipher,
+
+        # Core flags
+        "certificate_verified":
+            certificate_verified,
+
+        "trust_verified":
+            certificate_verified,
+
+        "hostname_valid":
+            hostname_valid,
+
+        "time_valid":
+            time_valid,
+
+        "certificate_expired":
+            expired,
+
+        "certificate_not_yet_valid":
+            not_yet_valid,
+
+        "certificate_present":
+            (
+                certificate_present
+                if certificate_present
+                is not None
+                else bool(
+                    certificate
+                )
+            ),
+
+        "is_valid":
+            is_valid,
+
+        # Evidence describing why verification failed
+        "verification_error":
+            verification_error,
+
+        "verification_code":
+            verification_code,
+
+        "validation_issue":
+            validation_issue,
+
+        "fallback_metadata_error":
+            fallback_metadata_error,
     }
 
-    return format_success_response(data)
+
+# ============================================================
+# Main TLS inspection
+# ============================================================
+
+def perform_ssl_inspection(
+    target: str,
+    port: int = DEFAULT_PORT,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
+
+    if (
+        not isinstance(
+            target,
+            str,
+        )
+        or not target.strip()
+    ):
+
+        return format_error_response(
+            "Target host must be a non-empty string."
+        )
+
+    clean_target = (
+        target.strip()
+        .rstrip(".")
+    )
+
+    # ========================================================
+    # 1. Normal verified connection
+    # ========================================================
+
+    try:
+
+        verified = (
+            verified_tls_connection(
+                clean_target,
+                port,
+                timeout,
+            )
+        )
+
+        certificate = (
+            verified.get(
+                "certificate"
+            )
+            or {}
+        )
+
+        data = (
+            build_certificate_data(
+
+                certificate=
+                    certificate,
+
+                target=
+                    clean_target,
+
+                protocol=
+                    verified.get(
+                        "protocol"
+                    )
+                    or "",
+
+                cipher=
+                    verified.get(
+                        "cipher"
+                    )
+                    or "",
+
+                certificate_verified=
+                    True,
+
+                verification_error=
+                    None,
+
+                verification_code=
+                    None,
+
+                certificate_present=
+                    bool(
+                        certificate
+                    ),
+            )
+        )
+
+        data[
+            "port"
+        ] = port
+
+        return format_success_response(
+            data
+        )
+
+    # ========================================================
+    # Certificate validation failure
+    #
+    # THIS IS SECURITY EVIDENCE.
+    #
+    # Do NOT return worker failure here.
+    # ========================================================
+
+    except ssl.SSLCertVerificationError as exc:
+
+        verification_message = (
+            getattr(
+                exc,
+                "verify_message",
+                None,
+            )
+            or str(exc)
+        )
+
+        verification_code = (
+            getattr(
+                exc,
+                "verify_code",
+                None,
+            )
+        )
+
+        # ----------------------------------------------------
+        # Attempt to collect metadata from the same
+        # certificate without trusting it.
+        # ----------------------------------------------------
+
+        try:
+
+            fallback = (
+                unverified_tls_connection(
+                    clean_target,
+                    port,
+                    timeout,
+                )
+            )
+
+            certificate = (
+                fallback.get(
+                    "certificate"
+                )
+                or {}
+            )
+
+            data = (
+                build_certificate_data(
+
+                    certificate=
+                        certificate,
+
+                    target=
+                        clean_target,
+
+                    protocol=
+                        fallback.get(
+                            "protocol"
+                        )
+                        or "",
+
+                    cipher=
+                        fallback.get(
+                            "cipher"
+                        )
+                        or "",
+
+                    certificate_verified=
+                        False,
+
+                    verification_error=
+                        verification_message,
+
+                    verification_code=
+                        verification_code,
+
+                    certificate_present=
+                        fallback.get(
+                            "certificate_present"
+                        ),
+                )
+            )
+
+            data[
+                "port"
+            ] = port
+
+            # Critical:
+            #
+            # verification failure remains authoritative even
+            # though we used an unverified socket for metadata.
+
+            data[
+                "is_valid"
+            ] = False
+
+            return format_success_response(
+                data
+            )
+
+        # ----------------------------------------------------
+        # Metadata fallback failed.
+        #
+        # Still retain the verified certificate-validation
+        # failure instead of incorrectly turning it into
+        # worker failure / CVSS N/A.
+        # ----------------------------------------------------
+
+        except Exception as fallback_exc:
+
+            data = (
+                build_certificate_data(
+
+                    certificate=
+                        {},
+
+                    target=
+                        clean_target,
+
+                    protocol=
+                        "",
+
+                    cipher=
+                        "",
+
+                    certificate_verified=
+                        False,
+
+                    verification_error=
+                        verification_message,
+
+                    verification_code=
+                        verification_code,
+
+                    fallback_metadata_error=
+                        str(
+                            fallback_exc
+                        ),
+
+                    certificate_present=
+                        None,
+                )
+            )
+
+            data[
+                "port"
+            ] = port
+
+            data[
+                "is_valid"
+            ] = False
+
+            return format_success_response(
+                data
+            )
+
+    # ========================================================
+    # DNS errors
+    # ========================================================
+
+    except socket.gaierror as exc:
+
+        return format_error_response(
+            (
+                f"DNS resolution failed for "
+                f"target '{clean_target}': "
+                f"{exc}"
+            )
+        )
+
+    # ========================================================
+    # Connection refused
+    # ========================================================
+
+    except ConnectionRefusedError as exc:
+
+        return format_error_response(
+            (
+                f"TLS connection refused for "
+                f"target "
+                f"'{clean_target}:{port}': "
+                f"{exc}"
+            )
+        )
+
+    # ========================================================
+    # Timeout
+    # ========================================================
+
+    except (
+        socket.timeout,
+        TimeoutError,
+    ):
+
+        return format_error_response(
+            (
+                f"TLS connection timed out for "
+                f"target "
+                f"'{clean_target}:{port}' "
+                f"after {timeout} seconds."
+            )
+        )
+
+    # ========================================================
+    # Generic TLS handshake errors
+    #
+    # Unlike certificate-verification failures, a generic
+    # handshake error does NOT prove an invalid certificate.
+    # ========================================================
+
+    except ssl.SSLError as exc:
+
+        return format_error_response(
+            (
+                f"TLS handshake failed for "
+                f"target "
+                f"'{clean_target}:{port}': "
+                f"{exc}"
+            )
+        )
+
+    # ========================================================
+    # Network errors
+    # ========================================================
+
+    except OSError as exc:
+
+        return format_error_response(
+            (
+                f"TLS connection error for "
+                f"target "
+                f"'{clean_target}:{port}': "
+                f"{exc}"
+            )
+        )
+
+    except Exception as exc:
+
+        return format_error_response(
+            (
+                "SSL/TLS inspection failed: "
+                f"{exc}"
+            )
+        )
 
 
-def run_worker(input_payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Validate input payload schema and execute worker task.
+# ============================================================
+# Worker entry point
+# ============================================================
 
-    Args:
-        input_payload (Dict[str, Any]): Input payload dictionary containing 'target', optional 'port', and optional 'timeout'.
+def run_worker(
+    input_payload: Dict[str, Any],
+) -> Dict[str, Any]:
 
-    Returns:
-        Dict[str, Any]: Standardized JSON-serializable response payload.
-    """
-    if not isinstance(input_payload, dict):
-        return format_error_response("Input payload must be a JSON object.")
+    if not isinstance(
+        input_payload,
+        dict,
+    ):
+
+        return format_error_response(
+            "Input payload must be a JSON object."
+        )
 
     if "target" not in input_payload:
-        return format_error_response("Missing required field 'target' in input payload.")
 
-    target = input_payload.get("target")
-    if not isinstance(target, str) or not target.strip():
-        return format_error_response("Target domain must be a non-empty string.")
+        return format_error_response(
+            (
+                "Missing required field "
+                "'target' in input payload."
+            )
+        )
 
-    port = input_payload.get("port", DEFAULT_PORT)
+    target = (
+        input_payload.get(
+            "target"
+        )
+    )
+
+    if (
+        not isinstance(
+            target,
+            str,
+        )
+        or not target.strip()
+    ):
+
+        return format_error_response(
+            (
+                "Target domain must be "
+                "a non-empty string."
+            )
+        )
+
+    # --------------------------------------------------------
+    # Port
+    # --------------------------------------------------------
+
+    port = (
+        input_payload.get(
+            "port",
+            DEFAULT_PORT,
+        )
+    )
+
     try:
-        port_int = int(port)
-        if not (1 <= port_int <= 65535):
-            return format_error_response("Port number must be between 1 and 65535.")
-    except (ValueError, TypeError):
-        return format_error_response("Port must be a valid integer.")
 
-    timeout = input_payload.get("timeout", DEFAULT_TIMEOUT)
+        port = int(
+            port
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        return format_error_response(
+            "Port must be a valid integer."
+        )
+
+    if not (
+        1
+        <= port
+        <= 65535
+    ):
+
+        return format_error_response(
+            (
+                "Port number must be "
+                "between 1 and 65535."
+            )
+        )
+
+    # --------------------------------------------------------
+    # Timeout
+    # --------------------------------------------------------
+
+    timeout = (
+        input_payload.get(
+            "timeout",
+            DEFAULT_TIMEOUT,
+        )
+    )
+
     try:
-        timeout_float = float(timeout)
-        if timeout_float <= 0:
-            return format_error_response("Timeout must be a positive number.")
-    except (ValueError, TypeError):
-        return format_error_response("Timeout must be a valid number.")
 
-    return perform_ssl_inspection(target, port_int, timeout_float)
+        timeout = float(
+            timeout
+        )
 
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        return format_error_response(
+            "Timeout must be a valid number."
+        )
+
+    if timeout <= 0:
+
+        return format_error_response(
+            (
+                "Timeout must be "
+                "a positive number."
+            )
+        )
+
+    return perform_ssl_inspection(
+        target=target,
+        port=port,
+        timeout=timeout,
+    )
+
+
+# ============================================================
+# CLI
+# ============================================================
 
 def main() -> None:
-    """CLI Entry point for executing the SSL worker.
 
-    Reads JSON payload from CLI command-line argument or stdin and outputs
-    structured JSON to standard output.
-    """
-    input_str = ""
-    if len(sys.argv) > 1:
-        input_str = sys.argv[1]
+    raw_input = ""
+
+    if len(
+        sys.argv
+    ) > 1:
+
+        raw_input = (
+            sys.argv[1]
+        )
+
     elif not sys.stdin.isatty():
-        input_str = sys.stdin.read()
 
-    if not input_str.strip():
-        result = format_error_response("No input provided via CLI argument or stdin.")
-        print(json.dumps(result, indent=4))
+        raw_input = (
+            sys.stdin.read()
+        )
+
+    if not raw_input.strip():
+
+        result = (
+            format_error_response(
+                "No JSON input supplied."
+            )
+        )
+
+        print(
+            json.dumps(
+                result,
+                indent=2,
+            )
+        )
+
         return
 
     try:
-        input_payload = json.loads(input_str)
-    except json.JSONDecodeError as err:
-        result = format_error_response(f"Invalid JSON input: {str(err)}")
-        print(json.dumps(result, indent=4))
+
+        payload = (
+            json.loads(
+                raw_input
+            )
+        )
+
+    except json.JSONDecodeError as exc:
+
+        result = (
+            format_error_response(
+                (
+                    "Invalid JSON input: "
+                    f"{exc}"
+                )
+            )
+        )
+
+        print(
+            json.dumps(
+                result,
+                indent=2,
+            )
+        )
+
         return
 
-    result = run_worker(input_payload)
-    print(json.dumps(result, indent=4))
+    result = (
+        run_worker(
+            payload
+        )
+    )
+
+    print(
+        json.dumps(
+            result,
+            indent=2,
+            default=str,
+        )
+    )
 
 
 if __name__ == "__main__":
+
     main()

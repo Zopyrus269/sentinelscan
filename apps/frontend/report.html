@@ -1,6 +1,17 @@
 <!DOCTYPE html>
-<html class="light" lang="en">
+<html lang="en">
 <head>
+    <script>
+        (() => {
+            const key = "sentinelscan_theme";
+            const stored = localStorage.getItem(key);
+            const preference = ["light", "dark", "system"].includes(stored) ? stored : "system";
+            const dark = preference === "dark" || (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.toggle("dark", dark);
+            document.documentElement.classList.toggle("light", !dark);
+            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        })();
+    </script>
     <meta charset="utf-8">
     <link rel="stylesheet" href="/static/css/styles.css">
 
@@ -251,6 +262,7 @@
             border-radius: 9999px;
         }
     </style>
+    <script src="/static/js/theme.js" defer></script>
 </head>
 
 <body class="font-body-md text-on-background">
@@ -505,6 +517,13 @@
 
                     Awaiting score
                 </div>
+
+                <p
+                    id="scoreMappingLabel"
+                    class="mt-xs text-body-sm text-on-surface-variant"
+                >
+                    CVSS N/A → 100/100
+                </p>
             </div>
 
             <!-- Executive Summary -->
@@ -530,7 +549,8 @@
                     </div>
 
                     <div
-                        class="bg-error-container text-on-error-container px-md py-sm rounded-lg flex items-center gap-sm"
+                        id="maxCvssCard"
+                        class="bg-surface-container text-on-surface px-md py-sm rounded-lg flex items-center gap-sm"
                     >
                         <span class="material-symbols-outlined">
                             priority_high
@@ -545,7 +565,13 @@
                                 id="maxCvssScore"
                                 class="text-headline-sm font-headline-sm"
                             >
-                                0.0
+                                N/A
+                            </div>
+                            <div
+                                id="maxCvssSeverity"
+                                class="text-label-sm font-label-sm mt-1"
+                            >
+                                NONE
                             </div>
                         </div>
                     </div>

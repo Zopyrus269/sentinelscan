@@ -261,13 +261,16 @@ function renderReport(report) {
         report.overall_risk_summary
     );
 
-    const maximumCvss = getMaximumCvss(cvssScores);
+    const maximumCvss = Number.isFinite(Number(report.maximum_cvss))
+        && Number(report.maximum_cvss) > 0
+        ? Number(report.maximum_cvss)
+        : getMaximumCvss(cvssScores);
 
     const securityScore = Number.isFinite(Number(report.security_score))
         ? Number(report.security_score)
         : calculateSecurityScore(maximumCvss, cvssScores);
 
-    renderSecurityScore(securityScore);
+    renderSecurityScore(securityScore, maximumCvss);
     renderMaximumCvss(maximumCvss, cvssScores);
     renderRiskSummary(riskSummary);
     renderExecutiveSummary(
@@ -303,47 +306,55 @@ function normalizeRiskSummary(summary) {
 
 
 function getMaximumCvss(cvssScores) {
-    if (!cvssScores.length) {
+    if (!Array.isArray(cvssScores) || !cvssScores.length) {
         return null;
     }
 
-    return cvssScores.reduce((maximum, item) => {
-        const score = Number(item.base_score ?? item.score);
+    const positiveScores = cvssScores
+        .map((item) => Number(item.base_score ?? item.score))
+        .filter((score) => Number.isFinite(score) && score > 0 && score <= 10);
 
-        if (!Number.isFinite(score)) {
-            return maximum;
-        }
-
-        return Math.max(maximum, score);
-    }, 0);
+    return positiveScores.length ? Math.max(...positiveScores) : null;
 }
 
 
 function calculateSecurityScore(maximumCvss, cvssScores) {
     /*
-     * The backend does not currently return an official overall
-     * security score. This display score is only derived when at
-     * least one valid CVSS score is available.
+     * SentinelScan display mapping. CVSS itself remains 0.0-10.0;
+     * this 0-100 value is a separate project posture gauge.
+     *
+     * CRITICAL 9.0-10.0 -> 10-0
+     * HIGH     7.0-8.9  -> 30-10
+     * MEDIUM   4.0-6.9  -> 60-30
+     * LOW      0.1-3.9  -> 80-60
+     * NONE/N/A 0.0/N/A  -> 100
      */
-    if (
-        !Array.isArray(cvssScores) ||
-        cvssScores.length === 0 ||
-        maximumCvss === null
-    ) {
-        return null;
+    if (maximumCvss === null || !Number.isFinite(Number(maximumCvss))) {
+        return 100;
     }
 
-    return Math.max(
-        0,
-        Math.min(
-            100,
-            Math.round(100 - maximumCvss * 10)
-        )
-    );
+    const cvss = Math.max(0, Math.min(10, Number(maximumCvss)));
+    if (cvss <= 0) {
+        return 100;
+    }
+
+    let score;
+
+    if (cvss <= 3.9) {
+        score = 80 - ((cvss - 0.1) / 3.8) * 20;
+    } else if (cvss <= 6.9) {
+        score = 60 - ((cvss - 4.0) / 2.9) * 30;
+    } else if (cvss <= 8.9) {
+        score = 30 - ((cvss - 7.0) / 1.9) * 20;
+    } else {
+        score = 10 - ((cvss - 9.0) / 1.0) * 10;
+    }
+
+    return Math.round(Math.max(0, Math.min(100, score)));
 }
 
 
-function renderSecurityScore(score) {
+function renderSecurityScore(score, maximumCvss = null) {
     const gauge = document.getElementById("securityGauge");
     const scoreElement = document.getElementById(
         "securityScore"
@@ -359,37 +370,17 @@ function renderSecurityScore(score) {
 
     gauge.style.strokeDasharray = String(circumference);
 
-    if (score === null) {
-        gauge.style.strokeDashoffset = String(circumference);
-
-        gauge.setAttribute(
-            "class",
-            "text-outline-variant gauge-ring"
-        );
-
-        scoreElement.textContent = "N/A";
-
-        riskLabel.className =
-            "mt-md text-on-surface-variant font-label-md " +
-            "flex items-center gap-base";
-
-        riskLabel.innerHTML = `
-            <span class="material-symbols-outlined text-sm">
-                help
-            </span>
-            Insufficient scored findings
-        `;
-
-        return;
-    }
+    const safeScore = Number.isFinite(Number(score))
+        ? Math.max(0, Math.min(100, Number(score)))
+        : 100;
 
     const offset =
-        circumference - (score / 100) * circumference;
+        circumference - (safeScore / 100) * circumference;
 
     gauge.style.strokeDashoffset = String(offset);
-    scoreElement.textContent = String(score);
+    scoreElement.textContent = String(Math.round(safeScore));
 
-    const rating = getSecurityRating(score);
+    const rating = getSecurityRating(maximumCvss);
 
     riskLabel.className =
         `mt-md ${rating.textClass} font-label-md ` +
@@ -406,29 +397,39 @@ function renderSecurityScore(score) {
         "class",
         `${rating.gaugeClass} gauge-ring`
     );
+
+    const mappingLabel = document.getElementById("scoreMappingLabel");
+    if (mappingLabel) {
+        const cvssText = maximumCvss === null || !Number.isFinite(Number(maximumCvss)) || Number(maximumCvss) <= 0
+            ? "CVSS N/A / NONE"
+            : `CVSS ${Number(maximumCvss).toFixed(1)} ${getCvssSeverity(Number(maximumCvss))}`;
+        mappingLabel.textContent = `${cvssText} → ${Math.round(safeScore)}/100`;
+    }
 }
 
 
-function getSecurityRating(score) {
-    if (score >= 90) {
+function getSecurityRating(maximumCvss) {
+    if (maximumCvss === null || !Number.isFinite(Number(maximumCvss)) || Number(maximumCvss) <= 0) {
         return {
-            label: "Low Observed Risk",
+            label: "Strong Observed Posture",
             icon: "verified_user",
             textClass: "text-success",
             gaugeClass: "text-success",
         };
     }
 
-    if (score >= 70) {
+    const cvss = Number(maximumCvss);
+
+    if (cvss >= 9.0) {
         return {
-            label: "Moderate Observed Risk",
-            icon: "warning",
-            textClass: "text-warning",
-            gaugeClass: "text-warning",
+            label: "Critical Observed Risk",
+            icon: "dangerous",
+            textClass: "text-critical",
+            gaugeClass: "text-critical",
         };
     }
 
-    if (score >= 40) {
+    if (cvss >= 7.0) {
         return {
             label: "High Observed Risk",
             icon: "error",
@@ -437,29 +438,77 @@ function getSecurityRating(score) {
         };
     }
 
+    if (cvss >= 4.0) {
+        return {
+            label: "Medium Observed Risk",
+            icon: "warning",
+            textClass: "text-warning",
+            gaugeClass: "text-warning",
+        };
+    }
+
     return {
-        label: "Critical Observed Risk",
-        icon: "dangerous",
-        textClass: "text-critical",
-        gaugeClass: "text-critical",
+        label: "Low Observed Risk",
+        icon: "info",
+        textClass: "text-primary",
+        gaugeClass: "text-primary",
     };
 }
 
 
+function getCvssSeverity(score) {
+    if (!Number.isFinite(Number(score)) || Number(score) <= 0) {
+        return "NONE";
+    }
+
+    const numeric = Number(score);
+    if (numeric >= 9.0) return "CRITICAL";
+    if (numeric >= 7.0) return "HIGH";
+    if (numeric >= 4.0) return "MEDIUM";
+    return "LOW";
+}
+
+
 function renderMaximumCvss(maximumCvss, cvssScores) {
-    const element = document.getElementById(
-        "maxCvssScore"
-    );
+    const element = document.getElementById("maxCvssScore");
+    const severityElement = document.getElementById("maxCvssSeverity");
+    const card = document.getElementById("maxCvssCard");
 
     if (!element) {
         return;
     }
 
-    element.textContent =
+    const hasScore =
+        Array.isArray(cvssScores) &&
         cvssScores.length > 0 &&
-        maximumCvss !== null
-            ? maximumCvss.toFixed(1)
-            : "N/A";
+        maximumCvss !== null &&
+        Number.isFinite(Number(maximumCvss)) &&
+        Number(maximumCvss) > 0;
+
+    const severity = hasScore
+        ? getCvssSeverity(Number(maximumCvss))
+        : "NONE";
+
+    element.textContent = hasScore
+        ? Number(maximumCvss).toFixed(1)
+        : "N/A";
+
+    if (severityElement) {
+        severityElement.textContent = severity;
+    }
+
+    if (card) {
+        const palette = {
+            CRITICAL: { background: "#fee2e2", color: "#991b1b" },
+            HIGH: { background: "#fee2e2", color: "#b91c1c" },
+            MEDIUM: { background: "#fef3c7", color: "#92400e" },
+            LOW: { background: "#dbeafe", color: "#1d4ed8" },
+            NONE: { background: "#dcfce7", color: "#166534" },
+        };
+        const selected = palette[severity] || palette.NONE;
+        card.style.backgroundColor = selected.background;
+        card.style.color = selected.color;
+    }
 }
 
 
@@ -517,8 +566,8 @@ function renderExecutiveSummary(
                 `${maximumCvss.toFixed(1)}. `;
         } else {
             summary +=
-                "No valid CVSS-scored findings were included, so an " +
-                "overall security score cannot be determined. ";
+                "No actionable CVSS-scored finding was retained. The maximum " +
+                "CVSS is N/A and the project posture gauge displays 100/100. ";
         }
 
         summary +=
@@ -568,17 +617,17 @@ function renderFindings(findings, cvssScores) {
 
     list.innerHTML = findings
         .map((finding, index) => {
-            const score = findMatchingCvssScore(
-                finding,
-                cvssScores,
-                index
-            );
+            const findingSeverity = String(
+                finding.severity || "INFORMATIONAL"
+            ).toUpperCase();
+
+            const score = findingSeverity === "INFORMATIONAL"
+                ? null
+                : findMatchingCvssScore(finding, cvssScores);
 
             const severity = score
-                ? String(
-                    score.severity || "INFORMATIONAL"
-                ).toUpperCase()
-                : "INFORMATIONAL";
+                ? String(score.severity || findingSeverity).toUpperCase()
+                : findingSeverity;
 
             const baseScore = score &&
                 Number.isFinite(Number(score.base_score ?? score.score))
@@ -666,35 +715,34 @@ function renderFindings(findings, cvssScores) {
 }
 
 
-function findMatchingCvssScore(
-    finding,
-    cvssScores,
-    index
-) {
-    if (!cvssScores.length) {
+function findMatchingCvssScore(finding, cvssScores) {
+    if (!Array.isArray(cvssScores) || !cvssScores.length) {
         return null;
     }
 
-    const summary = String(
-        finding.summary || ""
-    ).toLowerCase();
+    const normalize = (value) => String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
 
-    const directMatch = cvssScores.find((score) => {
-        const scoredFinding = String(
-            score.finding || ""
-        ).toLowerCase();
+    const candidates = [
+        finding.finding,
+        finding.title,
+        finding.summary,
+    ].map(normalize).filter(Boolean);
 
-        return (
-            scoredFinding &&
-            summary &&
-            (
-                summary.includes(scoredFinding) ||
-                scoredFinding.includes(summary)
-            )
+    return cvssScores.find((score) => {
+        const scoredFinding = normalize(score.finding);
+        if (!scoredFinding) {
+            return false;
+        }
+
+        return candidates.some((candidate) =>
+            candidate === scoredFinding ||
+            (scoredFinding.length >= 8 &&
+                (candidate.includes(scoredFinding) || scoredFinding.includes(candidate)))
         );
-    });
-
-    return directMatch || cvssScores[index] || null;
+    }) || null;
 }
 
 
@@ -1288,6 +1336,7 @@ function formatWorkerName(workerName) {
         robots_txt_parse: "robots.txt Parser",
         sitemap_parse: "Sitemap Parser",
         whois_lookup: "WHOIS Lookup",
+        ddos_resilience_check: "Passive DDoS Resilience",
         calculate_cvss: "CVSS Calculator",
         generate_report: "Report Generator",
     };
@@ -1314,6 +1363,7 @@ function getWorkerIcon(workerName) {
         robots_txt_parse: "smart_toy",
         sitemap_parse: "account_tree",
         whois_lookup: "public",
+        ddos_resilience_check: "shield",
         calculate_cvss: "speed",
         generate_report: "description",
     };

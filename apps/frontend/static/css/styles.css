@@ -168,3 +168,225 @@ img {
         max-height: calc(100vh - 6rem);
     }
 }
+/* ------------------------------------------------------------------
+   SentinelScan global light/dark theme
+   ------------------------------------------------------------------ */
+:root {
+    color-scheme: light;
+    --ss-page: #f8fafc;
+    --ss-surface: #ffffff;
+    --ss-surface-low: #f1f5f9;
+    --ss-surface-high: #e2e8f0;
+    --ss-border: #e2e8f0;
+    --ss-text: #0f172a;
+    --ss-text-muted: #475569;
+    --ss-primary: #2563eb;
+    --ss-terminal: #111827;
+}
+
+html.dark {
+    color-scheme: dark;
+    --ss-page: #08111f;
+    --ss-surface: #111c2e;
+    --ss-surface-low: #17243a;
+    --ss-surface-high: #223149;
+    --ss-border: #334155;
+    --ss-text: #f8fafc;
+    --ss-text-muted: #cbd5e1;
+    --ss-primary: #60a5fa;
+    --ss-terminal: #050b14;
+}
+
+body {
+    background-color: var(--ss-page) !important;
+    color: var(--ss-text) !important;
+    transition: background-color 180ms ease, color 180ms ease;
+}
+
+html.dark .bg-background,
+html.dark .bg-surface-bright {
+    background-color: var(--ss-page) !important;
+}
+
+html.dark .bg-surface,
+html.dark .bg-surface-container-lowest,
+html.dark .glass-card {
+    background-color: var(--ss-surface) !important;
+}
+
+html.dark .bg-surface-container-low,
+html.dark .bg-surface-container,
+html.dark .bg-secondary-container {
+    background-color: var(--ss-surface-low) !important;
+}
+
+html.dark .bg-surface-container-high,
+html.dark .bg-surface-container-highest,
+html.dark .bg-surface-variant {
+    background-color: var(--ss-surface-high) !important;
+}
+
+html.dark .bg-inverse-surface {
+    background-color: var(--ss-terminal) !important;
+}
+
+html.dark .text-on-background,
+html.dark .text-on-surface,
+html.dark .text-on-secondary-container {
+    color: var(--ss-text) !important;
+}
+
+html.dark .text-on-surface-variant,
+html.dark .text-secondary,
+html.dark .text-outline {
+    color: var(--ss-text-muted) !important;
+}
+
+html.dark .text-primary {
+    color: var(--ss-primary) !important;
+}
+
+html.dark .border-border,
+html.dark .border-outline,
+html.dark .border-outline-variant {
+    border-color: var(--ss-border) !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+    background-color: var(--ss-surface-low) !important;
+    color: var(--ss-text) !important;
+    border-color: var(--ss-border) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+    color: #94a3b8 !important;
+}
+
+html.dark header,
+html.dark footer {
+    background-color: var(--ss-surface) !important;
+    border-color: var(--ss-border) !important;
+}
+
+html.dark table,
+html.dark thead,
+html.dark tbody,
+html.dark tr,
+html.dark td,
+html.dark th {
+    border-color: var(--ss-border) !important;
+}
+
+html.dark .shadow-sm,
+html.dark .shadow-md,
+html.dark .shadow-lg,
+html.dark .shadow-xl,
+html.dark .shadow-2xl {
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.28) !important;
+}
+
+.sentinel-theme-toggle {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 120;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 9px 13px;
+    border: 1px solid var(--ss-border);
+    border-radius: 999px;
+    background: var(--ss-surface);
+    color: var(--ss-text);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+    transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.sentinel-theme-toggle:hover {
+    transform: translateY(-2px);
+}
+
+.sentinel-theme-toggle .material-symbols-outlined {
+    font-size: 20px;
+    color: var(--ss-primary);
+}
+
+.sentinel-theme-toggle-label {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+@media (max-width: 640px) {
+    .sentinel-theme-toggle {
+        right: 12px;
+        bottom: 12px;
+        width: 44px;
+        height: 44px;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .sentinel-theme-toggle-label {
+        display: none;
+    }
+}
+
+
+/* Additional dark-mode coverage for project-specific utility colors. */
+html.dark .bg-primary-fixed,
+html.dark .bg-primary-fixed-dim {
+    background-color: #1e3a5f !important;
+}
+
+html.dark .text-on-primary-fixed,
+html.dark .text-on-primary-fixed-variant,
+html.dark .text-primary-fixed-dim {
+    color: #dbeafe !important;
+}
+
+html.dark .bg-error-container {
+    background-color: #3f1d22 !important;
+}
+
+html.dark .text-on-error-container {
+    color: #fecaca !important;
+}
+
+html.dark .bg-on-surface-variant\/10 {
+    background-color: rgba(203, 213, 225, 0.10) !important;
+}
+
+html.dark .hover\:bg-surface-container-low:hover,
+html.dark .hover\:bg-surface-container:hover {
+    background-color: var(--ss-surface-high) !important;
+}
+
+html.dark .hover\:bg-primary-fixed:hover {
+    background-color: #294b73 !important;
+}
+
+html.dark .hover\:text-on-surface:hover {
+    color: var(--ss-text) !important;
+}
+
+html.dark .report-json,
+html.dark pre,
+html.dark code {
+    border-color: var(--ss-border);
+}
+
+html.dark ::selection {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body,
+    .sentinel-theme-toggle {
+        transition: none !important;
+    }
+}

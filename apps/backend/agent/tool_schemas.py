@@ -282,82 +282,77 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         },
     },
     {
-        "name": "calculate_cvss",
+        "name": "ddos_resilience_check",
         "description": (
-            "Calculates a standard CVSS v3.1 base score and severity "
-            "rating from a set of base metric values. You (the agent) "
-            "must determine the base_metrics yourself by interpreting "
-            "findings from other tools -- this tool only performs the "
-            "mathematical scoring calculation, it does not interpret "
-            "findings itself."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "base_metrics": {
-                    "type": "object",
-                    "description": (
-                        "CVSS v3.1 base metric values, e.g. "
-                        '{"AV": "N", "AC": "L", "PR": "N", "UI": "N", '
-                        '"S": "U", "C": "H", "I": "H", "A": "H"}. '
-                        "AV=Attack Vector, AC=Attack Complexity, "
-                        "PR=Privileges Required, UI=User Interaction, "
-                        "S=Scope, C=Confidentiality, I=Integrity, A=Availability."
-                    ),
-                },
-                "reasoning": {
-                    "type": "string",
-                    "description": (
-                        "A short (1-2 sentence), plain-English explanation of why "
-                        "you are calling this tool right now. If this is your first "
-                        "tool call, explain why it's a sensible starting point. "
-                        "Otherwise, base it specifically on what you learned from "
-                        "the previous tool's result."
-                    ),
-                },
-            },
-            "required": ["base_metrics", "reasoning"],
-        },
-    },
-    {
-        "name": "generate_report",
-        "description": (
-            "Compiles all findings and CVSS scores gathered so far into "
-            "final PDF and JSON report deliverables. Call this ONLY once "
-            "you have finished all relevant reconnaissance and analysis "
-            "-- this ends the scan."
+            "Performs a strictly passive DDoS/CDN/WAF resilience-indicator check. "
+            "It inspects public DNS, reverse-DNS and HTTP metadata for observable "
+            "CDN, WAF, edge-proxy, rate-limit, or challenge indicators. It does NOT "
+            "generate attack traffic, load test, flood, or prove whether DDoS "
+            "protection is present or absent. Treat its result as informational only."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "target": {
                     "type": "string",
-                    "description": "The domain/IP that was assessed.",
+                    "description": "The authorized domain or URL to inspect passively.",
                 },
-                "findings": {
-                    "type": "array",
+                "reasoning": {
+                    "type": "string",
                     "description": (
-                        "List of findings gathered during the scan. Each "
-                        "item should be an object with 'worker' (which "
-                        "tool produced it), 'severity' (CRITICAL, HIGH, MEDIUM, LOW, or INFORMATIONAL), "
-                        "'summary' (a plain-English summary you write), "
-                        "'what_it_means' (a simple explanation of the technical finding), "
-                        "'recommendation' (actionable remediation advice), "
-                        "and 'raw_data' (the tool's raw output)."
+                        "A short plain-English explanation of why passive edge/CDN/WAF "
+                        "indicators are useful at this point in the assessment."
                     ),
-                    "items": {"type": "object"},
-                },
-                "cvss_scores": {
-                    "type": "array",
-                    "description": (
-                        "List of CVSS-scored findings, each as returned "
-                        "by calculate_cvss, with an added 'finding' field "
-                        "describing what was scored."
-                    ),
-                    "items": {"type": "object"},
                 },
             },
-            "required": ["target", "findings", "cvss_scores"],
+            "required": ["target", "reasoning"],
+        },
+    },
+    {
+        "name": "calculate_cvss",
+        "description": (
+            "Signals the single CVSS v3.1 scoring phase after all evidence workers "
+            "have been accounted for. The orchestrator supplies the retained, "
+            "evidence-backed actionable findings to the CVSS worker; do not invent "
+            "metrics or call this more than once."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short plain-English explanation of why evidence gathering "
+                        "is complete and the one CVSS scoring phase should run now."
+                    ),
+                },
+            },
+            "required": ["reasoning"],
+        },
+    },
+    {
+        "name": "generate_report",
+        "description": (
+            "Signals terminal report generation after all evidence categories are "
+            "accounted for and the single CVSS phase has completed. The orchestrator "
+            "uses its authoritative retained state; do not construct findings yourself."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string",
+                    "description": "The authorized domain/IP that was assessed.",
+                },
+                "reasoning": {
+                    "type": "string",
+                    "description": (
+                        "A short plain-English explanation that evidence and CVSS are "
+                        "complete and the final report can now be generated."
+                    ),
+                },
+            },
+            "required": ["target", "reasoning"],
         },
     },
 ]

@@ -7,6 +7,21 @@ let pollTimer = null;
 let scanStartedAt = null;
 let activeScanId = null;
 
+const SENTINELSCAN_STAGES = [
+    "dns_lookup",
+    "reverse_dns_lookup",
+    "whois_lookup",
+    "ssl_check",
+    "http_headers",
+    "cookie_analysis",
+    "robots_txt_parse",
+    "sitemap_parse",
+    "port_scan",
+    "ddos_resilience_check",
+    "calculate_cvss",
+    "generate_report",
+];
+
 document.addEventListener("DOMContentLoaded", () => {
     activeScanId = getScanId();
 
@@ -209,7 +224,8 @@ function renderScan(scan) {
     renderEvents(scan.events || []);
     renderWorkers(
         scan.events || [],
-        scan.current_action
+        scan.current_action,
+        scan.status
     );
     renderInsight(scan);
 }
@@ -342,8 +358,11 @@ function renderEvents(events) {
         }`
     );
 
-    const workerCount =
-        collectWorkers(events).length;
+    const workerCount = new Set(
+        events
+            .filter((event) => event.tool_name && event.phase === "completed")
+            .map((event) => event.tool_name)
+    ).size;
 
     setText(
         "completedWorkers",
@@ -353,7 +372,7 @@ function renderEvents(events) {
     );
 }
 
-function renderWorkers(events, currentWorker) {
+function renderWorkers(events, currentWorker, scanStatus) {
     const workerGrid = document.getElementById(
         "workerGrid"
     );
@@ -362,24 +381,35 @@ function renderWorkers(events, currentWorker) {
         return;
     }
 
-    const workers = collectWorkers(events);
-
-    if (!workers.length) {
-        workerGrid.innerHTML = `
-            <div
-                class="bg-surface border border-border p-md rounded-xl"
-            >
-                Waiting for the AI agent to select workers...
-            </div>
-        `;
-
-        return;
-    }
+    const workers = collectWorkers(events, scanStatus);
 
     workerGrid.innerHTML = workers
-        .map(({ tool_name: worker, reasoning }) => {
+        .map(({ tool_name: worker, reasoning, status }) => {
             const isCurrent =
-                worker === currentWorker;
+                worker === currentWorker && status === "RUNNING";
+
+            const normalizedStatus = String(status || "PENDING").toUpperCase();
+            const statusLabel = {
+                PENDING: "Pending",
+                RUNNING: "Running",
+                COMPLETED: "Completed",
+                WARNING: "Warning",
+                NOT_APPLICABLE: "N/A",
+                FAILED: "Failed",
+                TIMEOUT: "Timeout",
+                UNREACHABLE: "Unreachable",
+                NOT_RUN: "Not run",
+            }[normalizedStatus] || normalizedStatus;
+
+            const statusClass = isCurrent
+                ? "text-primary"
+                : normalizedStatus === "COMPLETED"
+                  ? "text-success"
+                  : ["FAILED", "TIMEOUT", "UNREACHABLE"].includes(normalizedStatus)
+                    ? "text-error"
+                    : normalizedStatus === "WARNING"
+                      ? "text-warning"
+                      : "text-on-surface-variant";
 
             return `
                 <article
@@ -399,17 +429,9 @@ function renderWorkers(events, currentWorker) {
                         </span>
 
                         <span
-                            class="${
-                                isCurrent
-                                    ? "text-primary"
-                                    : "text-success"
-                            } text-label-sm font-semibold"
+                            class="${statusClass} text-label-sm font-semibold"
                         >
-                            ${
-                                isCurrent
-                                    ? "Running"
-                                    : "Selected"
-                            }
+                            ${escapeHtml(statusLabel)}
                         </span>
                     </div>
 
@@ -458,19 +480,52 @@ function renderInsight(scan) {
     }
 }
 
-function collectWorkers(events) {
-    const seen = new Map();
+function collectWorkers(events, scanStatus = "IN_PROGRESS") {
+    const state = new Map(
+        SENTINELSCAN_STAGES.map((toolName) => [
+            toolName,
+            {
+                tool_name: toolName,
+                reasoning: getWorkerDescription(toolName),
+                status: "PENDING",
+            },
+        ])
+    );
 
-    events
-        .filter((event) => event.tool_name && event.tool_name !== "generate_report")
-        .forEach((event) => {
-            seen.set(event.tool_name, event.reasoning || "");
-        });
+    for (const event of events) {
+        if (!event.tool_name || !state.has(event.tool_name)) {
+            continue;
+        }
 
-    return [...seen.entries()].map(([tool_name, reasoning]) => ({
-        tool_name,
-        reasoning,
-    }));
+        const item = state.get(event.tool_name);
+
+        if (event.reasoning) {
+            item.reasoning = event.reasoning;
+        }
+
+        if (event.phase === "selected") {
+            item.status = "RUNNING";
+        }
+
+        if (event.phase === "completed") {
+            item.status = String(
+                event.worker_status || "COMPLETED"
+            ).toUpperCase();
+        }
+    }
+
+    if (["COMPLETED", "FAILED"].includes(String(scanStatus).toUpperCase())) {
+        for (const item of state.values()) {
+            if (item.status === "PENDING") {
+                // Honest distinction: a stage that was never selected is not
+                // automatically "not applicable".
+                item.status = "NOT_RUN";
+                item.reasoning = "This stage was not executed during this assessment.";
+            }
+        }
+    }
+
+    return [...state.values()];
 }
 
 function enableReportButton() {
@@ -531,6 +586,7 @@ function friendlyName(value) {
         robots_txt_parse: "robots.txt Parser",
         sitemap_parse: "Sitemap Parser",
         whois_lookup: "WHOIS Lookup",
+        ddos_resilience_check: "Passive DDoS Resilience",
         calculate_cvss: "CVSS Calculator",
         generate_report: "Report Generator",
         IN_PROGRESS: "In Progress",
@@ -559,7 +615,9 @@ function getWorkerIcon(worker) {
         robots_txt_parse: "smart_toy",
         sitemap_parse: "account_tree",
         whois_lookup: "public",
+        ddos_resilience_check: "shield",
         calculate_cvss: "speed",
+        generate_report: "description",
     };
 
     return icons[worker] || "security";
@@ -585,8 +643,12 @@ function getWorkerDescription(worker) {
             "Discovers publicly listed sitemap URLs.",
         whois_lookup:
             "Retrieves public domain registration information.",
+        ddos_resilience_check:
+            "Passively checks public CDN/WAF/edge and rate-limit indicators without generating attack traffic.",
         calculate_cvss:
-            "Calculates supported CVSS v3.1 base scores.",
+            "Calculates supported CVSS v3.1 base scores once after evidence collection.",
+        generate_report:
+            "Generates and verifies the final JSON and PDF assessment reports.",
     };
 
     return (
