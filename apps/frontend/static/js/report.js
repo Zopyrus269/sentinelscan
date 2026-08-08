@@ -401,7 +401,7 @@ function renderSecurityScore(score, maximumCvss = null) {
     const mappingLabel = document.getElementById("scoreMappingLabel");
     if (mappingLabel) {
         const cvssText = maximumCvss === null || !Number.isFinite(Number(maximumCvss)) || Number(maximumCvss) <= 0
-            ? "CVSS N/A / NONE"
+            ? "CVSS 0.0 NONE"
             : `CVSS ${Number(maximumCvss).toFixed(1)} ${getCvssSeverity(Number(maximumCvss))}`;
         mappingLabel.textContent = `${cvssText} → ${Math.round(safeScore)}/100`;
     }
@@ -491,7 +491,7 @@ function renderMaximumCvss(maximumCvss, cvssScores) {
 
     element.textContent = hasScore
         ? Number(maximumCvss).toFixed(1)
-        : "N/A";
+        : "0.0";
 
     if (severityElement) {
         severityElement.textContent = severity;

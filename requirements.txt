@@ -11,3 +11,6 @@ python-dotenv
 pytest
 flask-cors
 firebase-admin
+
+playwright
+pytest-playwright

@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'backen
 import json
 import nmap
 import portscan_worker
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 _real_scan = nmap.PortScanner.scan
 
@@ -33,7 +33,8 @@ def patched_scan(self, hosts, ports, arguments, timeout):
 
 def test_fallback_to_connect_scan():
     with patch.object(nmap.PortScanner, "scan", new=patched_scan):
-        result = portscan_worker.port_scan("127.0.0.1", "80,443")
+        with patch("socket.create_connection", return_value=MagicMock()):
+            result = portscan_worker.port_scan("127.0.0.1", "80,443")
 
     print("Fallback test result:")
     print(json.dumps(result, indent=2))

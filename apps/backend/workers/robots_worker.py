@@ -31,8 +31,8 @@ def robots_worker(target: str) -> Dict[str, Any]:
     try:
         response = requests.get(
             robots_url,
-            headers={"User-Agent": "SentinelScan-SecurityBot/1.0"},
-            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            timeout=15,
             allow_redirects=True,
         )
 

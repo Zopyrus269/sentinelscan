@@ -78,15 +78,13 @@ function showLoggedOutUI() {
   profileDropdown.classList.add("hidden");
 }
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
   currentUser = user;
   if (user) {
     showLoggedInUI(user);
-    await syncSessionWithBackend(user);
-    await loadCurrentTheme();
+    syncSessionWithBackend(user);
   } else {
     showLoggedOutUI();
-    await loadCurrentTheme();
   }
 });
 
@@ -126,66 +124,13 @@ const accountTabSettings = document.getElementById("accountTabSettings");
 const accountTabHistory = document.getElementById("accountTabHistory");
 const accountPanelSettings = document.getElementById("accountPanelSettings");
 const accountPanelHistory = document.getElementById("accountPanelHistory");
-const themeToggleButton = document.getElementById("themeToggleButton");
-const themeToggleKnob = document.getElementById("themeToggleKnob");
-
-function applyThemeToggleUI(theme) {
-  if (window.SentinelTheme) {
-    window.SentinelTheme.apply(theme || "system");
-  }
-}
-
-async function loadCurrentTheme() {
-  let theme = localStorage.getItem("sentinelscan_theme") || "system";
-
-  if (currentUser) {
-    try {
-      const idToken = await currentUser.getIdToken();
-      const res = await fetch("/api/v1/auth/me", {
-        headers: { "Authorization": `Bearer ${idToken}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (["light", "dark", "system"].includes(data.theme)) {
-          theme = data.theme;
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load theme from backend:", err);
-    }
-  }
-
-  localStorage.setItem("sentinelscan_theme", theme);
-  applyThemeToggleUI(theme);
-}
-
-async function persistCurrentTheme() {
-  if (!currentUser || !window.SentinelTheme) return;
-  const theme = window.SentinelTheme.getPreference();
-  try {
-    const idToken = await currentUser.getIdToken();
-    const res = await fetch("/api/v1/auth/theme", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${idToken}`
-      },
-      body: JSON.stringify({ theme })
-    });
-    if (!res.ok) {
-      console.error("Theme update failed:", res.status, await res.text());
-    }
-  } catch (err) {
-    console.error("Theme update error:", err);
-  }
-}
 
 function openAccountModal() {
   profileDropdown.classList.add("hidden");
   accountModal.classList.remove("hidden");
   accountModal.classList.add("flex");
   document.body.style.overflow = "hidden";
-  loadCurrentTheme();
+  loadHistory();
 }
 
 function closeAccountModal() {
@@ -273,7 +218,7 @@ async function loadHistory() {
             if (!res.ok) throw new Error("Failed to fetch historical report");
             
             const data = await res.json();
-            sessionStorage.setItem("sentinelscan_historical_report", JSON.stringify(data));
+            localStorage.setItem("sentinelscan_historical_report_" + scanId, JSON.stringify(data));
             window.open(`/report?history_id=${encodeURIComponent(scanId)}`, "_blank");
          } catch (err) {
             alert("Error loading report: " + err.message);
@@ -313,15 +258,21 @@ async function loadHistory() {
             if (blob.size === 0) throw new Error("The downloaded file was empty.");
             
             const objectUrl = URL.createObjectURL(blob);
-            const anchor = document.createElement("a");
-            anchor.href = objectUrl;
-            anchor.download = `sentinelscan_report_${scanId}.${type}`;
-            anchor.style.display = "none";
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
-            
-            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            if (type === "pdf") {
+                window.open(objectUrl, "_blank");
+                // Revoke after a longer time to ensure it loads in the new tab
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+            } else {
+                const anchor = document.createElement("a");
+                anchor.href = objectUrl;
+                anchor.download = `sentinelscan_report_${scanId}.${type}`;
+                anchor.style.display = "none";
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            }
             
          } catch (err) {
             alert("Error downloading file: " + err.message);
@@ -367,20 +318,10 @@ accountModalCloseButton.addEventListener("click", closeAccountModal);
 accountModalBackdrop.addEventListener("click", closeAccountModal);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && accountModal.classList.contains("flex")) {
+  if (e.key === "Escape" && accountModal && accountModal.classList.contains("flex")) {
     closeAccountModal();
   }
 });
 
-accountTabSettings.addEventListener("click", () => switchAccountTab("settings"));
-accountTabHistory.addEventListener("click", () => switchAccountTab("history"));
-
-// The global theme controller owns click handling so the account toggle
-// cannot fire twice and immediately switch back. Persist user preference
-// to the backend after the global controller changes it.
-window.addEventListener("sentinelscan:themechange", () => {
-  if (currentUser) persistCurrentTheme();
-});
-
-// Sync an authenticated user preference after Firebase restores the user.
-loadCurrentTheme();
+if (accountTabSettings) accountTabSettings.addEventListener("click", () => switchAccountTab("settings"));
+if (accountTabHistory) accountTabHistory.addEventListener("click", () => switchAccountTab("history"));

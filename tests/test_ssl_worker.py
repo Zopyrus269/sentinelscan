@@ -10,8 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.backend.workers.ssl_worker import (
-    decode_unverified_cert,
-    fetch_ssl_details,
+    decode_der_certificate,
     format_dn,
     format_error_response,
     format_success_response,
@@ -75,7 +74,7 @@ class TestSSLWorker:
     @patch("apps.backend.workers.ssl_worker.tempfile.NamedTemporaryFile")
     @patch("apps.backend.workers.ssl_worker.ssl._ssl._test_decode_cert")
     @patch("apps.backend.workers.ssl_worker.ssl.DER_cert_to_PEM_cert")
-    def test_decode_unverified_cert(
+    def test_decode_der_certificate(
         self, mock_pem_conv, mock_decode, mock_tmp, mock_remove
     ):
         """Test decoding binary DER certificate bytes into a dictionary."""
@@ -85,19 +84,18 @@ class TestSSLWorker:
         mock_tmp.return_value = mock_tmp_file
         mock_decode.return_value = {"subject": "test"}
 
-        result = decode_unverified_cert(b"der_data")
+        result = decode_der_certificate(b"der_data")
         assert result == {"subject": "test"}
 
     # 2. Valid Certificate Success Test
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_success_valid_certificate(self, mock_fetch, valid_cert_dict):
         """Test SSL inspection success response for a valid certificate."""
-        mock_fetch.return_value = (
-            valid_cert_dict,
-            "TLSv1.3",
-            "TLS_AES_256_GCM_SHA384",
-            True,
-        )
+        mock_fetch.return_value = {
+            "certificate": valid_cert_dict,
+            "protocol": "TLSv1.3",
+            "cipher": "TLS_AES_256_GCM_SHA384",
+        }
 
         input_payload = {"target": "example.com", "port": 443, "timeout": 5.0}
         result = run_worker(input_payload)
@@ -118,15 +116,14 @@ class TestSSLWorker:
         assert data["days_until_expiry"] > 0
 
     # 3. Expired Certificate Test
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_expired_certificate(self, mock_fetch, expired_cert_dict):
         """Test SSL inspection response for an expired certificate."""
-        mock_fetch.return_value = (
-            expired_cert_dict,
-            "TLSv1.2",
-            "ECDHE-RSA-AES128-GCM-SHA256",
-            True,
-        )
+        mock_fetch.return_value = {
+            "certificate": expired_cert_dict,
+            "protocol": "TLSv1.2",
+            "cipher": "ECDHE-RSA-AES128-GCM-SHA256",
+        }
 
         input_payload = {"target": "expired-example.com"}
         result = run_worker(input_payload)
@@ -140,16 +137,19 @@ class TestSSLWorker:
         assert data["days_until_expiry"] < 0
 
     # 4. Self-signed Certificate Test
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
-    def test_self_signed_certificate(self, mock_fetch, valid_cert_dict):
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
+    @patch("apps.backend.workers.ssl_worker.unverified_tls_connection")
+    def test_self_signed_certificate(self, mock_unverified, mock_fetch, valid_cert_dict):
         """Test response for self-signed certificate where verification failed but cert retrieved."""
         # cert_verified = False indicates certificate verification failed (self-signed/untrusted)
-        mock_fetch.return_value = (
-            valid_cert_dict,
-            "TLSv1.3",
-            "TLS_AES_256_GCM_SHA384",
-            False,
-        )
+        mock_fetch.side_effect = __import__("ssl").SSLCertVerificationError("self-signed")
+
+        mock_unverified.return_value = {
+            "certificate": valid_cert_dict,
+            "protocol": "TLSv1.3",
+            "cipher": "TLS_AES_256_GCM_SHA384",
+            "certificate_present": True,
+        }
 
         input_payload = {"target": "self-signed.local"}
         result = run_worker(input_payload)
@@ -159,7 +159,7 @@ class TestSSLWorker:
         assert result["data"]["is_valid"] is False
 
     # 5. DNS Failure Test
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_dns_failure(self, mock_fetch):
         """Test handling of DNS resolution failures."""
         mock_fetch.side_effect = socket.gaierror("Name or service not known")
@@ -173,7 +173,7 @@ class TestSSLWorker:
         assert "DNS resolution failed" in result["error"]
 
     # 6. Socket Timeout Test
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_socket_timeout(self, mock_fetch):
         """Test handling of connection timeouts."""
         mock_fetch.side_effect = socket.timeout("timed out")
@@ -184,10 +184,10 @@ class TestSSLWorker:
         assert result["worker"] == "ssl"
         assert result["status"] == "error"
         assert result["data"] == {}
-        assert "Connection timed out" in result["error"]
+        assert "TLS connection timed out" in result["error"]
 
     # 7. Connection Refused Test
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_connection_refused(self, mock_fetch):
         """Test handling of connection refused errors."""
         mock_fetch.side_effect = ConnectionRefusedError("Connection refused")
@@ -201,7 +201,7 @@ class TestSSLWorker:
         assert "Connection refused" in result["error"]
 
     # 8. SSL Handshake Failure Test
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_ssl_handshake_failure(self, mock_fetch):
         """Test handling of fatal SSL handshake errors."""
         mock_fetch.side_effect = ssl.SSLError("SSL handshake failed")
@@ -239,15 +239,14 @@ class TestSSLWorker:
         assert expected_err_fragment in result["error"]
 
     # 10. Verify JSON Schema & Serializability
-    @patch("apps.backend.workers.ssl_worker.fetch_ssl_details")
+    @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_json_schema_and_serializability(self, mock_fetch, valid_cert_dict):
         """Verify output dictionary structure and ensure 100% JSON serializability."""
-        mock_fetch.return_value = (
-            valid_cert_dict,
-            "TLSv1.3",
-            "TLS_AES_256_GCM_SHA384",
-            True,
-        )
+        mock_fetch.return_value = {
+            "certificate": valid_cert_dict,
+            "protocol": "TLSv1.3",
+            "cipher": "TLS_AES_256_GCM_SHA384",
+        }
 
         result = run_worker({"target": "schema-check.com"})
 
@@ -258,15 +257,28 @@ class TestSSLWorker:
 
         # Data keys verification
         expected_data_keys = {
+            "target",
+            "port",
             "issuer",
             "subject",
+            "serial_number",
             "valid_from",
             "valid_to",
-            "serial_number",
+            "days_until_expiry",
             "protocol",
             "cipher",
+            "certificate_verified",
+            "trust_verified",
+            "hostname_valid",
+            "time_valid",
+            "certificate_expired",
+            "certificate_not_yet_valid",
+            "certificate_present",
             "is_valid",
-            "days_until_expiry",
+            "verification_error",
+            "verification_code",
+            "validation_issue",
+            "fallback_metadata_error",
         }
         assert set(result["data"].keys()) == expected_data_keys
 
@@ -278,8 +290,8 @@ class TestSSLWorker:
     # 11. Test fetch_ssl_details with socket mocks
     @patch("apps.backend.workers.ssl_worker.socket.create_connection")
     @patch("apps.backend.workers.ssl_worker.ssl.create_default_context")
-    def test_fetch_ssl_details_verified_flow(self, mock_create_ctx, mock_create_conn):
-        """Test low-level fetch_ssl_details verified SSL connection flow."""
+    def test_verified_tls_connection_flow(self, mock_create_ctx, mock_create_conn):
+        """Test low-level verified_tls_connection flow."""
         mock_sock = MagicMock()
         mock_create_conn.return_value.__enter__.return_value = mock_sock
 
@@ -292,12 +304,12 @@ class TestSSLWorker:
         mock_ctx.wrap_socket.return_value.__enter__.return_value = mock_sslsock
         mock_create_ctx.return_value = mock_ctx
 
-        cert, protocol, cipher, verified = fetch_ssl_details("example.com", 443, 5.0)
+        from apps.backend.workers.ssl_worker import verified_tls_connection
+        result = verified_tls_connection("example.com", 443, 5.0)
 
-        assert cert == {"subject": ((("commonName", "example.com"),),)}
-        assert protocol == "TLSv1.3"
-        assert cipher == "TLS_AES_256_GCM_SHA384"
-        assert verified is True
+        assert result["certificate"] == {"subject": ((("commonName", "example.com"),),)}
+        assert result["protocol"] == "TLSv1.3"
+        assert result["cipher"] == "TLS_AES_256_GCM_SHA384"
 
     # 12. Test CLI main() function
     @patch("apps.backend.workers.ssl_worker.run_worker")

@@ -50,7 +50,7 @@ WORKER_NAME = "ssl"
 
 DEFAULT_PORT = 443
 
-DEFAULT_TIMEOUT = 10.0
+DEFAULT_TIMEOUT = 15.0
 
 
 # ============================================================
