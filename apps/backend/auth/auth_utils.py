@@ -14,6 +14,8 @@ try:
 except ImportError:
     firebase_auth = None
 
+from apps.backend.auth.firebase_client import get_db
+
 
 def require_auth(f: Callable) -> Callable:
     """
@@ -67,6 +69,39 @@ def require_auth(f: Callable) -> Callable:
             "email": decoded_token.get("email"),
             "name": decoded_token.get("name", decoded_token.get("email", "Unknown")),
         }
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+def require_developer(f: Callable) -> Callable:
+    """
+    Decorator for Flask routes restricted to allowlisted project developers.
+
+    Must be applied *after* @require_auth (i.e. @require_auth above this
+    decorator in the stack) so that g.user is already populated. Checks
+    for a Firestore document at developers/{uid}; the document's content
+    is not used, its existence is the allowlist entry.
+    """
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        db = get_db()
+        if not db:
+            return jsonify({
+                "error": "Service Unavailable",
+                "message": "Developer allowlist is disabled without Firebase DB.",
+                "code": 503,
+            }), 503
+
+        uid = g.user.get("uid")
+        developer_doc = db.collection("developers").document(uid).get()
+        if not developer_doc.exists:
+            return jsonify({
+                "error": "Forbidden",
+                "message": "This account is not on the developer allowlist.",
+                "code": 403,
+            }), 403
+
         return f(*args, **kwargs)
 
     return wrapper

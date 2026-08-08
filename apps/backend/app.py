@@ -13,6 +13,7 @@ load_dotenv()
 from apps.backend.routes.scan_routes import scan_bp
 from apps.backend.routes.auth_routes import auth_bp
 from apps.backend.routes.history_routes import history_bp
+from apps.backend.routes.dev_routes import dev_bp
 
 
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
@@ -26,6 +27,7 @@ def create_app() -> Flask:
     app.register_blueprint(scan_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(history_bp)
+    app.register_blueprint(dev_bp)
 
     @app.route("/health")
     def health():
