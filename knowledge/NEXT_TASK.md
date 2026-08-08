@@ -1,6 +1,6 @@
 ---
 type: knowledge-vault-core
-last_updated: 2026-08-07
+last_updated: 2026-08-09
 updated_by: claude-code
 ---
 
@@ -10,30 +10,33 @@ This file is always **overwritten**, not appended — it reflects the current ha
 
 ## What's next
 
-MCP scoping fix for `knowledge-vault` is **complete and live-verified**. All three verification checks passed after a genuine cold restart:
-- `list_allowed_directories` → `C:\Dev\SentinelScan-Project\knowledge` only.
-- Reading `knowledge/NEXT_TASK.md` through `knowledge-vault` → success.
-- Reading `docs/PRD.md` through `knowledge-vault` → access denied.
+The `origin/main` sync and the 3 bugs found during the user's first round of manual testing (dark-mode borders, Gemini 401, dead footer links) are all fixed, verified, and committed. See [[2026-08-09]] for full detail. The app is running locally on `localhost:5000` and was confirmed working by the user.
 
-No setup work is queued. **SentinelScan is ready for real feature development.** Start any new feature request by reading `knowledge/NEXT_TASK.md` (this file), `knowledge/PROJECT_CONTEXT.md`, and the latest `knowledge/daily-logs/` entry, then follow the planning-mode-first workflow in `CLAUDE.md` section 6 (read `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/AI_AGENT.md`, `docs/API.md`, `docs/WORKERS.md` as relevant, enter plan mode, get explicit approval before writing code).
+Two explicitly deferred items, in the order the user is expected to want them (confirm before starting either):
 
-## Why
+1. **Team secrets bootstrap system.** The user asked for teammates to automatically get the correct shared API keys/secrets after pulling `main`, instead of manually re-entering them, and for production secrets to live server-side (not in the public repo). Design already scoped and approved in spirit but explicitly put on hold by the user pending this round's verification (now done) — needs an explicit "go" before building:
+   - New Firestore doc `config/secrets` (shared dev values), new `developers/{uid}` allowlist collection, a `require_developer` decorator layered on the existing `require_auth` (`apps/backend/auth/auth_utils.py`), a new protected endpoint (`GET /api/v1/dev/bootstrap-secrets`), and a `scripts/bootstrap_env.py` a teammate runs to fetch and write their local `.env`.
+   - Deliberately reuses the existing Firebase Admin SDK / `require_auth` pattern already in the codebase rather than inventing a new auth mechanism.
+   - Fully useful only once the app is deployed (the bootstrap script calls a live backend URL) — ties directly into item 2.
+2. **Deployment.** User wants a free hosting platform with auto-deploy on `git push` to `main`, so the team can add features/fix bugs while the site stays live. Candidates identified but not yet scoped in detail: Render or Railway (both support GitHub auto-deploy on a free tier). Needs its own plan once started: build/start commands, env var provisioning (or wiring in item 1's bootstrap instead of manual dashboard env vars), whether SQLite persistence survives redeploys, secrets handling for the Firebase service account.
 
-The user asked for a persistent AI development workflow (planning-gate, frontend delegation to Gemini, cost-aware sub-agents, this knowledge vault, filesystem MCP access, automatic post-commit vault updates) so that returning sessions have full continuity without re-explaining context. The MCP scoping gap turned out to be three-layered: (1) relative-vs-absolute path issue, (2) a package-level MCP roots-protocol override present in versions `2025.8.21+`, (3) a daemon-level subprocess-caching behavior across forked/resumed sessions. All three are now fixed, committed, and confirmed live. See [[ARCHITECTURE]] for the final architecture and [[DECISIONS]] for why each fix was made.
+## Standing rules for this engagement (apply to all future sessions, not just this one)
+
+- **Never spawn a subagent without asking the user first and stating the reason** — overrides the general cost-aware sub-agent policy in `CLAUDE.md` §8; approval must come first regardless of task size.
+- **Never write to `knowledge/` while implementation work is in progress** — read-only during active work; writes (this file, daily-logs, ARCHITECTURE.md deltas) only happen after everything for that unit of work is implemented, tested, and committed.
+- **All frontend work (HTML/CSS/JS under `apps/frontend/`) is delegated to Gemini 3.1 Pro**, not implemented directly — write a self-contained prompt, output it in chat for the user to run through Gemini (which has folder access), wait for their heads-up, then review and integrate the diff before continuing. This supersedes the `CLAUDE.md` §7 "write a plan file to `knowledge/frontend-plans/`" workflow for this engagement — the user wants the actual prompt pasted in chat, not a handoff file.
 
 ## Blockers
 
-None.
+None currently. Both deferred items above are waiting on the user's go-ahead, not on any technical blocker.
 
-## Other findings (not part of this task, flagged for awareness)
+## Other findings (not yet acted on, flagged for awareness)
 
-- `~/.claude.json` (user-level, outside this repo) stores a GitHub PAT in plaintext under `mcpServers.github` — recommend rotating and confirming it's not committed anywhere.
-- `~/.claude.json` has two case-mismatched project entries (`c:/Dev/SentinelScan-Project` vs `C:/Dev/SentinelScan-Project`), both with empty `mcpServers`/`enabledMcpjsonServers` — latent Windows path-casing bug, worth deduplicating.
-- Multiple Claude Code sessions/forks can be running concurrently against this project, each potentially with its own `knowledge-vault` MCP subprocess tree under a shared daemon — always trace process ancestry (parent PID chain up to the owning `claude.exe`) before killing anything, to avoid disrupting a different session.
-- During this cleanup pass, `package.json`/`package-lock.json` were found drifted (uncommitted) from the pinned `2025.7.1` to `2025.11.25` — a version re-confirmed to still contain the roots-protocol override. Reverted and reinstalled before committing; no outstanding action needed, but **never bump `@modelcontextprotocol/server-filesystem` without re-running the roots-protocol source audit** described in [[DECISIONS]] first.
-- Pre-existing, unrelated, left untouched: `README.md` local modification, untracked `LICENSE.md`, `headless_auth_test.py` hardcoded test JWT — see `CLAUDE.md` section 9.
+- `.agents/skills/ui-ux-pro-max/` — a design-guidance skill the user installed locally, used successfully for the dark-mode fix. Currently untracked in git; not yet decided whether it should be committed to the repo for teammates to use too, or is a personal local tool. Ask before adding it.
+- Carried over from 2026-08-07, still untouched: `headless_auth_test.py` hardcoded test JWT, empty untracked `LICENSE.md`, README's stale "123 tests" claim (actual count keeps shifting as tests are added upstream — don't trust the README number, run `pytest` for the real one).
 
 ## Links
 
-- Latest daily log: [[2026-08-07]]
-- Open frontend handoff plans: none yet.
+- Latest daily log: [[2026-08-09]]
+- Previous daily log: [[2026-08-07]]
+- Open frontend handoff plans: none (this engagement uses the in-chat Gemini-prompt workflow instead, see standing rules above).

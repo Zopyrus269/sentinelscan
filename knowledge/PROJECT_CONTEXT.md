@@ -1,6 +1,6 @@
 ---
 type: knowledge-vault-core
-last_updated: 2026-08-07
+last_updated: 2026-08-09
 updated_by: claude-code
 ---
 
@@ -18,7 +18,9 @@ Scope is strictly passive/read-only reconnaissance for explicitly authorized tar
 
 Public-release polish. The project started as a college project and is now a working end-to-end platform. Recent commits (as of 2026-08-07) focused on preparing the repo for public release: renaming internal helpers, updating README, adding contributing guidelines and license section, removing internal team attribution.
 
-This session's work: setting up a persistent Claude Code development workflow (this knowledge vault, `CLAUDE.md`, MCP filesystem access, and an automatic post-commit vault-update nudge), followed same-day by a workflow audit that found and fixed an MCP scoping gap and a duplicate Obsidian vault root — see [[2026-08-07]].
+2026-08-07: set up a persistent Claude Code development workflow (this knowledge vault, `CLAUDE.md`, MCP filesystem access, and an automatic post-commit vault-update nudge), then a same-day audit that found and fixed an MCP scoping gap and a duplicate Obsidian vault root — see [[2026-08-07]].
+
+2026-08-09: synced local `main` with 4 commits of real upstream work it had missed (orchestrator, workers, frontend, tests), then fixed the first round of user-reported bugs from manual testing (dark-mode CSS, an invalid Gemini API key + a stale-process gotcha, dead footer links + 2 missing pages). App is confirmed working end-to-end by the user at `localhost:5000`. Next up (pending user go-ahead): a team secrets-bootstrap system and deployment to a free auto-deploy host. See [[2026-08-09]] and [[NEXT_TASK]].
 
 ## What works end-to-end today
 
