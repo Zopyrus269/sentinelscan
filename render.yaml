@@ -1,3 +1,5 @@
+# Live at https://sentinelscan-yd2u.onrender.com -- verified end-to-end 2026-08-09
+# (Google Sign-In, a full scan, and PDF/JSON report generation all confirmed working).
 services:
   - type: web
     name: sentinelscan
