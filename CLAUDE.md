@@ -77,10 +77,6 @@ Cost-aware, not agent-happy:
 
 ## 9. Known Hygiene Notes
 
-Flagged, not fixed — do not silently "clean these up" unless asked:
-
-- `headless_auth_test.py` (tracked) contains a hardcoded Firebase custom-auth JWT literal (`uid: test-uid-playwright-001`) — looks like a dev/test token, still worth reviewing/rotating.
-- A stray empty `LICENSE.md` sits untracked at repo root alongside the real tracked `LICENSE` (MIT).
-- README claims "123 tests"; actual `def test_` count across `tests/*.py` is 99 (likely `pytest.mark.parametrize` expansion, unverified).
+All previously flagged items here were resolved on 2026-08-09 (see `knowledge/daily-logs/2026-08-09.md`, Pass 6): the hardcoded JWT literal was removed from `headless_auth_test.py` in favor of an env-var-supplied token, the stray empty `LICENSE.md` was deleted, and README's test-count claim was corrected to match the actual `pytest tests/` output. No open hygiene items at this time.
 
 See `knowledge/PROJECT_CONTEXT.md` for full current-state detail.
