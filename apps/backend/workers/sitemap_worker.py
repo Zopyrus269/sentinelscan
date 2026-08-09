@@ -10,6 +10,7 @@ import sys
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urljoin, urlparse, urlunparse
 import xml.etree.ElementTree as ET
+from defusedxml.ElementTree import fromstring as defused_fromstring
 
 import requests
 
@@ -93,7 +94,7 @@ def parse_sitemap_xml(
         raise ET.ParseError("Empty XML content.")
 
     try:
-        root = ET.fromstring(xml_content.strip())
+        root = defused_fromstring(xml_content.strip())
     except ET.ParseError as err:
         raise ET.ParseError(f"Invalid XML structure: {str(err)}")
 

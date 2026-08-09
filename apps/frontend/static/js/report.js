@@ -888,7 +888,7 @@ function renderWorkerFindings(findings) {
 
     container.innerHTML = findings
         .map((finding) => {
-            const rawData = finding.raw_data;
+            const rawData = finding.evidence || finding.raw_data;
 
             return `
                 <article

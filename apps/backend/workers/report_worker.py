@@ -19,7 +19,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
-from xml.sax.saxutils import escape
+import html
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
@@ -156,7 +156,7 @@ def _tokens(value: Any) -> set[str]:
 
 
 def _safe(value: Any) -> str:
-    return escape(str(value or ""))
+    return html.escape(str(value or ""))
 
 
 # =========================================================
@@ -2438,9 +2438,9 @@ def _generate_pdf(
 
         colWidths=[
             1.6 * inch,
-            1.0 * inch,
-            0.9 * inch,
-            4.0 * inch,
+            1.3 * inch,
+            0.8 * inch,
+            3.8 * inch,
         ],
     )
 

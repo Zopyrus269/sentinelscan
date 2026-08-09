@@ -15,3 +15,4 @@ firebase-admin
 
 playwright
 pytest-playwright
+defusedxml

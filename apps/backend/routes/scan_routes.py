@@ -221,8 +221,8 @@ def start_scan():
             from firebase_admin import auth as firebase_auth
             decoded_token = firebase_auth.verify_id_token(id_token)
             uid = decoded_token.get("uid")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Error encountered: {e}")
 
     scan_id = create_scan(target)
     thread = threading.Thread(target=_run_scan_background, args=(scan_id, target, uid), daemon=True)

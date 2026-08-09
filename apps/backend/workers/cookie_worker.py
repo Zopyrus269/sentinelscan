@@ -6,6 +6,7 @@ as a fallback) for missing Secure and HttpOnly flags.
 """
 
 from typing import Dict, Any, List
+import logging
 import requests
 
 
@@ -45,8 +46,8 @@ def cookie_worker(target: str) -> Dict[str, Any]:
                 getlist_val = response.raw.headers.getlist("Set-Cookie")
                 if isinstance(getlist_val, list):
                     raw_set_cookie_headers = getlist_val
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Error encountered: {e}")
 
         if not raw_set_cookie_headers and "Set-Cookie" in response.headers:
             header_val = response.headers.get("Set-Cookie")
