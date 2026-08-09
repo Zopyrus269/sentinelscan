@@ -15,7 +15,7 @@ pip install -r scripts/requirements.txt
    ```
    python scripts/admin_seed_secrets.py
    ```
-   This copies `GEMINI_API_KEY`, `FLASK_SECRET_KEY`, `DATABASE_URL`, and `BLOCKED_DOMAINS` from your local `.env` into the `config/secrets` Firestore document.
+   This copies `GEMINI_API_KEY`, `FLASK_SECRET_KEY`, and `BLOCKED_DOMAINS` from your local `.env` into the `config/secrets` Firestore document.
 
 ## Adding a teammate (admin only, per person)
 

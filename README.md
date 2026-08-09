@@ -135,7 +135,7 @@ Then open the frontend, enter an **authorized** target, confirm the consent chec
 
 ## 🧪 Testing
 
-- **123 tests** across workers, the dispatch layer, the Gemini client, and the orchestrator.
+- **137 passing tests, 1 skipped** across workers, the dispatch layer, the Gemini client, and the orchestrator.
 - Run with `pytest tests/` — plain `unittest discover` silently skips the pytest-style test files.
 - Every worker is tested independently of the agent; the orchestrator is tested independently of live Gemini calls (mocked), then verified end-to-end against the real API.
 

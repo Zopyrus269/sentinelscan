@@ -29,7 +29,6 @@ from apps.backend.auth.firebase_client import get_db
 SHARED_SECRET_KEYS = [
     "GEMINI_API_KEY",
     "FLASK_SECRET_KEY",
-    "DATABASE_URL",
     "BLOCKED_DOMAINS",
 ]
 

@@ -1,11 +1,20 @@
+import os
+
 from playwright.sync_api import sync_playwright
 
-CUSTOM_TOKEN = "eyJhbGciOiAiUlMyNTYiLCAidHlwIjogIkpXVCIsICJraWQiOiAiYjhiY2U4MzMwNjE4MGNmNGY4MmM5NzIxYjRmN2E2ODliNWQ2OGU1MCJ9.eyJpc3MiOiAiZmlyZWJhc2UtYWRtaW5zZGstZmJzdmNAc2VudGluZWxzY2FuLTNmODJkLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwgInN1YiI6ICJmaXJlYmFzZS1hZG1pbnNkay1mYnN2Y0BzZW50aW5lbHNjYW4tM2Y4MmQuaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLCAiYXVkIjogImh0dHBzOi8vaWRlbnRpdHl0b29sa2l0Lmdvb2dsZWFwaXMuY29tL2dvb2dsZS5pZGVudGl0eS5pZGVudGl0eXRvb2xraXQudjEuSWRlbnRpdHlUb29sa2l0IiwgInVpZCI6ICJ0ZXN0LXVpZC1wbGF5d3JpZ2h0LTAwMSIsICJpYXQiOiAxNzg1OTA5NzA4LCAiZXhwIjogMTc4NTkxMzMwOH0.ReXjfGmVQe5ywuaWtrW-7Ca5pSIjWXbMLiuCtPI6aA0DATzRR5tEBa5lfSO1A4iG8EMLc43Jl97DaaJVd-gItgx7pxGQrPVqX7nKSbQysZ7Krq6XpHILziez7rlTJh_LiaOhjnY3Jo-eBRzerUocXEmEDvqIZUQxw3yKe_cEJE5ASiu7vfJpByHObdYbqfp9JZEk7q8_5wikE4I_w91X01_0bc9Q8ARm2osnMLOn-ohXJ5HOMCs9bC145r-Wiiv6ZPvMlYWrZvykuBvyoqjh3Qn8WuAG9f_cAAtRwpzjP8csWK0Da1KKrE9PaXxYrR6BWeEq2WBemB5f63uRiL7Eiw"
+# A short-lived Firebase custom auth token (1hr expiry), signed with the
+# project's service account. Never hardcode a real one here -- generate a
+# fresh token with `firebase_admin.auth.create_custom_token("test-uid-playwright-001")`
+# against a running backend and export it, e.g.:
+#   HEADLESS_TEST_TOKEN=<token> pytest headless_auth_test.py
+CUSTOM_TOKEN = os.environ.get("HEADLESS_TEST_TOKEN", "")
 
 import pytest
 
 @pytest.mark.skip(reason="Requires live backend server - skipping for CI/CD")
 def test_headless_authentication():
+    if not CUSTOM_TOKEN:
+        raise RuntimeError("Set HEADLESS_TEST_TOKEN to a fresh custom token before running this test.")
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()

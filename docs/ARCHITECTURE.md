@@ -13,7 +13,7 @@ Workers -> Aggregated Findings -> CVSS Worker (only when required) -> AI Agent p
 - **Flask Website**: Acts as a "dumb" UI. Displays forms, triggers API endpoints, polls for progress, and renders reports. It contains no scanning logic.
 - **AI Agent**: The orchestrator and central reasoning engine. Sends current state and context to Gemini, receives a decision on which tool to call next, parses tool outputs, and maintains the context window for the scan session. The AI Agent is the central orchestrator and sole reasoning engine.
 - **Python Workers**: Highly specialized, single-purpose modules. They accept standard inputs, perform their network or parsing task, and return structured JSON. They contain zero business or orchestration logic.
-- **Database**: Stores scan history, active scan states, and findings. Currently SQLite, designed to be swapped to PostgreSQL later.
+- **Database**: Active scan state (`apps/backend/models/scan_store.py`) is an in-memory, per-process store — sufficient since a scan's lifecycle lives entirely within one request/background-thread cycle. Completed scan history (`apps/backend/models/history_store.py`) is persisted to Firestore, with the in-memory store used as a local-dev fallback when Firebase isn't configured. `DATABASE_URL`/SQLite is not used by the application; it's a legacy config value not read anywhere in `apps/backend/`.
 - **Report Generator**: A specialized worker invoked at the end of the scan to compile findings into PDF (via reportlab) and JSON formats. It performs no analysis.
 
 ## End-to-End Data Flow
