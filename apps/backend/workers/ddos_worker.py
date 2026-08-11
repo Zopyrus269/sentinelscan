@@ -16,8 +16,10 @@ import socket
 import time
 from typing import Any, Dict, List, Set
 from urllib.parse import urlparse
+import logging
 
 import requests
+from apps.backend.utils.browser_fetcher import fetch_with_browser
 
 
 WORKER_NAME = "ddos_resilience_check"
@@ -274,15 +276,40 @@ def ddos_resilience_check(target: str) -> Dict[str, Any]:
 
         return _result("COMPLETED", summary, evidence, None, started, attempts)
 
-    except requests.Timeout as exc:
-        return _result(
-            "TIMEOUT",
-            "Passive DDoS/CDN indicator request timed out; resilience posture is inconclusive.",
-            evidence,
-            str(exc),
-            started,
-            attempts,
-        )
+    except (requests.Timeout, requests.ConnectionError):
+        logging.warning("Requests timed out. Falling back to Playwright browser...")
+        try:
+            browser_data = fetch_with_browser(url)
+            
+            evidence["http_status"] = browser_data.get("status_code", 0)
+            headers = {str(k).lower(): str(v) for k, v in browser_data.get("headers", {}).items()}
+            evidence["headers_checked"] = {k: v for k, v in headers.items() if k in RELEVANT_HEADERS}
+            evidence["rate_limit_indicators"] = {k: v for k, v in headers.items() if k in RATE_LIMIT_HEADERS}
+            
+            cookie_names = {str(cookie.get("name", "")).lower() for cookie in browser_data.get("cookies", [])}
+            providers = _detect_providers(headers, cookie_names, evidence["dns_hostnames"])
+            evidence["provider_indicators"] = providers
+            
+            text_body = browser_data.get("text", "").lower()
+            evidence["challenge_observed"] = any(marker in text_body for marker in CHALLENGE_MARKERS)
+            
+            if evidence["challenge_observed"]:
+                evidence["limitations"].append(
+                    f"A passive challenge/rate-limit style response was observed via browser; the origin application may not be directly observable."
+                )
+                
+            if providers:
+                evidence["posture"] = "DETECTED"
+                evidence["cdn_or_waf_detected"] = True
+                summary = "Public CDN/WAF/reverse-proxy indicators observed: " + ", ".join(providers) + "."
+            else:
+                evidence["posture"] = "NOT_OBSERVED"
+                evidence["cdn_or_waf_detected"] = False
+                summary = "No public CDN/WAF indicators were observed. This does not prove that DDoS protection is absent."
+
+            return _result("COMPLETED", summary, evidence, None, started, attempts)
+        except Exception as browser_err:
+            return _result("FAILED", "Browser fallback failed", evidence, str(browser_err), started, attempts)
     except requests.RequestException as exc:
         return _result(
             "UNREACHABLE",

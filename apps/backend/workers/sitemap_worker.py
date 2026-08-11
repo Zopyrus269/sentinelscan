@@ -10,13 +10,15 @@ import sys
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urljoin, urlparse, urlunparse
 import xml.etree.ElementTree as ET
+import logging
+from apps.backend.utils.browser_fetcher import fetch_with_browser
 from defusedxml.ElementTree import fromstring as defused_fromstring
 
 import requests
 
 
 WORKER_NAME = "sitemap"
-DEFAULT_TIMEOUT = 15.0
+DEFAULT_TIMEOUT = 45.0
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 
@@ -201,18 +203,33 @@ def perform_sitemap_fetch(
         return format_error_response("URL must be a non-empty string.")
 
     target_url = normalize_sitemap_url(url)
-    headers = {"User-Agent": USER_AGENT}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+    }
 
     try:
         response = requests.get(target_url, timeout=timeout, headers=headers)
-    except requests.exceptions.Timeout:
-        return format_error_response(
-            f"Request timed out fetching sitemap from '{target_url}'."
-        )
-    except requests.exceptions.ConnectionError as err:
-        return format_error_response(
-            f"Connection error fetching sitemap from '{target_url}': {str(err)}"
-        )
+    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+        logging.warning("Requests timed out. Falling back to Playwright browser...")
+        try:
+            browser_data = fetch_with_browser(target_url)
+            text = browser_data.get("text", "")
+            
+            is_sitemap_index, urls, sitemaps = parse_sitemap_xml(text, target_url)
+            data = {
+                "urls": urls,
+                "url_count": len(urls),
+                "is_sitemap_index": is_sitemap_index,
+                "sitemaps": sitemaps,
+            }
+            return format_success_response(data)
+        except Exception as browser_err:
+            return format_error_response(f"Browser fallback failed: {str(browser_err)}")
     except requests.exceptions.RequestException as err:
         return format_error_response(
             f"Failed to fetch sitemap from '{target_url}': {str(err)}"

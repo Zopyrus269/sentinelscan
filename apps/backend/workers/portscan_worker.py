@@ -42,10 +42,10 @@ DEFAULT_PORTS = (
 
 MAX_PORTS = 100
 
-SOCKET_TIMEOUT_SECONDS = 1.25
+SOCKET_TIMEOUT_SECONDS = 3.0
 MAX_SOCKET_WORKERS = 20
 
-NMAP_HOST_TIMEOUT = "45s"
+NMAP_HOST_TIMEOUT = "120s"
 
 
 # ---------------------------------------------------------------------

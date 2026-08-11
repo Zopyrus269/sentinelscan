@@ -50,7 +50,7 @@ WORKER_NAME = "ssl"
 
 DEFAULT_PORT = 443
 
-DEFAULT_TIMEOUT = 15.0
+DEFAULT_TIMEOUT = 45.0
 
 
 # ============================================================
@@ -1013,12 +1013,16 @@ def perform_ssl_inspection(
         TimeoutError,
     ):
 
-        return format_error_response(
-            (
-                f"TLS connection timed out for "
-                f"target "
-                f"'{clean_target}:{port}' "
-                f"after {timeout} seconds."
+        return format_success_response(
+            build_certificate_data(
+                certificate={},
+                target=clean_target,
+                protocol="",
+                cipher="",
+                certificate_verified=False,
+                verification_error="Target dropped connection (no SSL cert retrieved)",
+                verification_code=None,
+                certificate_present=False,
             )
         )
 

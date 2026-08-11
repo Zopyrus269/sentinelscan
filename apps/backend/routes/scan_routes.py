@@ -22,6 +22,8 @@ from flask import Blueprint, jsonify, request, send_file, Response
 
 from apps.backend.agent.orchestrator import run_scan
 from apps.backend.models.scan_store import create_scan, get_scan, list_scans, update_scan, add_scan_event
+from apps.backend.utils.ssrf_validator import is_safe_target
+from apps.backend.extensions import limiter
 try:
     from firebase_admin import auth as firebase_auth
 except ImportError:
@@ -200,6 +202,7 @@ def _run_scan_background(scan_id: str, target: str, uid: str = None) -> None:
 
 
 @scan_bp.route("/scans", methods=["POST"])
+@limiter.limit("5 per minute")
 def start_scan():
     """POST /api/v1/scans -- initiates a new scan, returns immediately with PENDING status."""
     data = request.get_json(silent=True) or {}
@@ -208,6 +211,10 @@ def start_scan():
 
     if not target:
         return _error("Request body must include a non-empty 'target' string.", 400)
+
+    is_safe, ssrf_msg = is_safe_target(target)
+    if not is_safe:
+        return _error(f"SSRF Prevention: {ssrf_msg}", 400)
 
     if is_domain_blocked(target):
         return jsonify({"error": f"Security Policy: Scanning '{target}' is restricted and not permitted."}), 403
@@ -232,6 +239,7 @@ def start_scan():
 
 
 @scan_bp.route("/scans/<scan_id>", methods=["GET"])
+@limiter.exempt
 def get_scan_status(scan_id: str):
     """GET /api/v1/scans/<scan_id> -- polls the status/progress of a scan."""
     scan = get_scan(scan_id)

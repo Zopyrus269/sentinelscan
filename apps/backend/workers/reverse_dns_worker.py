@@ -25,7 +25,7 @@ def reverse_dns_lookup(ip: str) -> Dict[str, Any]:
     # Save the default timeout and set a new one to prevent hanging
     default_timeout = socket.getdefaulttimeout()
     try:
-        socket.setdefaulttimeout(5.0)  # 5 seconds reasonable timeout
+        socket.setdefaulttimeout(15.0)  # 15 seconds reasonable timeout
         
         try:
             # socket.gethostbyaddr returns (hostname, aliaslist, ipaddrlist)
