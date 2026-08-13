@@ -175,3 +175,55 @@ footer {
 .sentinelscan-nav-menu .staggered-menu-header {
   background: transparent !important;
 }
+
+/* The shipped header uses a flat 2em padding on every side, which sits the
+   toggle noticeably lower than the real site header's vertically-centered
+   content (a 64px/h-16 row, see index.html's <nav>). Trim just the top
+   padding so the icon rides higher, closer to that row's center, while the
+   right padding (and thus its top-right position) stays untouched. */
+.sentinelscan-nav-menu .staggered-menu-header {
+  padding-top: 1.1em;
+}
+
+/* Panel theme: the shipped component hardcodes a white panel with black
+   item text (StaggeredMenu.css) with no color props for these -- scoped
+   override here instead of editing the shipped file. */
+.sentinelscan-nav-menu .staggered-menu-panel {
+  background: #000;
+}
+
+.sentinelscan-nav-menu .sm-panel-item {
+  color: #fff;
+}
+
+/* The shipped item font-size (3.5rem) is wider than the panel's own max
+   width (420px) once padding and the numbering column are subtracted, so
+   long labels like "Documentation" were being clipped by the panel's
+   overflow instead of wrapping or shrinking -- e.g. "Documentation" only
+   showed as "Documenta". Scale the label down and trim its right padding
+   so the longest nav label fits on one line within the panel frame. */
+.sentinelscan-nav-menu .sm-panel-item {
+  font-size: clamp(1.5rem, 4.2vw, 2.25rem);
+  letter-spacing: -1px;
+  padding-right: 2.75rem;
+}
+
+/* The shipped list's 0.5rem gap reads as cramped now that the labels are
+   smaller than the shipped 3.5rem default -- the four items bunch into a
+   tight block near the panel's top padding instead of reading as a spaced
+   nav list. */
+.sentinelscan-nav-menu .sm-panel-list {
+  gap: 1.75rem;
+}
+
+/* The shipped rule positions the "01"/"02" counter with `right` in em units
+   relative to the item's own (large, responsive) font-size, and the item's
+   padding-right the same way -- at this component's smaller, clamped font
+   size that gutter collapses and the counter lands on top of the label
+   instead of beside it. Pin both the counter's offset and size in rem
+   (independent of the item's font-size) so the gutter stays a fixed, safe
+   width at every label length and viewport. */
+.sentinelscan-nav-menu .sm-panel-list[data-numbering] .sm-panel-item::after {
+  right: 0.75rem;
+  font-size: 0.875rem;
+}

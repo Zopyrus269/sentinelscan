@@ -5,6 +5,7 @@ import FloatingLines from './components/FloatingLines/FloatingLines.jsx'
 import IntroPreloader, { TIMING } from './components/IntroPreloader/IntroPreloader.jsx'
 import ShinyText from './components/ShinyText/ShinyText.jsx'
 import StaggeredMenu from './components/StaggeredMenu/StaggeredMenu.jsx'
+import ShutterText from './components/ShutterText/ShutterText.jsx'
 
 // 1x1 transparent gif -- the shipped component always renders an <img>
 // for its own logo slot, defaulting to a React Bits demo asset path that
@@ -16,12 +17,46 @@ const TRANSPARENT_PIXEL =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 
 const NAV_ITEMS = [
+  { label: 'Home', link: '/', ariaLabel: 'Go to the home page' },
   { label: 'Dashboard', link: '/dashboard', ariaLabel: 'Go to the dashboard' },
   { label: 'Reports', link: '/report', ariaLabel: 'Go to reports' },
   { label: 'Documentation', link: '/documentation', ariaLabel: 'Go to documentation' },
 ]
 
 const INTRO_SEEN_KEY = 'sentinelscan_intro_seen'
+const INTRO_REVEAL_EVENT = 'sentinelscan:intro-reveal-start'
+
+// Gates the hero ShutterText reveal on the intro preloader instead of
+// letting it play immediately at mount. On a first-time visit this
+// component mounts (and framer-motion evaluates its `initial` state)
+// while the intro overlay is still fully covering the page, so an
+// ungated reveal finishes underneath the overlay and visitors only ever
+// see the settled final text once the intro uncovers it.
+//
+// The event this waits for fires the moment the intro's stairs *start*
+// uncovering the page (stage 'open'), not when they finish -- starting
+// the shutter animation in step with the curtains opening, rather than
+// after, is what sells the "site booted up instantly" effect. Returning
+// visitors within the same tab session never see the intro at all
+// (INTRO_SEEN_KEY already set), so this starts true for them and the
+// reveal plays immediately on mount as before.
+function useIntroRevealStarted() {
+  const [started, setStarted] = useState(() => sessionStorage.getItem(INTRO_SEEN_KEY) === '1')
+
+  useEffect(() => {
+    if (started) return
+    const handleStart = () => setStarted(true)
+    window.addEventListener(INTRO_REVEAL_EVENT, handleStart)
+    return () => window.removeEventListener(INTRO_REVEAL_EVENT, handleStart)
+  }, [started])
+
+  return started
+}
+
+function HeroShutterSection() {
+  const revealStarted = useIntroRevealStarted()
+  return <ShutterText text="AI-Powered Website Security Scanner" start={revealStarted} />
+}
 
 // The inline head script (see each static HTML page) hides <html> before
 // this bundle loads whenever the intro hasn't played yet this tab, to avoid
@@ -34,7 +69,7 @@ function useRevealHtmlAfterFirstPaint() {
   }, [])
 }
 
-function Intro({ onDone }) {
+function Intro({ onRevealStart, onDone }) {
   const [stage, setStage] = useState('textIn')
   useRevealHtmlAfterFirstPaint()
 
@@ -45,7 +80,10 @@ function Intro({ onDone }) {
       TIMING.textInMs + TIMING.textHoldMs,
     )
     const toOpen = setTimeout(
-      () => setStage('open'),
+      () => {
+        setStage('open')
+        onRevealStart()
+      },
       TIMING.textInMs + TIMING.textHoldMs + TIMING.textOutMs + TIMING.blackPauseMs,
     )
     const toDone = setTimeout(
@@ -58,7 +96,7 @@ function Intro({ onDone }) {
       clearTimeout(toOpen)
       clearTimeout(toDone)
     }
-  }, [onDone])
+  }, [onRevealStart, onDone])
 
   return <IntroPreloader stage={stage} />
 }
@@ -151,6 +189,15 @@ if (brandMountPoint) {
   )
 }
 
+const heroShutterMountPoint = document.getElementById('sentinelscan-hero-shutter')
+if (heroShutterMountPoint) {
+  createRoot(heroShutterMountPoint).render(
+    <StrictMode>
+      <HeroShutterSection />
+    </StrictMode>,
+  )
+}
+
 if (sessionStorage.getItem(INTRO_SEEN_KEY) !== '1') {
   const introMountPoint = document.createElement('div')
   document.body.insertBefore(introMountPoint, document.body.firstChild)
@@ -159,6 +206,9 @@ if (sessionStorage.getItem(INTRO_SEEN_KEY) !== '1') {
   introRoot.render(
     <StrictMode>
       <Intro
+        onRevealStart={() => {
+          window.dispatchEvent(new Event(INTRO_REVEAL_EVENT))
+        }}
         onDone={() => {
           sessionStorage.setItem(INTRO_SEEN_KEY, '1')
           introRoot.unmount()
