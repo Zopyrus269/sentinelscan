@@ -3,6 +3,13 @@
 <head>
     <script>
         (() => {
+            if (sessionStorage.getItem("sentinelscan_intro_seen") !== "1") {
+                document.documentElement.style.visibility = "hidden";
+            }
+        })();
+    </script>
+    <script>
+        (() => {
             const key = "sentinelscan_theme";
             const stored = localStorage.getItem(key);
             const preference = ["light", "dark", "system"].includes(stored) ? stored : "system";
