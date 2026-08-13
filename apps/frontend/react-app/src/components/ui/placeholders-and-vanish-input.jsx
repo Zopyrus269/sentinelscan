@@ -1,8 +1,103 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+
+// Smooth caret, adapted from Skiper UI's Skiper106 ("Smooth Input"): only
+// the caret-smoothing mechanism is taken from it (a spring-animated custom
+// caret that glides between character positions instead of snapping like a
+// native text-input caret) -- none of Skiper106's own input/wrapper markup
+// or its "dialkit" dev-tuning panel. The native caret is hidden
+// (caretColor: transparent on the input) and this measures the pixel width
+// of the text before the caret on every keystroke/selection change to
+// position a custom bar, whose x is driven through a spring so it eases
+// into place rather than jumping.
+const CARET_SPRING = { stiffness: 500, damping: 30, mass: 0.5 };
+const CARET_SPRING_REDUCED_MOTION = { stiffness: 10000, damping: 100, mass: 0.1 };
+
+function useSmoothCaret(inputRef) {
+  const containerRef = useRef(null);
+  const measureRef = useRef(null);
+  const caretX = useMotionValue(0);
+  const caretOpacity = useMotionValue(0);
+  const prefersReducedMotion = useReducedMotion();
+  const springCaretX = useSpring(
+    caretX,
+    prefersReducedMotion ? CARET_SPRING_REDUCED_MOTION : CARET_SPRING,
+  );
+
+  const measurePrefixWidth = text => {
+    const input = inputRef.current;
+    const measureSpan = measureRef.current;
+    if (!input || !measureSpan) return null;
+
+    const styles = window.getComputedStyle(input);
+    measureSpan.style.font = `${styles.fontStyle} ${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`;
+    measureSpan.style.letterSpacing = styles.letterSpacing;
+    measureSpan.textContent = text;
+
+    const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+    return text.length > 0 ? measureSpan.offsetWidth + paddingLeft : paddingLeft - 1;
+  };
+
+  const updateCaretFromInput = target => {
+    const selectionStart = target.selectionStart ?? 0;
+    const selectionEnd = target.selectionEnd ?? 0;
+    const hasSelection = selectionStart !== selectionEnd;
+    const caretIndex =
+      selectionStart === selectionEnd
+        ? selectionStart
+        : target.selectionDirection === "backward"
+          ? selectionStart
+          : selectionEnd;
+
+    const absoluteWidth = measurePrefixWidth(target.value.slice(0, caretIndex));
+    if (absoluteWidth === null) return;
+
+    const styles = window.getComputedStyle(target);
+    const paddingRight = parseFloat(styles.paddingRight) || 0;
+    const maxX = target.clientWidth - paddingRight;
+
+    caretX.set(Math.min(absoluteWidth, maxX));
+    caretOpacity.set(hasSelection ? 0 : 1);
+  };
+
+  const updateCaretRef = useRef(updateCaretFromInput);
+  updateCaretRef.current = updateCaretFromInput;
+
+  useEffect(() => {
+    const input = inputRef.current;
+    const container = containerRef.current;
+    if (!input || !container) return;
+
+    const updateCaretIfFocused = () => {
+      if (document.activeElement === input) updateCaretRef.current(input);
+    };
+
+    const handleSelectionChange = () => {
+      if (document.activeElement !== input) return;
+      requestAnimationFrame(() => {
+        if (document.activeElement === input) updateCaretRef.current(input);
+      });
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    document.fonts.addEventListener("loadingdone", updateCaretIfFocused);
+    void document.fonts.ready.then(updateCaretIfFocused);
+
+    const resizeObserver = new ResizeObserver(updateCaretIfFocused);
+    resizeObserver.observe(container);
+
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      document.fonts.removeEventListener("loadingdone", updateCaretIfFocused);
+      resizeObserver.disconnect();
+    };
+  }, [inputRef]);
+
+  return { containerRef, measureRef, springCaretX, caretOpacity, updateCaretRef };
+}
 
 export function PlaceholdersAndVanishInput({
   placeholders,
@@ -43,6 +138,8 @@ export function PlaceholdersAndVanishInput({
   const inputRef = useRef(null);
   const [value, setValue] = useState("");
   const [animating, setAnimating] = useState(false);
+  const { containerRef, measureRef, springCaretX, caretOpacity, updateCaretRef } =
+    useSmoothCaret(inputRef);
 
   const draw = useCallback(() => {
     if (!inputRef.current) return;
@@ -153,6 +250,7 @@ export function PlaceholdersAndVanishInput({
 
   const vanishAndSubmit = () => {
     setAnimating(true);
+    caretOpacity.set(0);
     draw();
 
     const value = inputRef.current?.value || "";
@@ -180,21 +278,36 @@ export function PlaceholdersAndVanishInput({
           !animating ? "opacity-0" : "opacity-100"
         )}
         ref={canvasRef} />
-      <input
-        onChange={(e) => {
-          if (!animating) {
-            setValue(e.target.value);
-            onChange && onChange(e);
-          }
-        }}
-        onKeyDown={handleKeyDown}
-        ref={inputRef}
-        value={value}
-        type="text"
-        className={cn(
-          "w-full relative text-sm sm:text-base z-50 border-none dark:text-white bg-transparent text-black h-full rounded-full focus:outline-none focus:ring-0 pl-4 sm:pl-10 pr-20",
-          animating && "text-transparent dark:text-transparent"
-        )} />
+      <div ref={containerRef} className="relative h-full w-full">
+        <input
+          onChange={(e) => {
+            if (!animating) {
+              setValue(e.target.value);
+              onChange && onChange(e);
+            }
+            requestAnimationFrame(() => updateCaretRef.current(e.target));
+          }}
+          onKeyDown={handleKeyDown}
+          onKeyUp={(e) => updateCaretRef.current(e.target)}
+          onClick={(e) => updateCaretRef.current(e.target)}
+          onFocus={(e) => updateCaretRef.current(e.target)}
+          onBlur={() => caretOpacity.set(0)}
+          ref={inputRef}
+          value={value}
+          type="text"
+          style={{ caretColor: "transparent" }}
+          className={cn(
+            "w-full relative text-sm sm:text-base z-50 border-none dark:text-white bg-transparent text-black h-full rounded-full focus:outline-none focus:ring-0 pl-4 sm:pl-10 pr-20",
+            animating && "text-transparent dark:text-transparent"
+          )} />
+        <span
+          ref={measureRef}
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute left-0 top-0 whitespace-pre" />
+        <motion.div
+          className="pointer-events-none absolute top-1/2 z-50 h-[1em] w-0.5 -translate-y-1/2 bg-black dark:bg-white"
+          style={{ x: springCaretX, opacity: caretOpacity }} />
+      </div>
 
       <button
         disabled={!value}

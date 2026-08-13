@@ -7,6 +7,8 @@ import ShinyText from './components/ShinyText/ShinyText.jsx'
 import StaggeredMenu from './components/StaggeredMenu/StaggeredMenu.jsx'
 import ShutterText from './components/ShutterText/ShutterText.jsx'
 import TextType from './components/TextType/TextType.jsx'
+import CircularText from './components/CircularText/CircularText.jsx'
+import { Link000, Link001 } from './components/ui/skiper-ui/skiper40.jsx'
 import { PlaceholdersAndVanishInput } from './components/ui/placeholders-and-vanish-input.jsx'
 import SplashCursor from './components/SplashCursor.jsx'
 
@@ -110,6 +112,74 @@ function HeroScanInput() {
       onChange={handleChange}
       onSubmit={handleSubmit}
     />
+  )
+}
+
+// onHover is left at the component's own default ('speedUp') -- that's
+// the shipped React Bits behavior: an infinite loop that keeps spinning at
+// the faster pace for as long as the cursor stays inside, then eases back
+// to the normal pace on mouse-leave (rather than a one-shot spin that
+// settles and stops, which is what a 'pause'/spring transition would do).
+// The phrase repeats with a bullet separator so the ring reads as a
+// continuous loop instead of stopping short partway around with a gap.
+function FooterBrandMark() {
+  return (
+    <div
+      className="ss-footer-brandmark"
+      role="img"
+      aria-label="SentinelScan -- AI powered"
+    >
+      <CircularText
+        text="SENTINEL SCANNER • AI POWERED • "
+        spinDuration={22}
+        className="ss-footer-brandmark-ring"
+      />
+    </div>
+  )
+}
+
+const FOOTER_LINKS = [
+  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'GitHub', href: 'https://github.com/Zopyrus269/sentinelscan', external: true, icon: true },
+  { label: 'Contact', href: 'mailto:security@sentinelscan.example' },
+  { label: 'Terms and Conditions', href: '/terms' },
+]
+
+// Skiper 40's Link000 variant (no trailing icon) is the default: Link001-005
+// append an arrow <svg> after the text, which widens the anchor's own
+// content box beyond the word -- since the underline is `before:w-full`
+// (100% of that box, not of the text node), the icon would stretch the line
+// past the last letter. Link000 has no icon, so its box width equals the
+// text's rendered width and the line's right edge lands exactly on the last
+// letter, with nothing after it to overextend into.
+//
+// GitHub is the deliberate exception: Link001 is used there instead, which
+// both ships the trailing arrow icon and already hardcodes target="_blank"
+// -- exactly the external-link treatment GitHub needs. Its underline runs
+// under the icon too, which is expected for this one link.
+function FooterLinks() {
+  return (
+    <nav className="ss-footer-links" aria-label="Footer">
+      {FOOTER_LINKS.map(({ label, href, external, icon }) => {
+        if (icon) {
+          return (
+            <Link001 key={label} href={href}>
+              {label}
+            </Link001>
+          )
+        }
+        return (
+          <Link000
+            key={label}
+            href={href}
+            target={external ? '_blank' : undefined}
+            rel={external ? 'noopener noreferrer' : undefined}
+          >
+            {label}
+          </Link000>
+        )
+      })}
+    </nav>
   )
 }
 
@@ -279,6 +349,24 @@ if (heroSubtitleMountPoint) {
   createRoot(heroSubtitleMountPoint).render(
     <StrictMode>
       <HeroSubtitleSection />
+    </StrictMode>,
+  )
+}
+
+const footerBrandMountPoint = document.getElementById('sentinelscan-footer-brand')
+if (footerBrandMountPoint) {
+  createRoot(footerBrandMountPoint).render(
+    <StrictMode>
+      <FooterBrandMark />
+    </StrictMode>,
+  )
+}
+
+const footerLinksMountPoint = document.getElementById('sentinelscan-footer-links')
+if (footerLinksMountPoint) {
+  createRoot(footerLinksMountPoint).render(
+    <StrictMode>
+      <FooterLinks />
     </StrictMode>,
   )
 }

@@ -244,11 +244,15 @@
                 <div class="relative" id="profileButtonWrapper">
                   <button
                     id="profileButton"
-                    class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-primary-fixed text-primary overflow-hidden"
+                    class="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden transition-all duration-300 hover:scale-[1.2] cursor-pointer"
                     aria-label="SentinelScan profile"
                   >
-                    <span id="profileIconDefault" class="material-symbols-outlined text-[18px]">
-                      shield_person
+                    <span id="profileIconDefault" class="flex h-[18px] w-[18px] items-center justify-center">
+                      <img
+                        src="https://images.shadcnspace.com/assets/svgs/icon-google.svg"
+                        alt="google icon"
+                        class="h-4 w-4"
+                      />
                     </span>
                     <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" />
                   </button>
@@ -505,96 +509,9 @@
 
     <!-- Footer -->
     <footer>
-        <div
-            class="flex w-full flex-col gap-lg px-margin-mobile py-xl md:flex-row md:items-start md:justify-between md:px-margin-desktop"
-        >
-            <div class="flex flex-col gap-lg">
-                <div>
-                    <div
-                        class="mb-sm font-headline-sm text-headline-sm font-bold text-primary"
-                    >
-                        SentinelScan
-                    </div>
-
-                    <p
-                        class="font-body-sm text-body-sm text-on-surface-variant"
-                    >
-                        AI-guided security reconnaissance and reporting for
-                        authorized assessments.
-                    </p>
-                </div>
-
-                <div>
-                    <h3
-                        class="mb-sm font-label-md text-label-md text-on-surface"
-                    >
-                        Product
-                    </h3>
-
-                    <div class="space-y-xs">
-                        <a
-                            href="/documentation"
-                            class="block text-body-sm text-on-surface-variant hover:text-primary"
-                        >
-                            Documentation
-                        </a>
-
-                        <a
-                            href="/dashboard"
-                            class="block text-body-sm text-on-surface-variant hover:text-primary"
-                        >
-                            Dashboard
-                        </a>
-
-                        <button
-                            type="button"
-                            class="block text-left text-body-sm text-on-surface-variant hover:text-primary"
-                            onclick="document.getElementById('sentinelscan-hero-input').scrollIntoView({behavior:'smooth', block:'center'}); document.querySelector('#sentinelscan-hero-input input[type=text]')?.focus();"
-                        >
-                            New Scan
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex flex-col gap-lg">
-                <div>
-                    <h3
-                        class="mb-sm font-label-md text-label-md text-on-surface"
-                    >
-                        Authorized Use
-                    </h3>
-
-                    <p
-                        class="text-body-sm text-on-surface-variant"
-                    >
-                        Scan only systems that you own or are explicitly authorized
-                        to assess.
-                    </p>
-                </div>
-
-                <div>
-                    <h3
-                        class="mb-sm font-label-md text-label-md text-on-surface"
-                    >
-                        Local Development
-                    </h3>
-
-                    <p
-                        class="text-body-sm text-on-surface-variant"
-                    >
-                        Backend: port 5000
-                        <br>
-                        Frontend: port 5500
-                    </p>
-
-                    <p
-                        class="mt-md text-body-sm text-on-surface-variant"
-                    >
-                        © 2026 SentinelScan
-                    </p>
-                </div>
-            </div>
+        <div class="flex w-full items-end justify-between px-margin-mobile py-lg md:px-margin-desktop">
+            <div id="sentinelscan-footer-brand"></div>
+            <div id="sentinelscan-footer-links"></div>
         </div>
     </footer>
 

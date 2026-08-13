@@ -254,11 +254,15 @@
                 <div class="relative" id="profileButtonWrapper">
                   <button
                     id="profileButton"
-                    class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-primary-fixed text-primary overflow-hidden"
+                    class="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden transition-all duration-300 hover:scale-[1.2] cursor-pointer"
                     aria-label="SentinelScan profile"
                   >
-                    <span id="profileIconDefault" class="material-symbols-outlined text-[18px]">
-                      shield_person
+                    <span id="profileIconDefault" class="flex h-[18px] w-[18px] items-center justify-center">
+                      <img
+                        src="https://images.shadcnspace.com/assets/svgs/icon-google.svg"
+                        alt="google icon"
+                        class="h-4 w-4"
+                      />
                     </span>
                     <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" />
                   </button>

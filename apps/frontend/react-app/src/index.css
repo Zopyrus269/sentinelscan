@@ -227,3 +227,73 @@ footer {
   right: 0.75rem;
   font-size: 0.875rem;
 }
+
+/* Footer brand mark: the shipped CircularText component is sized for a
+   200px demo canvas -- scaled down here to sit comfortably in the footer's
+   left column without dominating it.
+
+   The wrapper is a fixed 140px box (never itself transformed) with
+   overflow:hidden, sized just past the ring's worst-case rotated bounding
+   box (a 96px square spinning about its own center reaches ~135.8px on the
+   diagonal at 45/135/225/315deg). CSS transforms don't affect layout, but
+   Chrome does include a transformed descendant's *visual* overflow in an
+   ancestor's scrollable area -- with this mark sitting flush in the page's
+   bottom-left corner and the page height pinned to exactly 100vh, that
+   periodic few-pixel growth as the ring rotates through the diagonal was
+   enough to toggle the vertical scrollbar on and off every spin. Clipping
+   at a static 140px (comfortably above the 135.8px max) stops the
+   scrollable area from ever growing, without visibly cropping the ring at
+   any rotation angle. */
+.ss-footer-brandmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 140px;
+  height: 140px;
+  overflow: hidden;
+  /* The 96px ring sits centered in this 140px clip box, 22px of empty
+     padding above and below it ((140-96)/2). With the row's items-end
+     alignment putting this box's bottom flush with the link text's bottom,
+     that 22px of empty padding below the ring was the actual gap reading
+     as "hovering above" the links -- pulling the box down by that same
+     22px (past the flex line, into negative margin) puts the ring's own
+     edge, not the box's, flush with the text baseline. This only moves the
+     ring; the link row's own alignment/height is untouched. */
+  margin-bottom: -22px;
+}
+
+/* Footer link row (Skiper UI Skiper40, Link000 variant): a plain flex row
+   so each anchor stays shrink-to-fit around its own text -- that's what
+   keeps the hover underline's width matching the word above it instead of
+   stretching across leftover row space. */
+.ss-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 14px;
+  color: var(--ss-text, #dbe1ff);
+}
+
+/* GitHub's trailing arrow (Link001) renders at ~7.7px (0.55em of this row's
+   14px font) with its stroke reaching within a fraction of a pixel of the
+   SVG's own viewBox edge -- at that size, sub-pixel rounding lands the
+   arrowhead's corner just outside the box, and the SVG's default
+   `overflow: hidden` clips that corner off, leaving what looks like half an
+   arrow. The path itself never exceeds its viewBox, so letting the box
+   overflow costs nothing visually and stops the clipping. */
+.ss-footer-links svg {
+  overflow: visible;
+}
+
+
+.ss-footer-brandmark .ss-footer-brandmark-ring {
+  width: 96px;
+  height: 96px;
+}
+
+.ss-footer-brandmark .ss-footer-brandmark-ring span {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--ss-text, #dbe1ff);
+}
