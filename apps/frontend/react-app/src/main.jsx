@@ -3,6 +3,23 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import FloatingLines from './components/FloatingLines/FloatingLines.jsx'
 import IntroPreloader, { TIMING } from './components/IntroPreloader/IntroPreloader.jsx'
+import ShinyText from './components/ShinyText/ShinyText.jsx'
+import StaggeredMenu from './components/StaggeredMenu/StaggeredMenu.jsx'
+
+// 1x1 transparent gif -- the shipped component always renders an <img>
+// for its own logo slot, defaulting to a React Bits demo asset path that
+// doesn't exist in this app (would 404). We don't want a second logo next
+// to the "SentinelScan" brand text that's already in the static header, so
+// the logo is visually hidden via CSS (see index.css) and this just avoids
+// a broken-image network request for the hidden slot.
+const TRANSPARENT_PIXEL =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+
+const NAV_ITEMS = [
+  { label: 'Dashboard', link: '/dashboard', ariaLabel: 'Go to the dashboard' },
+  { label: 'Reports', link: '/report', ariaLabel: 'Go to reports' },
+  { label: 'Documentation', link: '/documentation', ariaLabel: 'Go to documentation' },
+]
 
 const INTRO_SEEN_KEY = 'sentinelscan_intro_seen'
 
@@ -103,6 +120,36 @@ createRoot(bgMountPoint).render(
     <SiteBackground />
   </StrictMode>,
 )
+
+const navMenuMountPoint = document.createElement('div')
+document.body.insertBefore(navMenuMountPoint, document.body.firstChild)
+
+createRoot(navMenuMountPoint).render(
+  <StrictMode>
+    <StaggeredMenu
+      className="sentinelscan-nav-menu"
+      isFixed
+      position="right"
+      items={NAV_ITEMS}
+      displaySocials={false}
+      displayItemNumbering
+      logoUrl={TRANSPARENT_PIXEL}
+      colors={['#60a5fa', '#2563eb']}
+      accentColor="#2563eb"
+      menuButtonColor="#0f172a"
+      openMenuButtonColor="#0f172a"
+    />
+  </StrictMode>,
+)
+
+const brandMountPoint = document.getElementById('sentinelscan-brand-shiny')
+if (brandMountPoint) {
+  createRoot(brandMountPoint).render(
+    <StrictMode>
+      <ShinyText text="SentinelScan" speed={3} />
+    </StrictMode>,
+  )
+}
 
 if (sessionStorage.getItem(INTRO_SEEN_KEY) !== '1') {
   const introMountPoint = document.createElement('div')

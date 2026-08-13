@@ -138,3 +138,40 @@ body,
 footer {
   background: transparent !important;
 }
+
+/* StaggeredMenu is mounted once, site-wide, as a fixed full-viewport overlay
+   (see main.jsx). Its own shipped header row (logo + toggle) spans 100% width
+   with `justify-content: space-between` -- we keep the logo slot in the DOM
+   (so the toggle still lands on the right) but hide it with `visibility`
+   rather than `display: none`, since `display: none` would collapse the flex
+   item and re-justify the toggle to the left. The toggle's color is forced to
+   follow the site's existing light/dark theme variable (set by
+   static/js/theme.js on <html class="dark">) because the component sets an
+   inline color via GSAP that would otherwise stay fixed regardless of theme. */
+.sentinelscan-nav-menu .sm-logo {
+  visibility: hidden;
+}
+
+.sentinelscan-nav-menu .sm-toggle {
+  color: var(--ss-text, #0f172a) !important;
+}
+
+/* The static pages' own <header> is `z-50` (or `fixed` with no explicit
+   z-index, on report.html) with an opaque background, painted after this
+   bundle's fixed-position mount point. The shipped wrapper's own z-index
+   (40) sits below that, so its toggle button was being fully covered by
+   the site header. Raise it above z-50 so the toggle stays clickable. */
+.sentinelscan-nav-menu.fixed-wrapper {
+  z-index: 60 !important;
+}
+
+/* static/css/styles.css has a sitewide `html.dark header { background-color:
+   ... !important }` rule (for the real page headers). The shipped component
+   renders its own internal chrome as a literal <header> tag too, so that
+   rule was painting an opaque bar over it, hiding everything underneath
+   (brand text, account icon) whenever the overlay's z-index put it on top.
+   Two classes beats the global rule's one-class specificity, so this wins
+   regardless of stylesheet order. */
+.sentinelscan-nav-menu .staggered-menu-header {
+  background: transparent !important;
+}

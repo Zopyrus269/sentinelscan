@@ -240,50 +240,19 @@
 >
     <!-- Navigation -->
     <header
-        class="sticky top-0 z-50 border-b border-border bg-surface"
+        class="sticky top-0 z-50"
     >
         <nav
-            class="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between px-margin-mobile md:px-margin-desktop"
+            class="flex h-16 w-full items-center justify-between px-margin-mobile md:px-margin-desktop"
         >
             <a
                 href="/"
-                class="text-headline-md font-headline-md font-bold tracking-tight text-primary"
+                class="text-2xl font-bold tracking-tight"
             >
-                SentinelScan
+                <span id="sentinelscan-brand-shiny"></span>
             </a>
 
-            <div class="hidden items-center gap-lg md:flex">
-                <a
-                    href="/dashboard"
-                    class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
-                >
-                    Dashboard
-                </a>
-
-                <a
-                    href="/report"
-                    class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
-                >
-                    Reports
-                </a>
-
-                <a
-                    href="/documentation"
-                    class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
-                >
-                    Documentation
-                </a>
-            </div>
-
-            <div class="flex items-center gap-sm">
-                <button
-                    id="navNewScanButton"
-                    type="button"
-                    class="rounded-lg bg-primary px-sm py-xs font-label-md text-label-md text-on-primary transition-all hover:bg-primary-container active:scale-[0.98]"
-                >
-                    New Scan
-                </button>
-
+            <div class="flex items-center gap-sm mr-24 md:mr-28">
                 <div class="relative" id="profileButtonWrapper">
                   <button
                     id="profileButton"
@@ -692,7 +661,7 @@
     </div>
 
     <!-- Footer -->
-    <footer class="border-t border-border bg-background">
+    <footer>
         <div
             class="mx-auto grid max-w-[1440px] grid-cols-1 gap-lg px-margin-mobile py-xl md:grid-cols-4 md:px-margin-desktop"
         >
