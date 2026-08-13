@@ -1,22 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <script>
         (() => {
             if (sessionStorage.getItem("sentinelscan_intro_seen") !== "1") {
                 document.documentElement.style.visibility = "hidden";
             }
-        })();
-    </script>
-    <script>
-        (() => {
-            const key = "sentinelscan_theme";
-            const stored = localStorage.getItem(key);
-            const preference = ["light", "dark", "system"].includes(stored) ? stored : "system";
-            const dark = preference === "dark" || (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-            document.documentElement.classList.toggle("dark", dark);
-            document.documentElement.classList.toggle("light", !dark);
-            document.documentElement.style.colorScheme = dark ? "dark" : "light";
         })();
     </script>
     <meta charset="utf-8">
@@ -231,7 +220,6 @@
         rel="stylesheet"
         href="/static/css/styles.css"
     >
-    <script src="/static/js/theme.js" defer></script>
   <link rel="stylesheet" href="/static/react-dist/main.css">
 </head>
 
@@ -252,7 +240,7 @@
                 <span id="sentinelscan-brand-shiny"></span>
             </a>
 
-            <div class="flex items-center gap-sm mr-24 md:mr-28">
+            <div class="flex items-center gap-sm mr-16 md:mr-20">
                 <div class="relative" id="profileButtonWrapper">
                   <button
                     id="profileButton"
@@ -307,47 +295,32 @@
                     class="relative mx-auto mb-md w-full"
                 ></div>
 
-                <p
-                    class="mx-auto mb-lg max-w-2xl font-body-lg text-body-lg text-on-surface-variant"
-                >
-                    Perform authorized security reconnaissance using
-                    AI-guided DNS, WHOIS, SSL, HTTP header, cookie, sitemap,
-                    robots.txt, port and CVSS workers.
-                </p>
+                <div
+                    id="sentinelscan-hero-subtitle"
+                    class="mx-auto mb-lg max-w-2xl"
+                ></div>
 
                 <!-- Scan Input -->
                 <div class="mx-auto max-w-2xl">
-                    <div
-                        class="flex flex-col gap-xs rounded-xl border border-border bg-surface p-base shadow-sm sm:flex-row"
+                    <div id="sentinelscan-hero-input"></div>
+
+                    <input
+                        id="targetInput"
+                        type="text"
+                        autocomplete="url"
+                        spellcheck="false"
+                        class="hidden"
+                        aria-hidden="true"
+                        tabindex="-1"
                     >
-                        <div
-                            class="flex flex-1 items-center gap-xs px-sm"
-                        >
-                            <span
-                                class="material-symbols-outlined text-outline"
-                            >
-                                language
-                            </span>
 
-                            <input
-                                id="targetInput"
-                                type="text"
-                                autocomplete="url"
-                                spellcheck="false"
-                                class="w-full border-none bg-transparent font-body-md text-body-md focus:ring-0"
-                                placeholder="example.com"
-                                aria-label="Target domain"
-                            >
-                        </div>
-
-                        <button
-                            id="openConsentButton"
-                            type="button"
-                            class="whitespace-nowrap rounded-lg bg-primary px-lg py-sm font-label-md text-label-md text-on-primary shadow-md transition-all hover:bg-primary-container active:scale-95"
-                        >
-                            Start AI-Powered Scan
-                        </button>
-                    </div>
+                    <button
+                        id="openConsentButton"
+                        type="button"
+                        class="hidden"
+                        aria-hidden="true"
+                        tabindex="-1"
+                    ></button>
 
                     <p
                         id="scanError"
@@ -355,141 +328,18 @@
                         role="alert"
                     ></p>
                 </div>
-
-                <div
-                    class="mt-md flex items-center justify-center gap-xs font-label-sm text-label-sm font-bold uppercase text-error"
-                >
-                    <span
-                        class="material-symbols-outlined text-[16px]"
-                        style="font-variation-settings: 'FILL' 1;"
-                    >
-                        warning
-                    </span>
-
-                    <span>
-                        Authorized Personnel Only
-                    </span>
-                </div>
             </div>
         </section>
 
-        <!-- Features -->
+        <!-- How SentinelScan Works (summary) -->
         <section
             id="documentation"
             class="py-xl"
         >
             <div
-                class="mx-auto max-w-[1440px] px-margin-mobile md:px-margin-desktop"
+                class="mx-auto flex max-w-[1440px] justify-center px-margin-mobile md:px-margin-desktop"
             >
-                <div class="mb-lg text-center">
-                    <h2
-                        class="font-headline-lg text-headline-lg text-on-surface"
-                    >
-                        How SentinelScan Works
-                    </h2>
-
-                    <p
-                        class="mx-auto mt-xs max-w-2xl text-body-md text-on-surface-variant"
-                    >
-                        The AI agent selects independent workers, interprets
-                        their structured output, calculates supported CVSS
-                        scores and generates downloadable reports.
-                    </p>
-                </div>
-
-                <div
-                    class="grid grid-cols-1 gap-lg md:grid-cols-3"
-                >
-                    <article
-                        class="glass-card flex flex-col items-start gap-md rounded-xl p-lg transition-all duration-300 hover:border-primary hover:shadow-md"
-                    >
-                        <div
-                            class="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-fixed text-primary"
-                        >
-                            <span
-                                class="material-symbols-outlined"
-                                style="font-variation-settings: 'FILL' 1;"
-                            >
-                                account_tree
-                            </span>
-                        </div>
-
-                        <div>
-                            <h3
-                                class="mb-xs font-headline-sm text-headline-sm"
-                            >
-                                AI Worker Orchestration
-                            </h3>
-
-                            <p
-                                class="font-body-md text-body-md text-on-surface-variant"
-                            >
-                                Gemini selects relevant workers and uses their
-                                output to guide the assessment workflow.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article
-                        class="glass-card flex flex-col items-start gap-md rounded-xl p-lg transition-all duration-300 hover:border-primary hover:shadow-md"
-                    >
-                        <div
-                            class="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container"
-                        >
-                            <span
-                                class="material-symbols-outlined"
-                                style="font-variation-settings: 'FILL' 1;"
-                            >
-                                verified_user
-                            </span>
-                        </div>
-
-                        <div>
-                            <h3
-                                class="mb-xs font-headline-sm text-headline-sm"
-                            >
-                                Ownership Verification
-                            </h3>
-
-                            <p
-                                class="font-body-md text-body-md text-on-surface-variant"
-                            >
-                                DNS TXT or hosted-file verification is required
-                                before a protected scan can begin.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article
-                        class="glass-card flex flex-col items-start gap-md rounded-xl p-lg transition-all duration-300 hover:border-primary hover:shadow-md"
-                    >
-                        <div
-                            class="flex h-12 w-12 items-center justify-center rounded-lg bg-surface-variant text-on-surface-variant"
-                        >
-                            <span
-                                class="material-symbols-outlined"
-                                style="font-variation-settings: 'FILL' 1;"
-                            >
-                                description
-                            </span>
-                        </div>
-
-                        <div>
-                            <h3
-                                class="mb-xs font-headline-sm text-headline-sm"
-                            >
-                                Structured Reports
-                            </h3>
-
-                            <p
-                                class="font-body-md text-body-md text-on-surface-variant"
-                            >
-                                Review live findings and download PDF or JSON
-                                reports after the assessment completes.
-                            </p>
-                        </div>
-                    </article>
-                </div>
+                <div id="sentinelscan-how-it-works"></div>
             </div>
         </section>
 
@@ -656,90 +506,94 @@
     <!-- Footer -->
     <footer>
         <div
-            class="mx-auto grid max-w-[1440px] grid-cols-1 gap-lg px-margin-mobile py-xl md:grid-cols-4 md:px-margin-desktop"
+            class="flex w-full flex-col gap-lg px-margin-mobile py-xl md:flex-row md:items-start md:justify-between md:px-margin-desktop"
         >
-            <div>
-                <div
-                    class="mb-sm font-headline-sm text-headline-sm font-bold text-primary"
-                >
-                    SentinelScan
+            <div class="flex flex-col gap-lg">
+                <div>
+                    <div
+                        class="mb-sm font-headline-sm text-headline-sm font-bold text-primary"
+                    >
+                        SentinelScan
+                    </div>
+
+                    <p
+                        class="font-body-sm text-body-sm text-on-surface-variant"
+                    >
+                        AI-guided security reconnaissance and reporting for
+                        authorized assessments.
+                    </p>
                 </div>
 
-                <p
-                    class="font-body-sm text-body-sm text-on-surface-variant"
-                >
-                    AI-guided security reconnaissance and reporting for
-                    authorized assessments.
-                </p>
-            </div>
-
-            <div>
-                <h3
-                    class="mb-sm font-label-md text-label-md text-on-surface"
-                >
-                    Product
-                </h3>
-
-                <div class="space-y-xs">
-                    <a
-                        href="/documentation"
-                        class="block text-body-sm text-on-surface-variant hover:text-primary"
+                <div>
+                    <h3
+                        class="mb-sm font-label-md text-label-md text-on-surface"
                     >
-                        Documentation
-                    </a>
+                        Product
+                    </h3>
 
-                    <a
-                        href="/dashboard"
-                        class="block text-body-sm text-on-surface-variant hover:text-primary"
-                    >
-                        Dashboard
-                    </a>
+                    <div class="space-y-xs">
+                        <a
+                            href="/documentation"
+                            class="block text-body-sm text-on-surface-variant hover:text-primary"
+                        >
+                            Documentation
+                        </a>
 
-                    <button
-                        type="button"
-                        class="block text-left text-body-sm text-on-surface-variant hover:text-primary"
-                        onclick="document.getElementById('targetInput').scrollIntoView({behavior:'smooth', block:'center'}); document.getElementById('targetInput').focus();"
-                    >
-                        New Scan
-                    </button>
+                        <a
+                            href="/dashboard"
+                            class="block text-body-sm text-on-surface-variant hover:text-primary"
+                        >
+                            Dashboard
+                        </a>
+
+                        <button
+                            type="button"
+                            class="block text-left text-body-sm text-on-surface-variant hover:text-primary"
+                            onclick="document.getElementById('sentinelscan-hero-input').scrollIntoView({behavior:'smooth', block:'center'}); document.querySelector('#sentinelscan-hero-input input[type=text]')?.focus();"
+                        >
+                            New Scan
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div>
-                <h3
-                    class="mb-sm font-label-md text-label-md text-on-surface"
-                >
-                    Authorized Use
-                </h3>
+            <div class="flex flex-col gap-lg">
+                <div>
+                    <h3
+                        class="mb-sm font-label-md text-label-md text-on-surface"
+                    >
+                        Authorized Use
+                    </h3>
 
-                <p
-                    class="text-body-sm text-on-surface-variant"
-                >
-                    Scan only systems that you own or are explicitly authorized
-                    to assess.
-                </p>
-            </div>
+                    <p
+                        class="text-body-sm text-on-surface-variant"
+                    >
+                        Scan only systems that you own or are explicitly authorized
+                        to assess.
+                    </p>
+                </div>
 
-            <div>
-                <h3
-                    class="mb-sm font-label-md text-label-md text-on-surface"
-                >
-                    Local Development
-                </h3>
+                <div>
+                    <h3
+                        class="mb-sm font-label-md text-label-md text-on-surface"
+                    >
+                        Local Development
+                    </h3>
 
-                <p
-                    class="text-body-sm text-on-surface-variant"
-                >
-                    Backend: port 5000
-                    <br>
-                    Frontend: port 5500
-                </p>
+                    <p
+                        class="text-body-sm text-on-surface-variant"
+                    >
+                        Backend: port 5000
+                        <br>
+                        Frontend: port 5500
+                    </p>
 
-                <p
-                    class="mt-md text-body-sm text-on-surface-variant"
-                >
-                    © 2026 SentinelScan
-                </p>
+                    <p
+                        class="mt-md text-body-sm text-on-surface-variant"
+                    >
+                        © 2026 SentinelScan
+                    </p>
+                </div>
             </div>
         </div>
     </footer>

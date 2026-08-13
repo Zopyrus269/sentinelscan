@@ -6,6 +6,9 @@ import IntroPreloader, { TIMING } from './components/IntroPreloader/IntroPreload
 import ShinyText from './components/ShinyText/ShinyText.jsx'
 import StaggeredMenu from './components/StaggeredMenu/StaggeredMenu.jsx'
 import ShutterText from './components/ShutterText/ShutterText.jsx'
+import TextType from './components/TextType/TextType.jsx'
+import { PlaceholdersAndVanishInput } from './components/ui/placeholders-and-vanish-input.jsx'
+import SplashCursor from './components/SplashCursor.jsx'
 
 // 1x1 transparent gif -- the shipped component always renders an <img>
 // for its own logo slot, defaulting to a React Bits demo asset path that
@@ -56,6 +59,58 @@ function useIntroRevealStarted() {
 function HeroShutterSection() {
   const revealStarted = useIntroRevealStarted()
   return <ShutterText text="AI-Powered Website Security Scanner" start={revealStarted} />
+}
+
+// TextType has no `start`/hold prop like ShutterText's -- it begins typing
+// as soon as it mounts. So instead of a prop, this gates the *mount itself*
+// on the same useIntroRevealStarted() hook/event as HeroShutterSection
+// above, which fires at the same moment (the instant the intro's stairs
+// begin opening). Both components therefore start their animations in the
+// same React commit -- this is the same timing, reused, not re-derived.
+function HeroSubtitleSection() {
+  const revealStarted = useIntroRevealStarted()
+  if (!revealStarted) return null
+  return (
+    <TextType
+      as="p"
+      loop={false}
+      className="font-body-lg text-body-lg text-on-surface-variant"
+      text="Perform authorized security reconnaissance using AI-guided DNS, WHOIS, SSL, HTTP header, cookie, sitemap, robots.txt, port and CVSS workers."
+    />
+  )
+}
+
+const SCAN_INPUT_PLACEHOLDERS = [
+  'example.com',
+  'yourcompany.com',
+  'staging.yourapp.dev',
+  'shop.yourbrand.io',
+]
+
+// PlaceholdersAndVanishInput is a self-contained form with its own text
+// input and submit button -- it doesn't know about this app's scan flow.
+// The static page still ships a hidden #targetInput/#openConsentButton pair
+// (app.js's existing consent-modal flow reads/clicks those by id), so this
+// wrapper just mirrors typed input into the hidden field and forwards
+// submit into a click on the hidden button, leaving app.js and the
+// component itself both untouched.
+function HeroScanInput() {
+  const handleChange = event => {
+    const hiddenInput = document.getElementById('targetInput')
+    if (hiddenInput) hiddenInput.value = event.target.value
+  }
+
+  const handleSubmit = () => {
+    document.getElementById('openConsentButton')?.click()
+  }
+
+  return (
+    <PlaceholdersAndVanishInput
+      placeholders={SCAN_INPUT_PLACEHOLDERS}
+      onChange={handleChange}
+      onSubmit={handleSubmit}
+    />
+  )
 }
 
 // The inline head script (see each static HTML page) hides <html> before
@@ -159,6 +214,18 @@ createRoot(bgMountPoint).render(
   </StrictMode>,
 )
 
+// Own independent root for the same reason as the background above --
+// SplashCursor listens on `window` directly and drives its own rAF loop,
+// so it doesn't need to live inside any particular page element.
+const splashCursorMountPoint = document.createElement('div')
+document.body.insertBefore(splashCursorMountPoint, document.body.firstChild)
+
+createRoot(splashCursorMountPoint).render(
+  <StrictMode>
+    <SplashCursor RAINBOW_MODE={false} COLOR="#ffffff" MOVE_FULL_INTENSITY_BOOST={1.4} />
+  </StrictMode>,
+)
+
 const navMenuMountPoint = document.createElement('div')
 document.body.insertBefore(navMenuMountPoint, document.body.firstChild)
 
@@ -194,6 +261,24 @@ if (heroShutterMountPoint) {
   createRoot(heroShutterMountPoint).render(
     <StrictMode>
       <HeroShutterSection />
+    </StrictMode>,
+  )
+}
+
+const heroInputMountPoint = document.getElementById('sentinelscan-hero-input')
+if (heroInputMountPoint) {
+  createRoot(heroInputMountPoint).render(
+    <StrictMode>
+      <HeroScanInput />
+    </StrictMode>,
+  )
+}
+
+const heroSubtitleMountPoint = document.getElementById('sentinelscan-hero-subtitle')
+if (heroSubtitleMountPoint) {
+  createRoot(heroSubtitleMountPoint).render(
+    <StrictMode>
+      <HeroSubtitleSection />
     </StrictMode>,
   )
 }

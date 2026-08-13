@@ -5,9 +5,23 @@ html {
 body {
     margin: 0;
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     font-family: "Inter", sans-serif;
     background: #f8fafc;
     color: #131b2e;
+}
+
+/* Pins the footer to the viewport bottom on short pages instead of
+   letting it trail directly under whatever content happens to be
+   above it. Fixed/absolute-positioned children (the React background,
+   nav menu, intro overlay) are out of flow and unaffected by this. */
+body > main {
+    flex: 1 0 auto;
+}
+
+body > footer {
+    flex-shrink: 0;
 }
 
 *,
@@ -282,54 +296,6 @@ html.dark .shadow-2xl {
     box-shadow: 0 14px 35px rgba(0, 0, 0, 0.28) !important;
 }
 
-.sentinel-theme-toggle {
-    position: fixed;
-    right: 18px;
-    bottom: 18px;
-    z-index: 120;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 42px;
-    padding: 9px 13px;
-    border: 1px solid var(--ss-border);
-    border-radius: 999px;
-    background: var(--ss-surface);
-    color: var(--ss-text);
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
-    transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
-}
-
-.sentinel-theme-toggle:hover {
-    transform: translateY(-2px);
-}
-
-.sentinel-theme-toggle .material-symbols-outlined {
-    font-size: 20px;
-    color: var(--ss-primary);
-}
-
-.sentinel-theme-toggle-label {
-    font-size: 13px;
-    font-weight: 700;
-}
-
-@media (max-width: 640px) {
-    .sentinel-theme-toggle {
-        right: 12px;
-        bottom: 12px;
-        width: 44px;
-        height: 44px;
-        justify-content: center;
-        padding: 0;
-    }
-
-    .sentinel-theme-toggle-label {
-        display: none;
-    }
-}
-
-
 /* Additional dark-mode coverage for project-specific utility colors. */
 html.dark .bg-primary-fixed,
 html.dark .bg-primary-fixed-dim {
@@ -399,8 +365,21 @@ html.dark ::selection {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    body,
-    .sentinel-theme-toggle {
+    body {
         transition: none !important;
     }
+}
+
+/* The page-wide Tailwind Play CDN (v3, JIT-scans the whole document
+   including React-rendered markup) and the React app's own precompiled
+   Tailwind v4 bundle both match utility classes like "-translate-y-1/2"
+   on the same elements. v3 emits a legacy `transform: translateY()`
+   rule; v4 emits a standalone `translate` property. Browsers apply both
+   properties together (translate, then transform), so an element using
+   the top-1/2 + -translate-y-1/2 centering pattern gets shifted twice.
+   This only visibly breaks the vanish-input's submit button (the only
+   React Bits element using that centering pattern so far), so the fix
+   is scoped to it rather than disabling transforms globally. */
+#sentinelscan-hero-input button[type="submit"] {
+    transform: none !important;
 }

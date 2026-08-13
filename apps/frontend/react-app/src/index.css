@@ -145,9 +145,9 @@ footer {
    (so the toggle still lands on the right) but hide it with `visibility`
    rather than `display: none`, since `display: none` would collapse the flex
    item and re-justify the toggle to the left. The toggle's color is forced to
-   follow the site's existing light/dark theme variable (set by
-   static/js/theme.js on <html class="dark">) because the component sets an
-   inline color via GSAP that would otherwise stay fixed regardless of theme. */
+   follow the site's existing `--ss-text` variable (resolved via the
+   static `class="dark"` on <html>) because the component sets an inline
+   color via GSAP that would otherwise stay fixed regardless of theme. */
 .sentinelscan-nav-menu .sm-logo {
   visibility: hidden;
 }
