@@ -5,12 +5,14 @@ import FloatingLines from './components/FloatingLines/FloatingLines.jsx'
 import IntroPreloader, { TIMING } from './components/IntroPreloader/IntroPreloader.jsx'
 import ShinyText from './components/ShinyText/ShinyText.jsx'
 import StaggeredMenu from './components/StaggeredMenu/StaggeredMenu.jsx'
-import ShutterText from './components/ShutterText/ShutterText.jsx'
+import SplitText from './components/SplitText.jsx'
 import TextType from './components/TextType/TextType.jsx'
 import CircularText from './components/CircularText/CircularText.jsx'
 import { Link000, Link001 } from './components/ui/skiper-ui/skiper40.jsx'
 import { PlaceholdersAndVanishInput } from './components/ui/placeholders-and-vanish-input.jsx'
 import SplashCursor from './components/SplashCursor.jsx'
+import ScanTerminal from './components/ScanTerminal/ScanTerminal.jsx'
+import SpecularButton from './components/SpecularButton/SpecularButton.jsx'
 
 // 1x1 transparent gif -- the shipped component always renders an <img>
 // for its own logo slot, defaulting to a React Bits demo asset path that
@@ -31,12 +33,13 @@ const NAV_ITEMS = [
 const INTRO_SEEN_KEY = 'sentinelscan_intro_seen'
 const INTRO_REVEAL_EVENT = 'sentinelscan:intro-reveal-start'
 
-// Gates the hero ShutterText reveal on the intro preloader instead of
-// letting it play immediately at mount. On a first-time visit this
-// component mounts (and framer-motion evaluates its `initial` state)
-// while the intro overlay is still fully covering the page, so an
-// ungated reveal finishes underneath the overlay and visitors only ever
-// see the settled final text once the intro uncovers it.
+// Gates the hero heading on the intro preloader instead of letting it
+// mount immediately. On a first-time visit this component would otherwise
+// mount (and its ScrollTrigger-driven reveal would fire) while the intro
+// overlay is still fully covering the page, so visitors would only ever
+// see it mid-animation once the intro uncovers it rather than a fresh
+// start. SplitText has no `start`/hold prop, so the mount itself is gated
+// instead -- same pattern as HeroSubtitleSection's TextType just below.
 //
 // The event this waits for fires the moment the intro's stairs *start*
 // uncovering the page (stage 'open'), not when they finish -- starting
@@ -60,7 +63,14 @@ function useIntroRevealStarted() {
 
 function HeroShutterSection() {
   const revealStarted = useIntroRevealStarted()
-  return <ShutterText text="AI-Powered Website Security Scanner" start={revealStarted} />
+  if (!revealStarted) return null
+  return (
+    <SplitText
+      text="AI-Powered Website Security Scanner"
+      tag="h1"
+      className="ss-hero-split text-[min(3.1vw,3rem)] leading-none font-black text-white tracking-tighter"
+    />
+  )
 }
 
 // TextType has no `start`/hold prop like ShutterText's -- it begins typing
@@ -296,12 +306,41 @@ createRoot(splashCursorMountPoint).render(
   </StrictMode>,
 )
 
+// The shipped StaggeredMenu panel only covers a right-hand slice of the
+// viewport (`clamp(260px, 38vw, 420px)`, see StaggeredMenu.css), not the
+// full width -- so page content further left (like the footer's leftmost
+// link) can still peek out from under it. Rather than editing the shipped
+// component, this observes its own `data-open` attribute (the mount root
+// isn't a DOM sibling of <footer>, so a plain CSS sibling selector can't
+// reach it) and mirrors it onto <body> as a class, which the footer's CSS
+// rule below keys off instead.
+function useMirrorMenuOpenToBody() {
+  useEffect(() => {
+    const wrapper = document.querySelector('.sentinelscan-nav-menu.staggered-menu-wrapper')
+    if (!wrapper) return
+
+    const sync = () => {
+      document.body.classList.toggle('ss-menu-open', wrapper.hasAttribute('data-open'))
+    }
+    sync()
+
+    const observer = new MutationObserver(sync)
+    observer.observe(wrapper, { attributes: true, attributeFilter: ['data-open'] })
+    return () => observer.disconnect()
+  }, [])
+}
+
+function NavMenuWithFooterBridge(props) {
+  useMirrorMenuOpenToBody()
+  return <StaggeredMenu {...props} />
+}
+
 const navMenuMountPoint = document.createElement('div')
 document.body.insertBefore(navMenuMountPoint, document.body.firstChild)
 
 createRoot(navMenuMountPoint).render(
   <StrictMode>
-    <StaggeredMenu
+    <NavMenuWithFooterBridge
       className="sentinelscan-nav-menu"
       isFixed
       position="right"
@@ -349,6 +388,28 @@ if (heroSubtitleMountPoint) {
   createRoot(heroSubtitleMountPoint).render(
     <StrictMode>
       <HeroSubtitleSection />
+    </StrictMode>,
+  )
+}
+
+const scanTerminalMountPoint = document.getElementById('sentinelscan-scan-terminal')
+if (scanTerminalMountPoint) {
+  createRoot(scanTerminalMountPoint).render(
+    <StrictMode>
+      <ScanTerminal />
+    </StrictMode>,
+  )
+}
+
+const noScanNoticeMountPoint = document.getElementById('sentinelscan-no-scan-notice')
+if (noScanNoticeMountPoint) {
+  createRoot(noScanNoticeMountPoint).render(
+    <StrictMode>
+      <div className="w-full flex justify-center">
+        <SpecularButton size="md" onClick={() => { window.location.href = '/' }}>
+          No scan ID was provided. Return to the landing page and start a new scan.
+        </SpecularButton>
+      </div>
     </StrictMode>,
   )
 }

@@ -176,6 +176,30 @@ footer {
   background: transparent !important;
 }
 
+/* The menu panel only spans a right-hand slice of the viewport
+   (`clamp(260px, 38vw, 420px)`), so page content further left -- the
+   footer's leftmost link in particular -- was peeking out from under it
+   while the menu was open. Hide just the link row (bottom-right), not the
+   whole footer -- the bottom-left CircularText brand mark should stay
+   visible throughout. `main.jsx` mirrors the menu's own `data-open` state
+   onto <body> as `.ss-menu-open` since the footer isn't a DOM sibling of
+   the menu's mount root. */
+body.ss-menu-open .ss-footer-links {
+  visibility: hidden;
+}
+
+/* SplitText's own inline style sets `overflow: hidden` on its wrapper tag
+   (to contain the per-character slide-up entrance), which was clipping
+   descenders -- the "y" in "Security" in particular -- since this heading's
+   line-height/box doesn't leave room below the baseline. A stylesheet
+   `!important` rule beats a plain (non-important) inline style, so this
+   overrides it without touching the vendored component file. No x/y split
+   needed here (unlike the earlier ShutterText) since nothing in this
+   animation moves or clips along the x-axis. */
+.ss-hero-split {
+  overflow: visible !important;
+}
+
 /* The shipped header uses a flat 2em padding on every side, which sits the
    toggle noticeably lower than the real site header's vertically-centered
    content (a 64px/h-16 row, see index.html's <nav>). Trim just the top
