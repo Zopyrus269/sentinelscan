@@ -23,20 +23,17 @@ Every prior handoff note in this vault said "`main` untouched/deployable through
 - **`apps/backend/app.py` was modified on both sides independently** (feature branch removed 5 static-page routes; main's security commits touched it for an unrelated reason -- not yet diffed line-by-line) -- **treat this as a likely merge conflict**, check it carefully rather than blindly taking either side.
 - A merge (not a rebase, not a force-push) is almost certainly the right move given both sides have real, independent work -- but confirm with the user before choosing a merge strategy, especially given the destructive-action policy on `git reset`/force-push/etc.
 
-### Critical: a third branch exists that nothing in this vault has tracked before
+### Resolved: the third branch (`dhanush-changes`) is deleted
 
-`origin/dhanush-changes` (last commit 2026-08-06, "Update users.json") exists on the remote and has **never been referenced in any prior session log**. It contains `6a3fc54` and `dfc1f12` (the same two commits now on `main`) plus at least two more on top: `6e451b3` ("Complete AI-driven SentinelScan improvements") and `f202642` ("Update users.json") -- meaning **`dhanush-changes` is currently ahead of `main`, not merged into it.**
-
-The user's "make sure `main` is the only branch existing" instruction cannot be satisfied without a decision about this branch specifically -- **ask the user directly what `dhanush-changes` is and whether/how to fold it in** before deleting it or leaving it behind. Do not assume it's safe to discard just because it predates this vault's awareness of it.
+`origin/dhanush-changes` was flagged at the end of session 10 as an untracked third branch (ahead of `main`, containing `main`'s two security commits plus 2 more). **The user explicitly confirmed it was safe to remove; deleted from `origin` at the start of session 11** (`git push origin --delete dhanush-changes`). Remote branch list is now just `main` and `feature/ui-redesign-reactbits` -- confirmed via `git fetch --prune` immediately after. Nothing further to resolve here.
 
 ### Suggested approach for next session (not yet executed -- confirm with user first)
 
-1. `git fetch origin --prune`, re-run the divergence checks above to confirm they still hold.
-2. Ask the user about `dhanush-changes` specifically (see above) before deciding whether it needs merging too, or is intentionally abandoned/superseded.
-3. Merge `feature/ui-redesign-reactbits` into `main` (or vice versa, whichever the user prefers as the target), resolving the `app.py` conflict by hand -- keep both the route removals and whatever the security commits did, don't silently drop either.
-4. Verify the merged `main` actually builds (`npm run build` in `apps/frontend/react-app`) and the backend still imports cleanly before pushing.
-5. Only after the user confirms the merge is correct: delete the now-redundant branches (`feature/ui-redesign-reactbits`, and `dhanush-changes` if folded in or explicitly abandoned) -- both locally and on `origin` (`git push origin --delete <branch>`), per the destructive-action confirmation policy.
-6. Confirm Render's deploy is tracking `main` (check `render.yaml`/Render dashboard service settings) and that a fresh deploy from the cleaned-up `main` actually serves the UI work -- this was the user's explicit final check, not just "the merge succeeded."
+1. `git fetch origin --prune`, re-run the `main` vs. `feature/ui-redesign-reactbits` divergence check above to confirm it still holds (2 commits on `main` not on the feature branch, 21+ the other way).
+2. Merge `feature/ui-redesign-reactbits` into `main` (or vice versa, whichever the user prefers as the target), resolving the `app.py` conflict by hand -- keep both the route removals and whatever the security commits did, don't silently drop either.
+3. Verify the merged `main` actually builds (`npm run build` in `apps/frontend/react-app`) and the backend still imports cleanly before pushing.
+4. Only after the user confirms the merge is correct: delete `feature/ui-redesign-reactbits` (both locally and on `origin`, `git push origin --delete feature/ui-redesign-reactbits`), per the destructive-action confirmation policy -- `main` should then be the only branch left, satisfying the user's ask.
+5. Confirm Render's deploy is tracking `main` (check `render.yaml`/Render dashboard service settings) and that a fresh deploy from the cleaned-up `main` actually serves the UI work -- this was the user's explicit final check, not just "the merge succeeded."
 
 ## Session 10 summary (2026-08-14) -- full detail in [[2026-08-14]] "Session 10"
 
