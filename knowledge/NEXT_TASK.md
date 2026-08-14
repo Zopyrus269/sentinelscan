@@ -10,7 +10,7 @@ This file is always **overwritten**, not appended -- it reflects the current han
 
 ## What's next
 
-**The UI redesign merge is done and live-verified.** `feature/ui-redesign-reactbits` was merged into `main` (merge commit `a510ac0`), pushed, Render auto-deployed it, and the live site (`https://sentinelscan-yd2u.onrender.com`) was checked and confirmed to be serving the merged UI work (landing page + documentation page both showed the redesign, not a stale build). Full detail in [[2026-08-14]] "Session 11".
+**The UI redesign merge is done and live-verified** (session 11, `a510ac0`). **A follow-up CSP fix for the broken Google profile photo/icon has since been pushed to `main` as `3314aee`** (session 12) but **not yet live-verified** — no Chrome authorization was given for this specific fix, so it's unconfirmed whether Render finished deploying it or whether it actually resolves the issue on the live site. If the user reports back or asks for a check, that's the first thing to verify next session. Full detail in [[2026-08-14]] "Session 12".
 
 **Not yet done, and not yet requested by the user this round:** repo cleanup so `main` is the only branch. `feature/ui-redesign-reactbits` still exists on `origin` and locally, now fully merged (safe to delete once the user asks) -- do not delete it unassisted, per the destructive-action confirmation policy. If the user asks for the cleanup next session:
 
@@ -21,6 +21,10 @@ This file is always **overwritten**, not appended -- it reflects the current han
 ## Session 11 summary (2026-08-14) -- full detail in [[2026-08-14]] "Session 11"
 
 Merged `feature/ui-redesign-reactbits` (23 commits, the full UI redesign workstream) into `main` (which had 2 independent security commits: SSRF/WAF/domain-verifier work, `6a3fc54`/`dfc1f12`). One real conflict in `apps/frontend/static/js/report.js` -- resolved by keeping the feature branch's removal of dead DOM-writer functions (`renderCvssScores`/`renderWorkerFindings`/`renderRecommendations`), since the new React `ReportCrawl` flow superseded them; main's one-line security fix inside the deleted `renderWorkerFindings` is moot for now (flagged as a follow-up if raw findings are ever re-surfaced in the new UI). `app.py`/`scan_routes.py` auto-merged cleanly despite both branches touching them. Verified `npm run build` succeeds post-merge. Pushed as `a510ac0`. Render auto-deployed (`render.yaml`: `branch: main`, `autoDeploy: true`); live site checked with the user's one-time Chrome authorization and confirmed current.
+
+## Session 12 summary (2026-08-14) -- full detail in [[2026-08-14]] "Session 12"
+
+Fixed a broken-image glyph in the profile button on the live site. Root cause: `app.py`'s CSP `img-src 'self' data:;` (added by the pre-session-11 security commits) blocked both the real Google profile photo (`lh3.googleusercontent.com`) *and* the logged-out fallback icon, which was hotlinked from `images.shadcnspace.com` -- both failed under CSP, so neither the photo nor its own fallback could render. Vendored the Google icon locally at `apps/frontend/static/icons/google.svg`, repointed all 8 references across the 4 static pages, and added `https://*.googleusercontent.com` to the CSP's `img-src`. `auth.js`'s existing `applyAvatar()` fallback logic needed no changes -- it was already correct, just starved by CSP. Committed directly to `main` as `3314aee`, pushed. **Not yet live-verified this session** -- no Chrome authorization requested/given for this specific check.
 
 ## Standing rules for this engagement (apply to all future sessions, not just this one)
 
@@ -56,7 +60,7 @@ Merged `feature/ui-redesign-reactbits` (23 commits, the full UI redesign workstr
 ## Links
 
 - Latest daily log: [[2026-08-14]] (sessions 5-11, same day)
-- Live site: `https://sentinelscan-yd2u.onrender.com` -- confirmed serving merged `main` as of session 11.
+- Live site: `https://sentinelscan-yd2u.onrender.com` -- confirmed serving merged `main` as of session 11; session 12's CSP/icon fix (`3314aee`) pushed after that but not yet live-verified.
 - Render service: `srv-d9rrj6n40ujc73c4efcg`
 - `scripts/README.md` -- team secrets bootstrap setup/usage instructions.
 - `render.yaml` -- Render deployment Blueprint (repo root); confirmed `branch: main`, `autoDeploy: true`.
