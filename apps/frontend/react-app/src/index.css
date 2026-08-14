@@ -188,6 +188,15 @@ body.ss-menu-open .ss-footer-links {
   visibility: hidden;
 }
 
+/* Dashboard page opts out of the site-wide fixed nav-menu toggle: the
+   trigger button (top-right) should scroll away with the page like the
+   rest of the header instead of staying pinned to the viewport. Scoped to
+   `.ss-dashboard-page` (set on <body> in dashboard.html) so every other
+   page keeps the always-visible fixed toggle. */
+body.ss-dashboard-page .staggered-menu-wrapper.fixed-wrapper {
+  position: absolute;
+}
+
 /* SplitText's own inline style sets `overflow: hidden` on its wrapper tag
    (to contain the per-character slide-up entrance), which was clipping
    descenders -- the "y" in "Security" in particular -- since this heading's

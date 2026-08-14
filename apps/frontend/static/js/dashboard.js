@@ -183,42 +183,31 @@ function stopPolling() {
     }
 }
 
+function dispatchDashboardNotice(message) {
+    // #sentinelscan-dashboard-notice (mounted by main.jsx) renders the
+    // SpecularButton React Bits component for every edge case above the
+    // terminal -- no scan ID, an invalid/missing scan, or a fetch/backend
+    // error -- so this is the single bridge into it, mirroring the
+    // sentinelscan:scan-update pattern used to feed ScanTerminal.
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:dashboard-notice", {
+            detail: { message },
+        })
+    );
+}
+
 function showNoScanNotice() {
-    // The button itself (SpecularButton, mounted unconditionally at
-    // #sentinelscan-no-scan-notice by main.jsx) already carries the exact
-    // message text and its own click-to-home navigation -- this just
-    // reveals the wrapper, mirroring how showError()/clearError() toggle
-    // #dashboardError's hidden class.
-    document
-        .getElementById("sentinelscan-no-scan-notice")
-        ?.classList.remove("hidden");
+    dispatchDashboardNotice(
+        "No scan ID was provided. Return to the landing page and start a new scan."
+    );
 }
 
 function showError(message) {
-    const errorBox = document.getElementById(
-        "dashboardError"
-    );
-
-    if (!errorBox) {
-        console.error(message);
-        return;
-    }
-
-    errorBox.textContent = message;
-    errorBox.classList.remove("hidden");
+    dispatchDashboardNotice(message);
 }
 
 function clearError() {
-    const errorBox = document.getElementById(
-        "dashboardError"
-    );
-
-    if (!errorBox) {
-        return;
-    }
-
-    errorBox.textContent = "";
-    errorBox.classList.add("hidden");
+    dispatchDashboardNotice(null);
 }
 
 function setText(elementId, value) {

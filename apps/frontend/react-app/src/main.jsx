@@ -102,10 +102,10 @@ const SCAN_INPUT_PLACEHOLDERS = [
 // PlaceholdersAndVanishInput is a self-contained form with its own text
 // input and submit button -- it doesn't know about this app's scan flow.
 // The static page still ships a hidden #targetInput/#openConsentButton pair
-// (app.js's existing consent-modal flow reads/clicks those by id), so this
-// wrapper just mirrors typed input into the hidden field and forwards
-// submit into a click on the hidden button, leaving app.js and the
-// component itself both untouched.
+// that app.js reads/clicks by id to submit the scan directly (no consent
+// modal anymore -- see app.js), so this wrapper just mirrors typed input
+// into the hidden field and forwards submit into a click on the hidden
+// button, leaving app.js and the component itself both untouched.
 function HeroScanInput() {
   const handleChange = event => {
     const hiddenInput = document.getElementById('targetInput')
@@ -401,15 +401,39 @@ if (scanTerminalMountPoint) {
   )
 }
 
-const noScanNoticeMountPoint = document.getElementById('sentinelscan-no-scan-notice')
-if (noScanNoticeMountPoint) {
-  createRoot(noScanNoticeMountPoint).render(
+// Single React-owned notice for every edge case above the dashboard
+// terminal (no scan ID, an invalid/nonexistent scan, a fetch/backend
+// error) -- dashboard.js (a plain script, not an ES module either side
+// could import from) drives it via the same CustomEvent bridge pattern
+// ScanTerminal uses, rather than reaching into this React-owned DOM node
+// directly.
+function DashboardNotice() {
+  const [message, setMessage] = useState(null)
+
+  useEffect(() => {
+    const handleNotice = event => {
+      setMessage(event.detail?.message || null)
+    }
+    window.addEventListener('sentinelscan:dashboard-notice', handleNotice)
+    return () => window.removeEventListener('sentinelscan:dashboard-notice', handleNotice)
+  }, [])
+
+  if (!message) return null
+
+  return (
+    <div className="w-full flex justify-center">
+      <SpecularButton size="md" onClick={() => { window.location.href = '/' }}>
+        {message}
+      </SpecularButton>
+    </div>
+  )
+}
+
+const dashboardNoticeMountPoint = document.getElementById('sentinelscan-dashboard-notice')
+if (dashboardNoticeMountPoint) {
+  createRoot(dashboardNoticeMountPoint).render(
     <StrictMode>
-      <div className="w-full flex justify-center">
-        <SpecularButton size="md" onClick={() => { window.location.href = '/' }}>
-          No scan ID was provided. Return to the landing page and start a new scan.
-        </SpecularButton>
-      </div>
+      <DashboardNotice />
     </StrictMode>,
   )
 }

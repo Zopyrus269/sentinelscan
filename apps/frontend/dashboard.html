@@ -237,15 +237,17 @@
   <link rel="stylesheet" href="/static/react-dist/main.css">
 </head>
 
-<body class="bg-background text-on-surface">
+<body class="bg-background text-on-surface ss-dashboard-page">
     <!-- Top Navigation Bar -->
-    <header class="sticky top-0 z-50">
-        <div
-            class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16"
+    <header
+        class="z-50"
+    >
+        <nav
+            class="flex h-16 w-full items-center justify-between px-margin-mobile md:px-margin-desktop"
         >
             <a
-                class="text-2xl font-bold"
                 href="/"
+                class="text-2xl font-bold tracking-tight"
             >
                 <span id="sentinelscan-brand-shiny"></span>
             </a>
@@ -279,21 +281,14 @@
                   </div>
                 </div>
             </div>
-        </div>
+        </nav>
     </header>
 
     <main
         class="max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg space-y-lg"
     >
-        <!-- Error Message -->
-        <div
-            id="dashboardError"
-            class="hidden bg-error-container text-on-error-container border border-error/20 rounded-lg p-sm"
-            role="alert"
-        ></div>
-
-        <!-- No Scan ID Notice -->
-        <div id="sentinelscan-no-scan-notice" class="hidden"></div>
+        <!-- Dashboard Notice (no scan ID, invalid/missing scan, fetch/backend errors) -->
+        <div id="sentinelscan-dashboard-notice"></div>
 
         <!-- Live Scan Terminal -->
         <div id="sentinelscan-scan-terminal" class="w-[90vw] max-w-[90vw] relative left-1/2 -translate-x-1/2"></div>
@@ -301,99 +296,10 @@
     </main>
 
     <!-- Footer -->
-    <footer class="mt-xl">
-        <div
-            class="grid grid-cols-1 md:grid-cols-4 gap-lg px-margin-mobile md:px-margin-desktop py-xl max-w-[1440px] mx-auto"
-        >
-            <div>
-                <div
-                    class="text-headline-sm font-headline-sm font-bold text-primary mb-sm"
-                >
-                    SentinelScan
-                </div>
-
-                <p class="text-body-sm text-on-surface-variant">
-                    AI-guided security reconnaissance and reporting for
-                    authorized assessments.
-                </p>
-            </div>
-
-            <div>
-                <h3
-                    class="text-label-md font-label-md text-on-surface mb-sm"
-                >
-                    Platform
-                </h3>
-
-                <ul class="space-y-xs">
-                    <li>
-                        <a
-                            class="text-body-sm text-on-surface-variant hover:text-primary transition-all"
-                            href="/documentation"
-                        >
-                            Documentation
-                        </a>
-                    </li>
-
-                    <li>
-                        <a
-                            class="text-body-sm text-on-surface-variant hover:text-primary transition-all"
-                            href="/api-reference"
-                        >
-                            API Reference
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <div>
-                <h3
-                    class="text-label-md font-label-md text-on-surface mb-sm"
-                >
-                    Legal
-                </h3>
-
-                <ul class="space-y-xs">
-                    <li>
-                        <a
-                            class="text-body-sm text-on-surface-variant hover:text-primary transition-all"
-                            href="/privacy"
-                        >
-                            Privacy Policy
-                        </a>
-                    </li>
-
-                    <li>
-                        <a
-                            class="text-body-sm text-on-surface-variant hover:text-primary transition-all"
-                            href="/terms"
-                        >
-                            Terms of Service
-                        </a>
-                    </li>
-
-                    <li>
-                        <a
-                            class="text-body-sm text-on-surface-variant hover:text-primary transition-all"
-                            href="/responsible-disclosure"
-                        >
-                            Responsible Disclosure
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <div>
-                <h3
-                    class="text-label-md font-label-md text-on-surface mb-sm"
-                >
-                    Copyright
-                </h3>
-
-                <p class="text-body-sm text-on-surface-variant">
-                    © 2026 SentinelScan. All rights reserved.
-                </p>
-            </div>
+    <footer>
+        <div class="flex w-full items-end justify-between px-margin-mobile py-lg md:px-margin-desktop">
+            <div id="sentinelscan-footer-brand"></div>
+            <div id="sentinelscan-footer-links"></div>
         </div>
     </footer>
 

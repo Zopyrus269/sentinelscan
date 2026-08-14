@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 // of the text before the caret on every keystroke/selection change to
 // position a custom bar, whose x is driven through a spring so it eases
 // into place rather than jumping.
-const CARET_SPRING = { stiffness: 500, damping: 30, mass: 0.5 };
+export const CARET_SPRING = { stiffness: 500, damping: 30, mass: 0.5 };
 const CARET_SPRING_REDUCED_MOTION = { stiffness: 10000, damping: 100, mass: 0.1 };
 
 function useSmoothCaret(inputRef) {

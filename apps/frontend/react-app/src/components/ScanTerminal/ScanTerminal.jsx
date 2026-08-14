@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import SpecularFrame from '../SpecularFrame/SpecularFrame.jsx'
+
+// How long each newly-revealed word sits before the next one starts.
+const WORD_REVEAL_INTERVAL_MS = 90
+
+// The home page's caret spring (CARET_SPRING in
+// placeholders-and-vanish-input.jsx: stiffness 500/damping 30/mass 0.5) is
+// tuned to snap a 1px caret bar to a new character position -- a quick,
+// near-critically-damped "pop". Applied to a whole word appearing, that
+// pop read as rough/clicky. This softens the same spring family (lower
+// stiffness, more damping) so each word eases in gently instead of
+// popping -- same spring *feel*, tuned for this use.
+const WORD_REVEAL_SPRING = { type: 'spring', stiffness: 220, damping: 26, mass: 0.6 }
 
 // The vendored component's own banner spells "TERMINALLY" in the "ANSI
 // Shadow" figlet font. This is that exact same font -- generated via
@@ -118,17 +131,74 @@ function formatDuration(startedAt, completedAt) {
 // than running a second competing poll loop against the same endpoint.
 export default function ScanTerminal() {
   const [lines, setLines] = useState([])
+  const [typingLine, setTypingLine] = useState(null)
   const [scan, setScan] = useState(null)
   const seenEventCountRef = useRef(0)
   const announcedTargetRef = useRef(false)
   const announcedDoneRef = useRef(false)
-  const bottomRef = useRef(null)
   const lineIdRef = useRef(0)
+  const queueRef = useRef([])
+  const typingRef = useRef(null)
+  const typingTimerRef = useRef(null)
+  const scrollContainerRef = useRef(null)
+  // Starts true (follow the newest output). Turns false the moment the
+  // viewer scrolls away from the bottom -- e.g. to reread an earlier
+  // line while typing is still going -- so the per-word re-renders below
+  // stop yanking them back down. Turns true again once they scroll back
+  // to the bottom themselves.
+  const isPinnedToBottomRef = useRef(true)
 
-  const appendLine = (text, className = 'text-gray-300') => {
-    lineIdRef.current += 1
-    setLines(prev => [...prev, { id: lineIdRef.current, text, className }])
+  const handleTerminalScroll = () => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    isPinnedToBottomRef.current = distanceFromBottom < 48
   }
+
+  // Lines no longer land in the terminal all at once -- each one is queued
+  // and revealed word by word (see startNextQueuedLine/tick below) so a
+  // burst of worker events (several can arrive in the same 500ms poll
+  // tick) still reads as one thing being typed at a time, not a wall of
+  // text appearing in one frame.
+  const enqueueLine = (text, className = 'text-gray-300') => {
+    lineIdRef.current += 1
+    queueRef.current.push({ id: lineIdRef.current, text, className })
+    if (!typingRef.current) startNextQueuedLine()
+  }
+
+  const startNextQueuedLine = () => {
+    const next = queueRef.current.shift()
+    if (!next) return
+    const words = next.text.split(' ')
+    typingRef.current = { ...next, words, revealed: 0 }
+    setTypingLine({ ...typingRef.current })
+    tick()
+  }
+
+  const tick = () => {
+    typingTimerRef.current = setTimeout(() => {
+      const current = typingRef.current
+      if (!current) return
+
+      current.revealed += 1
+      setTypingLine({ ...current })
+
+      if (current.revealed >= current.words.length) {
+        setLines(prev => [...prev, { id: current.id, text: current.text, className: current.className }])
+        typingRef.current = null
+        setTypingLine(null)
+        startNextQueuedLine()
+      } else {
+        tick()
+      }
+    }, WORD_REVEAL_INTERVAL_MS)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     const handleScanUpdate = event => {
@@ -137,8 +207,8 @@ export default function ScanTerminal() {
 
       if (!announcedTargetRef.current) {
         announcedTargetRef.current = true
-        appendLine(`Target acquired: ${nextScan.target || 'unknown target'}`, 'text-white')
-        appendLine(`Scan ID: ${nextScan.scan_id || ''}`, 'text-gray-500')
+        enqueueLine(`Target acquired: ${nextScan.target || 'unknown target'}`, 'text-white')
+        enqueueLine(`Scan ID: ${nextScan.scan_id || ''}`, 'text-gray-500')
       }
 
       const events = nextScan.events || []
@@ -147,13 +217,13 @@ export default function ScanTerminal() {
         if (!evt.tool_name) continue
 
         if (evt.phase === 'selected') {
-          appendLine(
+          enqueueLine(
             `> ${friendlyName(evt.tool_name)} selected -- ${evt.reasoning || 'starting worker.'}`,
             'text-cyan-400',
           )
         } else if (evt.phase === 'completed') {
           const status = String(evt.worker_status || 'COMPLETED').toUpperCase()
-          appendLine(
+          enqueueLine(
             `✓ ${friendlyName(evt.tool_name)} completed (${friendlyName(status)}) -- ${
               evt.summary || 'no summary provided.'
             }`,
@@ -168,13 +238,13 @@ export default function ScanTerminal() {
         const reportUrl = `${window.location.origin}/report?scan_id=${encodeURIComponent(
           nextScan.scan_id || '',
         )}`
-        appendLine('Assessment complete. All workers finished.', 'text-emerald-400')
-        appendLine(`Open the full report: ${reportUrl}`, 'text-gray-300')
+        enqueueLine('Assessment complete. All workers finished.', 'text-emerald-400')
+        enqueueLine(`Open the full report: ${reportUrl}`, 'text-gray-300')
       }
 
       if (nextScan.status === 'FAILED' && !announcedDoneRef.current) {
         announcedDoneRef.current = true
-        appendLine(
+        enqueueLine(
           `Assessment failed: ${nextScan.error || 'unknown error.'}`,
           'text-red-400',
         )
@@ -188,8 +258,17 @@ export default function ScanTerminal() {
   }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [lines])
+    const el = scrollContainerRef.current
+    // An instant scrollTop jump, not scrollIntoView({behavior: 'smooth'}):
+    // this effect re-runs on every word reveal (~every 55ms), and each
+    // smooth-scroll call was restarting the browser's scroll animation
+    // out from under the last one, which is what made following live
+    // output look rough/stuttery. Snapping the already-pinned viewport to
+    // the new bottom every tick reads as continuous instead.
+    if (el && isPinnedToBottomRef.current) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [lines, typingLine])
 
   const progress = scan ? Math.max(0, Math.min(100, Math.round(Number(scan.progress_percent || 0)))) : 0
   const eventCount = scan?.events?.length || 0
@@ -229,6 +308,8 @@ export default function ScanTerminal() {
             rather than the page (and the terminal's apparent prominence
             in it) just getting shorter once that card was deleted. */}
         <div
+          ref={scrollContainerRef}
+          onScroll={handleTerminalScroll}
           className="h-[820px] overflow-y-auto p-4 space-y-3 bg-black cursor-text"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#10b981 #1f2937' }}
         >
@@ -246,6 +327,27 @@ export default function ScanTerminal() {
             </div>
           ))}
 
+          {typingLine && (
+            <div className={`whitespace-pre-wrap leading-relaxed ${typingLine.className}`}>
+              {typingLine.words.slice(0, typingLine.revealed).map((word, index) => (
+                <span key={`${typingLine.id}-w-${index}`}>
+                  <motion.span
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={WORD_REVEAL_SPRING}
+                    className="inline-block"
+                  >
+                    {word}
+                  </motion.span>
+                  {index < typingLine.revealed - 1 ? ' ' : ''}
+                </span>
+              ))}
+              {typingLine.revealed < typingLine.words.length && (
+                <span className="inline-block w-[0.5em] h-[1em] align-middle bg-current animate-pulse ml-0.5" />
+              )}
+            </div>
+          )}
+
           {/* Pinned live status line -- absorbs the old Progress Card +
               Scan Summary without re-printing a new scrolling line on every
               500ms poll tick. */}
@@ -258,8 +360,6 @@ export default function ScanTerminal() {
             <span className="text-cyan-400 font-semibold">sentinelscan@scan:~$</span>
             <span className="text-green-400 animate-pulse">&#9608;</span>
           </div>
-
-          <div ref={bottomRef} />
         </div>
 
         {/* Terminal Footer */}
