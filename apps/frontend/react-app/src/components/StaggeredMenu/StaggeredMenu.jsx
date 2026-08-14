@@ -108,11 +108,11 @@ export const StaggeredMenu = ({
     const tl = gsap.timeline({ paused: true });
 
     layerStates.forEach((ls, i) => {
-      tl.fromTo(ls.el, { xPercent: ls.start }, { xPercent: 0, duration: 0.5, ease: 'power4.out' }, i * 0.07);
+      tl.fromTo(ls.el, { xPercent: ls.start }, { xPercent: 0, duration: 0.4, ease: 'power4.out' }, i * 0.05);
     });
-    const lastTime = layerStates.length ? (layerStates.length - 1) * 0.07 : 0;
-    const panelInsertTime = lastTime + (layerStates.length ? 0.08 : 0);
-    const panelDuration = 0.65;
+    const lastTime = layerStates.length ? (layerStates.length - 1) * 0.05 : 0;
+    const panelInsertTime = lastTime + (layerStates.length ? 0.05 : 0);
+    const panelDuration = 0.5;
     tl.fromTo(
       panel,
       { xPercent: panelStart },
@@ -121,16 +121,16 @@ export const StaggeredMenu = ({
     );
 
     if (itemEls.length) {
-      const itemsStartRatio = 0.15;
+      const itemsStartRatio = 0.02;
       const itemsStart = panelInsertTime + panelDuration * itemsStartRatio;
       tl.to(
         itemEls,
         {
           yPercent: 0,
           rotate: 0,
-          duration: 1,
-          ease: 'power4.out',
-          stagger: { each: 0.1, from: 'start' }
+          duration: 0.6,
+          ease: 'power3.out',
+          stagger: { each: 0.05, from: 'start' }
         },
         itemsStart
       );
@@ -138,12 +138,12 @@ export const StaggeredMenu = ({
         tl.to(
           numberEls,
           {
-            duration: 0.6,
+            duration: 0.4,
             ease: 'power2.out',
             '--sm-num-opacity': 1,
-            stagger: { each: 0.08, from: 'start' }
+            stagger: { each: 0.05, from: 'start' }
           },
-          itemsStart + 0.1
+          itemsStart + 0.05
         );
       }
     }

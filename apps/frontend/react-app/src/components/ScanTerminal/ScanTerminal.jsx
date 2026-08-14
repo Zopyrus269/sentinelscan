@@ -356,10 +356,16 @@ export default function ScanTerminal() {
             {formatDuration(scan?.started_at, scan?.completed_at)} | Events: {eventCount}
           </div>
 
-          <div className="flex gap-2 items-center">
-            <span className="text-cyan-400 font-semibold">sentinelscan@scan:~$</span>
-            <span className="text-green-400 animate-pulse">&#9608;</span>
-          </div>
+          {/* Idle prompt cursor -- only shown before a scan has actually
+              started. Once a scan is running this same line would read as
+              a second, idle terminal blinking beneath the one actively
+              streaming output above it. */}
+          {!scan && (
+            <div className="flex gap-2 items-center">
+              <span className="text-cyan-400 font-semibold">sentinelscan@scan:~$</span>
+              <span className="text-green-400 animate-pulse">&#9608;</span>
+            </div>
+          )}
         </div>
 
         {/* Terminal Footer */}
