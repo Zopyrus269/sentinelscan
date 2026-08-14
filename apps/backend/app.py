@@ -47,7 +47,7 @@ def create_app() -> Flask:
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "connect-src 'self' https://*.googleapis.com; "
-            "img-src 'self' data:; "
+            "img-src 'self' data: https://*.googleusercontent.com; "
             "frame-ancestors 'none'; "
             "object-src 'none';"
         )
