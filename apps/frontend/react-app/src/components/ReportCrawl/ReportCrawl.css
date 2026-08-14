@@ -1,0 +1,39 @@
+.report-crawl {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5em;
+  padding: 3em 0;
+  max-width: 46em;
+  margin: 0 auto;
+}
+
+/* Absorbs a GSAP first-ScrollTrigger-on-the-page measurement quirk (see
+   ReportCrawl.jsx) -- zero size, invisible, not in the layout flow, not
+   reachable by screen readers. */
+.report-crawl-warmup {
+  position: absolute;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Overrides ScrollReveal's own default (a giant clamp(1.6rem,4vw,3rem)
+   hero-scale headline, meant for a single standalone statement) down to a
+   readable article paragraph -- the word-by-word blur/opacity scroll
+   animation itself is untouched. */
+.report-crawl-reveal {
+  margin: 0;
+}
+
+.report-crawl-reveal-text {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+  line-height: 1.75;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+}

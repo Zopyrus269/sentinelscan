@@ -13,6 +13,8 @@ import { PlaceholdersAndVanishInput } from './components/ui/placeholders-and-van
 import SplashCursor from './components/SplashCursor.jsx'
 import ScanTerminal from './components/ScanTerminal/ScanTerminal.jsx'
 import SpecularButton from './components/SpecularButton/SpecularButton.jsx'
+import { ReportMetaBento, ReportSummaryBento, ReportRiskBento } from './components/ReportBento/ReportBento.jsx'
+import ReportCrawl from './components/ReportCrawl/ReportCrawl.jsx'
 
 // 1x1 transparent gif -- the shipped component always renders an <img>
 // for its own logo slot, defaulting to a React Bits demo asset path that
@@ -397,6 +399,51 @@ if (scanTerminalMountPoint) {
   createRoot(scanTerminalMountPoint).render(
     <StrictMode>
       <ScanTerminal />
+    </StrictMode>,
+  )
+}
+
+// Report page -- MagicBento-driven grids for the metadata strip, the
+// score/executive-summary section and the risk-summary counts. report.js
+// (a plain script, not a module) keeps populating these via the same
+// element IDs the static markup used to own directly -- see
+// ReportBento.jsx for the exact ID list.
+const reportMetaMountPoint = document.getElementById('sentinelscan-report-meta-bento')
+if (reportMetaMountPoint) {
+  createRoot(reportMetaMountPoint).render(
+    <StrictMode>
+      <ReportMetaBento />
+    </StrictMode>,
+  )
+}
+
+const reportSummaryMountPoint = document.getElementById('sentinelscan-report-summary-bento')
+if (reportSummaryMountPoint) {
+  createRoot(reportSummaryMountPoint).render(
+    <StrictMode>
+      <ReportSummaryBento />
+    </StrictMode>,
+  )
+}
+
+const reportRiskMountPoint = document.getElementById('sentinelscan-report-risk-bento')
+if (reportRiskMountPoint) {
+  createRoot(reportRiskMountPoint).render(
+    <StrictMode>
+      <ReportRiskBento />
+    </StrictMode>,
+  )
+}
+
+// Assessment Findings / CVSS Scoring / Worker Findings / Recommendations /
+// Raw Report Data, replaced with a single scroll-scrubbed crawl (see
+// ReportCrawl.jsx) that reveals as the visitor scrolls from Risk Summary
+// down toward the footer, and un-reveals the same way scrolling back up.
+const reportCrawlMountPoint = document.getElementById('sentinelscan-report-crawl')
+if (reportCrawlMountPoint) {
+  createRoot(reportCrawlMountPoint).render(
+    <StrictMode>
+      <ReportCrawl />
     </StrictMode>,
   )
 }
