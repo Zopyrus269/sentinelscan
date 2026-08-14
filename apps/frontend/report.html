@@ -257,6 +257,19 @@
             background: #737686;
             border-radius: 9999px;
         }
+
+        /* Vendored from basementstudio/basement-grotesque on GitHub (SIL Open
+           Font License -- free for commercial/web use) -- same face used for
+           the documentation page's headings, applied here to the scroll-crawl
+           paragraphs below Risk Summary. Only the Black (900) weight is
+           published by that project. */
+        @font-face {
+            font-family: "Basement Grotesque";
+            src: url("/static/fonts/BasementGrotesque-Black.woff2") format("woff2");
+            font-weight: 900;
+            font-style: normal;
+            font-display: swap;
+        }
     </style>
   <link rel="stylesheet" href="/static/react-dist/main.css">
 </head>
@@ -290,18 +303,47 @@
                         class="h-4 w-4"
                       />
                     </span>
-                    <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" />
+                    <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" referrerpolicy="no-referrer" />
                   </button>
-                  <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-lg border border-border bg-background shadow-lg z-50">
-                    <div class="px-4 py-3 border-b border-border">
-                      <p id="profileEmail" class="text-sm truncate"></p>
+                  <!-- Same terminal theme as ScanTerminal.jsx / the account
+                       history modal: black background, monospace type,
+                       macOS-style traffic lights. Sign Out is a
+                       GooeyActionNav (React Bits GooeyNav), mounted by
+                       main.jsx into #signOutActions -- see auth.js's
+                       window.performSignOutAction for what it calls once
+                       its click animation finishes. -->
+                  <div id="profileDropdown" class="absolute right-0 mt-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-black font-mono shadow-lg z-50">
+                    <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
+                      <div class="h-2.5 w-2.5 rounded-full bg-red-500"></div>
+                      <div class="h-2.5 w-2.5 rounded-full bg-yellow-500"></div>
+                      <div class="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+                      <span class="ml-2 text-[10px] text-gray-500">sentinelscan@profile:~$</span>
                     </div>
-                    <button id="openAccountButton" class="w-full text-left px-4 py-2 text-sm hover:bg-primary-fixed">
-                      Account
-                    </button>
-                    <button id="signOutButton" class="w-full text-left px-4 py-2 text-sm hover:bg-primary-fixed">
-                      Sign out
-                    </button>
+                    <div class="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5">
+                        <span id="profileDropdownIconDefault" class="flex h-5 w-5 items-center justify-center">
+                          <img
+                            src="https://images.shadcnspace.com/assets/svgs/icon-google.svg"
+                            alt="google icon"
+                            class="h-5 w-5"
+                          />
+                        </span>
+                        <img id="profileDropdownAvatar" class="absolute inset-0 hidden h-full w-full object-cover" alt="Profile photo" referrerpolicy="no-referrer" />
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p id="profileDropdownName" class="truncate text-sm font-semibold text-white"></p>
+                        <p id="profileEmail" class="truncate text-xs text-cyan-400"></p>
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1 px-2 py-2">
+                      <button id="openAccountButton" class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
+                        <span class="material-symbols-outlined text-[18px] text-emerald-400">person</span>
+                        View Profile
+                      </button>
+                    </div>
+                    <div class="border-t border-white/10 px-2 py-2">
+                      <div id="signOutActions"></div>
+                    </div>
                   </div>
                 </div>
             </div>
@@ -333,6 +375,13 @@
                 Loading SentinelScan report...
             </span>
         </div>
+
+        <!-- "No scan ID was provided" notice -- SpecularButton (React Bits),
+             mounted by main.jsx. Empty/no-op unless report.js dispatches
+             sentinelscan:no-scan-id (no scan_id/history_id in the URL). -->
+        <section class="mb-lg">
+            <div id="sentinelscan-report-no-scan-notice"></div>
+        </section>
 
         <!-- Report Metadata -- MagicBento (React Bits) grid, mounted by main.jsx -->
         <section class="mb-lg">
@@ -377,109 +426,14 @@
         <section id="sentinelscan-report-crawl"></section>
     </main>
 
-    <!-- Footer -->
-    <footer class="mt-xl">
-        <div
-            class="grid grid-cols-1 md:grid-cols-4 gap-lg px-margin-mobile md:px-margin-desktop py-xl max-w-[1440px] mx-auto"
-        >
-            <div>
-                <div
-                    class="text-headline-sm font-headline-sm font-bold text-primary mb-md"
-                >
-                    SentinelScan
-                </div>
-
-                <p class="text-body-sm text-on-surface-variant">
-                    AI-guided security reconnaissance and professional
-                    reporting for authorized assessments.
-                </p>
-            </div>
-
-            <div class="flex flex-col gap-sm">
-                <span
-                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
-                >
-                    Product
-                </span>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/documentation"
-                >
-                    Documentation
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/status"
-                >
-                    API Status
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/"
-                >
-                    New Scan
-                </a>
-            </div>
-
-            <div class="flex flex-col gap-sm">
-                <span
-                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
-                >
-                    Legal
-                </span>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/privacy"
-                >
-                    Privacy Policy
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/terms"
-                >
-                    Terms of Service
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/documentation"
-                >
-                    Responsible Disclosure
-                </a>
-            </div>
-
-            <div class="flex flex-col gap-sm">
-                <span
-                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
-                >
-                    Assessment
-                </span>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/dashboard"
-                >
-                    Dashboard
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/documentation"
-                >
-                    Authorized Use
-                </a>
-
-                <p
-                    class="text-body-sm text-on-surface-variant mt-md"
-                >
-                    © 2026 SentinelScan. All rights reserved.
-                </p>
-            </div>
+    <!-- Footer -- same React-mounted brand mark + links footer as the
+         landing page (index.html), mounted by main.jsx via these same two
+         element IDs. The old static 4-column link grid this page used to
+         have is gone. -->
+    <footer>
+        <div class="flex w-full items-end justify-between px-margin-mobile py-lg md:px-margin-desktop">
+            <div id="sentinelscan-footer-brand"></div>
+            <div id="sentinelscan-footer-links"></div>
         </div>
     </footer>
 
@@ -492,28 +446,34 @@
         aria-labelledby="accountModalTitle"
     >
         <div id="accountModalBackdrop" class="fixed inset-0 bg-inverse-surface/50 backdrop-blur-sm" aria-hidden="true"></div>
-        <div class="relative z-10 my-auto w-full max-w-xl rounded-xl border border-border bg-surface shadow-2xl">
-            <div class="sticky top-0 z-20 flex items-center justify-between gap-sm rounded-t-xl border-b border-border bg-surface px-md py-sm">
-                <div class="flex items-center gap-sm">
-                    <span class="material-symbols-outlined text-headline-md">shield_person</span>
-                    <h2 id="accountModalTitle" class="font-headline-sm text-headline-sm text-on-background">Account</h2>
+        <!-- Same terminal theme as ScanTerminal.jsx (dashboard's live scan
+             console): black background, monospace type, macOS-style traffic
+             lights in the header bar. Not the React component itself --
+             this modal is built/opened by plain auth.js, not mounted by
+             main.jsx -- just the same visual language applied in plain
+             HTML/Tailwind. -->
+        <div class="relative z-10 my-auto w-full max-w-xl overflow-hidden rounded-lg border border-white/10 bg-black font-mono shadow-2xl">
+            <div class="sticky top-0 z-20 flex items-center gap-2 border-b border-white/10 bg-black px-3 py-3 text-xs text-gray-400">
+                <div class="flex gap-1.5">
+                    <div class="h-3 w-3 rounded-full bg-red-500"></div>
+                    <div class="h-3 w-3 rounded-full bg-yellow-500"></div>
+                    <div class="h-3 w-3 rounded-full bg-green-500"></div>
                 </div>
-                <button id="accountModalCloseButton" type="button" class="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface" aria-label="Close account dialog">
-                    <span class="material-symbols-outlined">close</span>
+                <h2 id="accountModalTitle" class="flex-1 text-center font-semibold">sentinelscan@account:~$ | Scan History</h2>
+                <button id="accountModalCloseButton" type="button" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 transition-colors hover:bg-white/10 hover:text-white" aria-label="Close account dialog">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
                 </button>
             </div>
-            <div class="flex border-b border-border px-md">
-                <button id="accountTabHistory" class="account-tab px-4 py-3 text-sm font-medium border-b-2 border-primary text-primary" data-tab="history">History</button>
-            </div>
-            <div id="accountModalScrollableContent" class="max-h-[calc(100vh-14rem)] overflow-y-auto px-md py-md">
+            <div id="accountModalScrollableContent" class="max-h-[calc(100vh-14rem)] overflow-y-auto bg-black px-4 py-4" style="scrollbar-width: thin; scrollbar-color: #10b981 #1f2937;">
                 <div id="accountPanelHistory" class="account-panel">
-                    <div id="historyLoading" class="hidden text-sm text-on-surface-variant py-6 text-center">Loading history...</div>
-                    <div id="historyEmpty" class="hidden text-sm text-on-surface-variant py-6 text-center">
+                    <div class="mb-3 text-xs text-gray-500">$ ls ~/scans --recent</div>
+                    <div id="historyLoading" class="hidden py-6 text-center text-sm text-gray-500">Loading history...</div>
+                    <div id="historyEmpty" class="hidden py-6 text-center text-sm text-gray-500">
                         <p>No scan history yet.</p>
                         <p class="mt-2">Run your first scan to see it here.</p>
                     </div>
-                    <div id="historyError" class="hidden text-sm text-error py-6 text-center"></div>
-                    <div id="historyList" class="flex flex-col gap-4 py-2"></div>
+                    <div id="historyError" class="hidden py-6 text-center text-sm text-red-400"></div>
+                    <div id="historyList" class="flex flex-col gap-3 py-2"></div>
                 </div>
             </div>
         </div>

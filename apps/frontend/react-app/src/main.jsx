@@ -13,8 +13,10 @@ import { PlaceholdersAndVanishInput } from './components/ui/placeholders-and-van
 import SplashCursor from './components/SplashCursor.jsx'
 import ScanTerminal from './components/ScanTerminal/ScanTerminal.jsx'
 import SpecularButton from './components/SpecularButton/SpecularButton.jsx'
-import { ReportMetaBento, ReportSummaryBento, ReportRiskBento } from './components/ReportBento/ReportBento.jsx'
+import { ReportMetaBento, ReportSummaryBento, ReportRiskBento, ReportNoScanNotice } from './components/ReportBento/ReportBento.jsx'
 import ReportCrawl from './components/ReportCrawl/ReportCrawl.jsx'
+import DocsExplorer from './components/DocsExplorer/DocsExplorer.jsx'
+import GooeyActionNav from './components/GooeyActionNav/GooeyActionNav.jsx'
 
 // 1x1 transparent gif -- the shipped component always renders an <img>
 // for its own logo slot, defaulting to a React Bits demo asset path that
@@ -150,11 +152,16 @@ function FooterBrandMark() {
   )
 }
 
+// Privacy Policy and Terms and Conditions used to be their own standalone
+// pages (privacy.html/terms.html) -- both were removed once their content
+// was fully folded into the documentation page's own Privacy Policy/Terms
+// of Service sections (see DocsExplorer.jsx), so these now point at that
+// page's in-page anchors instead of a route that no longer exists.
 const FOOTER_LINKS = [
-  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Privacy Policy', href: '/documentation#privacy' },
   { label: 'GitHub', href: 'https://github.com/Zopyrus269/sentinelscan', external: true, icon: true },
-  { label: 'Contact', href: 'mailto:security@sentinelscan.example' },
-  { label: 'Terms and Conditions', href: '/terms' },
+  { label: 'Contact', href: 'mailto:sentinelscan@gmail.com' },
+  { label: 'Terms and Conditions', href: '/documentation#terms' },
 ]
 
 // Skiper 40's Link000 variant (no trailing icon) is the default: Link001-005
@@ -408,6 +415,15 @@ if (scanTerminalMountPoint) {
 // (a plain script, not a module) keeps populating these via the same
 // element IDs the static markup used to own directly -- see
 // ReportBento.jsx for the exact ID list.
+const reportNoScanMountPoint = document.getElementById('sentinelscan-report-no-scan-notice')
+if (reportNoScanMountPoint) {
+  createRoot(reportNoScanMountPoint).render(
+    <StrictMode>
+      <ReportNoScanNotice />
+    </StrictMode>,
+  )
+}
+
 const reportMetaMountPoint = document.getElementById('sentinelscan-report-meta-bento')
 if (reportMetaMountPoint) {
   createRoot(reportMetaMountPoint).render(
@@ -444,6 +460,51 @@ if (reportCrawlMountPoint) {
   createRoot(reportCrawlMountPoint).render(
     <StrictMode>
       <ReportCrawl />
+    </StrictMode>,
+  )
+}
+
+// Documentation page -- entirely React-owned (see DocsExplorer.jsx), the
+// static page around it is just the shared header/footer chrome.
+const docsExplorerMountPoint = document.getElementById('sentinelscan-docs-explorer')
+if (docsExplorerMountPoint) {
+  createRoot(docsExplorerMountPoint).render(
+    <StrictMode>
+      <DocsExplorer />
+    </StrictMode>,
+  )
+}
+
+// History cards in the account modal (see auth.js's loadHistory()) are
+// built dynamically, one per past scan, by that plain script -- not
+// something this bundle mounts once at a fixed element id the way every
+// other bridge below does. auth.js creates each card's action-row
+// container at runtime and calls this to mount a GooeyActionNav into it,
+// passing plain callbacks for the three actions (view report, download
+// PDF, download JSON) since auth.js already owns that fetch/blob logic.
+window.mountGooeyActionNav = function (containerId, actions, className) {
+  const mountPoint = document.getElementById(containerId)
+  if (!mountPoint) return
+  createRoot(mountPoint).render(
+    <StrictMode>
+      <GooeyActionNav actions={actions} className={className} />
+    </StrictMode>,
+  )
+}
+
+// Profile dropdown Sign Out -- a fixed single mount point present in every
+// page's static markup (unlike the history cards above), so it's mounted
+// directly here rather than through the imperative bridge. auth.js exposes
+// window.performSignOutAction since it's the side that owns the Firebase
+// `auth` instance this needs to call signOut() on.
+const signOutMountPoint = document.getElementById('signOutActions')
+if (signOutMountPoint) {
+  createRoot(signOutMountPoint).render(
+    <StrictMode>
+      <GooeyActionNav
+        className="gooey-action-nav--full"
+        actions={[{ label: 'Sign out', onClick: () => window.performSignOutAction?.() }]}
+      />
     </StrictMode>,
   )
 }

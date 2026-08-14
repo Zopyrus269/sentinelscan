@@ -8,6 +8,7 @@ import {
 } from '../MagicBento/MagicBento.jsx'
 import CountUp from '../CountUp/CountUp.jsx'
 import TextType from '../TextType/TextType.jsx'
+import SpecularButton from '../SpecularButton/SpecularButton.jsx'
 import '../MagicBento/MagicBento.css'
 import './ReportBento.css'
 
@@ -54,6 +55,42 @@ function Bento({ className, cardClassName, cards }) {
     </div>
   )
 }
+
+// Blocking-notice-before-any-report-loads case -- SpecularButton (React
+// Bits), used completely unmodified, in place of report.js's old
+// plain-textContent #reportError box for these specific cases (that box
+// still handles every other error report.js can hit once a report load is
+// actually in progress -- failed fetch, incomplete scan, etc.). Covers both
+// "no scan ID was provided" (destination: the landing page, to start a new
+// scan) and "historical report data not found" (destination: the
+// dashboard's history tab, where View Report actually populates the data
+// this page needs) -- report.js's dispatchNoScanIdNotice() sends the
+// message and which of those two destinations applies for the button's
+// click.
+function ReportNoScanNotice() {
+  const [notice, setNotice] = useState(null)
+
+  useEffect(() => {
+    const handleUpdate = event => {
+      const detail = event.detail
+      setNotice(detail?.message ? { message: detail.message, href: detail.href || '/' } : null)
+    }
+    window.addEventListener('sentinelscan:no-scan-id', handleUpdate)
+    return () => window.removeEventListener('sentinelscan:no-scan-id', handleUpdate)
+  }, [])
+
+  if (!notice) return null
+
+  return (
+    <div className="flex justify-center">
+      <SpecularButton className="report-no-scan-button" onClick={() => { window.location.href = notice.href }}>
+        {notice.message}
+      </SpecularButton>
+    </div>
+  )
+}
+
+export { ReportNoScanNotice }
 
 // Report Metadata -- Target / Scan ID / Completed / Status. IDs are read
 // and written by report.js's renderScanMetadata() (setText by

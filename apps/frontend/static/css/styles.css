@@ -24,6 +24,32 @@ body > footer {
     flex-shrink: 0;
 }
 
+/* Profile dropdown open/close animation -- same fade + zoom + slide-from-
+   top feel as shadcn/Radix's Popover (data-[state=open]:animate-in
+   fade-in-0 zoom-in-95 slide-in-from-top-2, and the reverse on close), done
+   in plain CSS instead of pulling in Radix/CVA/TypeScript for it: this is a
+   plain Vite+JSX project with no shadcn /components/ui structure or path
+   aliases, so adding that whole toolchain for one dropdown's animation
+   would be a much bigger, inconsistent change than the ask itself.
+   #profileDropdown no longer carries a static `hidden` class in any page's
+   markup (see index.html/dashboard.html/report.html/documentation.html) --
+   this closed state replaces it, and auth.js toggles `.is-open` instead of
+   `hidden`. Shared here (not per-page) since all four pages already load
+   this one stylesheet and the one auth.js that drives it. */
+#profileDropdown {
+    transform-origin: top right;
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+#profileDropdown.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
 *,
 *::before,
 *::after {

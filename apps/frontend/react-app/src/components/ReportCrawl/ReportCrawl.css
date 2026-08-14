@@ -1,10 +1,9 @@
 .report-crawl {
   display: flex;
   flex-direction: column;
-  gap: 3.5em;
-  padding: 3em 0;
-  max-width: 46em;
-  margin: 0 auto;
+  width: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 /* Absorbs a GSAP first-ScrollTrigger-on-the-page measurement quirk (see
@@ -21,19 +20,68 @@
   pointer-events: none;
 }
 
-/* Overrides ScrollReveal's own default (a giant clamp(1.6rem,4vw,3rem)
-   hero-scale headline, meant for a single standalone statement) down to a
-   readable article paragraph -- the word-by-word blur/opacity scroll
-   animation itself is untouched. */
+/* Each paragraph gets its own full-viewport-tall slide instead of sitting
+   in a tightly-packed column -- with several short paragraphs close
+   together, all of their independent scroll triggers were active/visible
+   at once as the page scrolled, so multiple paragraphs' word-by-word
+   reveals were visibly running at the same time ("out of sync"). Giving
+   each one the full viewport height, vertically centered, means only one
+   paragraph is ever actually on screen at a time: the current one finishes
+   revealing and scrolls away before the next one scrolls into view and
+   starts its own reveal. This is what makes the report page longer to
+   scroll through -- deliberate, per the brief, not a side effect.
+   Lives on .report-crawl-paragraph (CrawlParagraph's own wrapper div in
+   ReportCrawl.jsx), not .report-crawl-reveal (ScrollReveal's own <h2>),
+   because CrawlParagraph's mirrored exit-fade ScrollTrigger measures that
+   wrapper directly -- it needs to be the exact box being centered. */
+.report-crawl-paragraph {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 2rem 1.5rem;
+  box-sizing: border-box;
+}
+
+/* The last paragraph's mirrored exit-fade (see CrawlParagraph in
+   ReportCrawl.jsx) needs a full extra viewport height of scroll room past
+   its own bottom edge to finish fading out -- every earlier paragraph gets
+   that room for free because the next 100vh paragraph slide immediately
+   follows it, but the last one is followed directly by the (much shorter)
+   footer. Without this, the page simply runs out of scrollable height
+   before the exit ScrollTrigger reaches its 'bottom top' end point, so its
+   scrub gets clamped partway through -- the footer was scrolling into view
+   while the last paragraph was still visibly mid-fade instead of fully
+   gone. This spacer guarantees the fade always has room to finish first. */
+.report-crawl-paragraph:last-child {
+  margin-bottom: 100vh;
+}
+
 .report-crawl-reveal {
   margin: 0;
 }
 
+/* Basement Grotesque (@font-face declared in report.html) -- Inter stays as
+   the fallback for the instant before the display font finishes loading.
+   Only the Black (900) weight is published by that font, so font-weight is
+   pinned to 900 here rather than the previous 500 -- requesting an
+   unpublished weight would just make the browser skip this face entirely
+   and fall back to Inter regardless of the font-family list. */
 .report-crawl-reveal-text {
-  font-family: 'Inter', sans-serif;
-  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
-  line-height: 1.75;
-  font-weight: 500;
+  font-family: 'Basement Grotesque', 'Inter', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  line-height: 1.5;
+  font-weight: 900;
   letter-spacing: 0.01em;
   color: #ffffff;
+  max-width: 42em;
+  margin: 0 auto;
+}
+
+/* Single-line no-scan/not-yet-loaded prompt -- centered rather than
+   left-aligned like the real multi-paragraph story, since it's one
+   standalone sentence rather than running prose. */
+.report-crawl-empty .report-crawl-reveal-text {
+  text-align: center;
 }

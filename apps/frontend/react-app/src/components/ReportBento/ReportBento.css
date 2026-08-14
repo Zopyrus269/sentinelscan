@@ -1,3 +1,18 @@
+/* SpecularButton (React Bits) ships sized for a short CTA label like "Get
+   Started" -- this report-page usage puts a full sentence in it. This
+   scoped override (not a vendor-file edit -- passed in via SpecularButton's
+   own `className` prop) keeps that sentence on one line rather than
+   wrapping, shrinking the label's font size on narrow viewports (instead of
+   the button's own fixed --lg size) so the single line still fits instead
+   of overflowing. */
+.report-no-scan-button {
+  max-width: 96vw;
+  white-space: nowrap;
+  font-size: clamp(0.7rem, 2.6vw, 1.15rem);
+  padding-left: clamp(16px, 4vw, 40px);
+  padding-right: clamp(16px, 4vw, 40px);
+}
+
 /* Layout wrappers for the three report-page bento grids. These sit
    alongside MagicBento.css's own card/particle/spotlight rules (untouched)
    and only decide how many magic-bento-cards sit per row in each section --

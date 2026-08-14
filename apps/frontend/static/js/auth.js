@@ -19,7 +19,16 @@ const profileDropdown = document.getElementById("profileDropdown");
 const profileEmail = document.getElementById("profileEmail");
 const profileAvatar = document.getElementById("profileAvatar");
 const profileIconDefault = document.getElementById("profileIconDefault");
-const signOutButton = document.getElementById("signOutButton");
+// Sign Out is a GooeyActionNav (React Bits) mounted by main.jsx directly
+// into #signOutActions, not a plain <button> this script wires up itself
+// -- see window.performSignOutAction below, which is what that mounted
+// component's click callback actually calls.
+// The dropdown's own header (avatar + name + email) mirrors the button's
+// own avatar/fallback -- same photoURL, same onerror/onload fallback logic
+// (see applyAvatar below), just rendered larger alongside the account name.
+const profileDropdownAvatar = document.getElementById("profileDropdownAvatar");
+const profileDropdownIconDefault = document.getElementById("profileDropdownIconDefault");
+const profileDropdownName = document.getElementById("profileDropdownName");
 
 let currentUser = null;
 
@@ -52,21 +61,31 @@ async function syncSessionWithBackend(user) {
   }
 }
 
-function showLoggedInUI(user) {
-  if (user.photoURL) {
-    profileAvatar.onerror = () => {
-      profileAvatar.classList.add("hidden");
-      profileIconDefault.classList.remove("hidden");
+// Shared by the small button avatar and the dropdown header's larger copy
+// of it -- both need the identical "try the photo, fall back to the Google
+// icon on error" behavior for the same photoURL.
+function applyAvatar(imgEl, fallbackEl, photoURL) {
+  if (photoURL) {
+    imgEl.onerror = () => {
+      imgEl.classList.add("hidden");
+      fallbackEl.classList.remove("hidden");
     };
-    profileAvatar.onload = () => {
-      profileIconDefault.classList.add("hidden");
-      profileAvatar.classList.remove("hidden");
+    imgEl.onload = () => {
+      fallbackEl.classList.add("hidden");
+      imgEl.classList.remove("hidden");
     };
-    profileAvatar.src = user.photoURL;
+    imgEl.src = photoURL;
   } else {
-    profileIconDefault.classList.remove("hidden");
-    profileAvatar.classList.add("hidden");
+    fallbackEl.classList.remove("hidden");
+    imgEl.classList.add("hidden");
   }
+}
+
+function showLoggedInUI(user) {
+  applyAvatar(profileAvatar, profileIconDefault, user.photoURL);
+  applyAvatar(profileDropdownAvatar, profileDropdownIconDefault, user.photoURL);
+  profileDropdownName.textContent =
+    user.displayName || (user.email ? user.email.split("@")[0] : "SentinelScan User");
   profileEmail.textContent = user.email || "";
 }
 
@@ -74,8 +93,12 @@ function showLoggedOutUI() {
   profileIconDefault.classList.remove("hidden");
   profileAvatar.classList.add("hidden");
   profileAvatar.src = "";
+  profileDropdownIconDefault.classList.remove("hidden");
+  profileDropdownAvatar.classList.add("hidden");
+  profileDropdownAvatar.src = "";
+  profileDropdownName.textContent = "";
   profileEmail.textContent = "";
-  profileDropdown.classList.add("hidden");
+  profileDropdown.classList.remove("is-open");
 }
 
 onAuthStateChanged(auth, (user) => {
@@ -91,7 +114,7 @@ onAuthStateChanged(auth, (user) => {
 profileButton.addEventListener("click", async (e) => {
   e.stopPropagation();
   if (currentUser) {
-    profileDropdown.classList.toggle("hidden");
+    profileDropdown.classList.toggle("is-open");
   } else {
     try {
       await signInWithPopup(auth, provider);
@@ -102,19 +125,20 @@ profileButton.addEventListener("click", async (e) => {
 });
 
 document.addEventListener("click", (e) => {
-  if (!profileDropdown.classList.contains("hidden") && !profileDropdown.contains(e.target) && e.target !== profileButton) {
-    profileDropdown.classList.add("hidden");
+  if (profileDropdown.classList.contains("is-open") && !profileDropdown.contains(e.target) && e.target !== profileButton) {
+    profileDropdown.classList.remove("is-open");
   }
 });
 
-signOutButton.addEventListener("click", async (e) => {
-  e.stopPropagation();
+// Called by the GooeyActionNav main.jsx mounts into #signOutActions, once
+// its click animation finishes (see GooeyActionNav.jsx's own delay).
+window.performSignOutAction = async function () {
   try {
     await signOut(auth);
   } catch (err) {
     console.error("Sign-out error:", err);
   }
-});
+};
 
 const openAccountButton = document.getElementById("openAccountButton");
 const accountModal = document.getElementById("accountModal");
@@ -126,7 +150,7 @@ const accountPanelSettings = document.getElementById("accountPanelSettings");
 const accountPanelHistory = document.getElementById("accountPanelHistory");
 
 function openAccountModal() {
-  profileDropdown.classList.add("hidden");
+  profileDropdown.classList.remove("is-open");
   accountModal.classList.remove("hidden");
   accountModal.classList.add("flex");
   document.body.style.overflow = "hidden";
@@ -171,123 +195,120 @@ async function loadHistory() {
     
     data.forEach(scan => {
       const card = document.createElement("div");
-      card.className = "border border-border rounded-lg p-4 bg-surface-container-lowest";
-      
+      card.className = "border border-white/10 rounded-lg p-4 bg-white/[0.03]";
+
       const startedAt = scan.started_at ? new Date(scan.started_at).toLocaleString() : "Unknown";
       const completedAt = scan.completed_at ? new Date(scan.completed_at).toLocaleString() : "Pending";
-      const statusColor = scan.status === "COMPLETED" ? "text-primary" : "text-error";
-      
+      const statusColor =
+        scan.status === "COMPLETED" ? "text-emerald-400" :
+        scan.status === "FAILED" ? "text-red-400" : "text-yellow-400";
+
       let summaryHtml = "";
       if (scan.summary) {
-        summaryHtml = `<p class="text-sm text-on-surface-variant mt-2 line-clamp-2">${scan.summary}</p>`;
+        summaryHtml = `<p class="text-xs text-gray-400 mt-2 line-clamp-2">${scan.summary}</p>`;
       }
-      
+
+      // React Bits' GooeyNav (see GooeyActionNav.jsx) is mounted into
+      // actionsId below by main.jsx's window.mountGooeyActionNav bridge --
+      // this plain script builds the card's HTML but doesn't own the
+      // actions row itself. statusLineId is a plain text line these
+      // actions report into (loading/error), separate from GooeyNav's own
+      // click animation.
+      const actionsId = `scan-actions-${scan.scan_id}`;
+      const statusLineId = `scan-status-${scan.scan_id}`;
+
       card.innerHTML = `
         <div class="flex justify-between items-start mb-2">
-            <h3 class="font-medium text-on-background">${scan.target}</h3>
-            <span class="text-xs font-bold ${statusColor}">${scan.status}</span>
+            <h3 class="text-sm text-white">$ target: <span class="text-cyan-400">${scan.target}</span></h3>
+            <span class="text-xs font-bold ${statusColor}">[${scan.status}]</span>
         </div>
-        <div class="text-xs text-on-surface-variant mb-2">
-            <div>Started: ${startedAt}</div>
-            <div>Completed: ${completedAt}</div>
+        <div class="text-xs text-gray-500 mb-2">
+            <div>started: ${startedAt}</div>
+            <div>completed: ${completedAt}</div>
         </div>
         ${summaryHtml}
-        <div class="flex flex-wrap gap-2 mt-4">
-            <button data-id="${scan.scan_id}" class="view-report-btn text-xs font-medium bg-primary text-on-primary px-3 py-1.5 rounded hover:opacity-90 transition-opacity">View Report</button>
-            <button data-id="${scan.scan_id}" data-type="pdf" class="download-history-btn text-xs font-medium border border-border text-on-surface px-3 py-1.5 rounded hover:bg-surface-container-low transition-colors">Download PDF</button>
-            <button data-id="${scan.scan_id}" data-type="json" class="download-history-btn text-xs font-medium border border-border text-on-surface px-3 py-1.5 rounded hover:bg-surface-container-low transition-colors">Download JSON</button>
-        </div>
+        <div id="${actionsId}" class="mt-4"></div>
+        <div id="${statusLineId}" class="mt-2 text-xs text-gray-500"></div>
       `;
       historyList.appendChild(card);
-    });
-    
-    document.querySelectorAll(".view-report-btn").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-         const scanId = e.target.getAttribute("data-id");
-         const btnEl = e.target;
-         const originalText = btnEl.textContent;
-         
-         btnEl.textContent = "Loading...";
-         btnEl.disabled = true;
 
-         try {
-            const idToken = await currentUser.getIdToken();
-            const res = await fetch(`/api/v1/history/${encodeURIComponent(scanId)}`, {
-                headers: { "Authorization": `Bearer ${idToken}` }
-            });
-            if (!res.ok) throw new Error("Failed to fetch historical report");
-            
-            const data = await res.json();
-            localStorage.setItem("sentinelscan_historical_report_" + scanId, JSON.stringify(data));
-            window.open(`/report?history_id=${encodeURIComponent(scanId)}`, "_blank");
-         } catch (err) {
-            alert("Error loading report: " + err.message);
-         } finally {
-            btnEl.textContent = originalText;
-            btnEl.disabled = false;
-         }
-      });
+      if (window.mountGooeyActionNav) {
+        window.mountGooeyActionNav(actionsId, [
+          { label: "View Report", onClick: () => viewReport(scan.scan_id, statusLineId) },
+          { label: "Download PDF", onClick: () => downloadHistoryFile(scan.scan_id, "pdf", statusLineId) },
+          { label: "Download JSON", onClick: () => downloadHistoryFile(scan.scan_id, "json", statusLineId) },
+        ]);
+      }
     });
-    
-    document.querySelectorAll(".download-history-btn").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-         const scanId = e.target.getAttribute("data-id");
-         const type = e.target.getAttribute("data-type");
-         const btnEl = e.target;
-         const originalText = btnEl.textContent;
-         
-         btnEl.innerHTML = `<span class="material-symbols-outlined text-[14px] align-middle mr-1 animate-spin">progress_activity</span>Downloading...`;
-         btnEl.disabled = true;
-
-         try {
-            const idToken = await currentUser.getIdToken();
-            const res = await fetch(`/api/v1/reports/${encodeURIComponent(scanId)}/${type}`, {
-                headers: { "Authorization": `Bearer ${idToken}` }
-            });
-            
-            if (!res.ok) {
-                let msg = "Download failed.";
-                try {
-                    const err = await res.json();
-                    msg = err.message || err.error || msg;
-                } catch (jsonErr) {}
-                throw new Error(msg);
-            }
-            
-            const blob = await res.blob();
-            if (blob.size === 0) throw new Error("The downloaded file was empty.");
-            
-            const objectUrl = URL.createObjectURL(blob);
-            if (type === "pdf") {
-                window.open(objectUrl, "_blank");
-                // Revoke after a longer time to ensure it loads in the new tab
-                setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-            } else {
-                const anchor = document.createElement("a");
-                anchor.href = objectUrl;
-                anchor.download = `sentinelscan_report_${scanId}.${type}`;
-                anchor.style.display = "none";
-                document.body.appendChild(anchor);
-                anchor.click();
-                anchor.remove();
-                
-                setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-            }
-            
-         } catch (err) {
-            alert("Error downloading file: " + err.message);
-         } finally {
-            btnEl.textContent = originalText;
-            btnEl.disabled = false;
-         }
-      });
-    });
-    
   } catch (err) {
     historyLoading.classList.add("hidden");
     historyError.textContent = "An error occurred while loading your history. Please try again.";
     historyError.classList.remove("hidden");
     console.error("History load error:", err);
+  }
+}
+
+async function viewReport(scanId, statusLineId) {
+  const statusEl = document.getElementById(statusLineId);
+  if (statusEl) statusEl.textContent = "$ fetching report...";
+
+  try {
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/v1/history/${encodeURIComponent(scanId)}`, {
+      headers: { "Authorization": `Bearer ${idToken}` }
+    });
+    if (!res.ok) throw new Error("Failed to fetch historical report");
+
+    const data = await res.json();
+    localStorage.setItem("sentinelscan_historical_report_" + scanId, JSON.stringify(data));
+    window.open(`/report?history_id=${encodeURIComponent(scanId)}`, "_blank");
+    if (statusEl) statusEl.textContent = "";
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `$ error: ${err.message}`;
+  }
+}
+
+async function downloadHistoryFile(scanId, type, statusLineId) {
+  const statusEl = document.getElementById(statusLineId);
+  if (statusEl) statusEl.textContent = `$ downloading ${type}...`;
+
+  try {
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/v1/reports/${encodeURIComponent(scanId)}/${type}`, {
+      headers: { "Authorization": `Bearer ${idToken}` }
+    });
+
+    if (!res.ok) {
+      let msg = "Download failed.";
+      try {
+        const err = await res.json();
+        msg = err.message || err.error || msg;
+      } catch (jsonErr) {}
+      throw new Error(msg);
+    }
+
+    const blob = await res.blob();
+    if (blob.size === 0) throw new Error("The downloaded file was empty.");
+
+    const objectUrl = URL.createObjectURL(blob);
+    if (type === "pdf") {
+      window.open(objectUrl, "_blank");
+      // Revoke after a longer time to ensure it loads in the new tab
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } else {
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `sentinelscan_report_${scanId}.${type}`;
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+    if (statusEl) statusEl.textContent = "";
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `$ error: ${err.message}`;
   }
 }
 

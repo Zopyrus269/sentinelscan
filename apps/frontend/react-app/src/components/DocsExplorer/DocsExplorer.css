@@ -1,0 +1,320 @@
+/* Recreated from Skiper UI's "Side Scroll Navigation" (skiper60) demo --
+   see DocsExplorer.jsx for why this is a from-scratch rebuild rather than a
+   vendored file (skiper60 is a Premium/paywalled item, no free source to
+   vendor). Dark background matches the demo's own theme and the rest of
+   this site's React Bits/Skiper pages (report page's MagicBento cards use
+   the same near-black #120F17/#0f0f13 family). */
+.docs-explorer {
+  position: relative;
+}
+
+/* Pinned to the left-middle of the viewport (not just sticky within the
+   content column) so it reads as a fixed progress indicator for the whole
+   page, independent of how far any individual section scrolls -- vertically
+   centered as a whole block via top:50% + translateY(-50%), not tied to any
+   one section's position. */
+.docs-explorer-nav {
+  position: fixed;
+  left: 2.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 200px;
+  z-index: 30;
+}
+
+.docs-explorer-nav-track {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding-left: 1.1rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* The sliding highlight segment -- positioned via translateY + height set
+   inline from the active nav button's own offsetTop/offsetHeight (see
+   DocsExplorer.jsx), animated here so it glides between labels instead of
+   jumping. */
+.docs-explorer-nav-indicator {
+  position: absolute;
+  left: -1px;
+  width: 2px;
+  background: #ffffff;
+  border-radius: 2px;
+  transition:
+    transform 0.35s cubic-bezier(0.65, 0, 0.35, 1),
+    height 0.35s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.docs-explorer-nav-item {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.65rem 0;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.docs-explorer-nav-item:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.docs-explorer-nav-item.is-active {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Its own centered column, independent of the fixed rail -- the rail no
+   longer takes up flex space (it's position:fixed, out of normal flow), so
+   this is what actually keeps the paragraphs in the horizontal middle of
+   the page rather than offset to make room beside a sidebar. */
+/* container-type here is what makes the heading/paragraph font-size clamps
+   below (in cqw, not vw) track this column's own actual rendered width
+   instead of the full viewport's -- vw and the column stop matching once
+   the column hits its max-width cap on a wide screen, which was sizing
+   text for a wider box than the one it actually had to fit in and
+   overflowing white-space: nowrap text past the column's edge. */
+.docs-explorer-content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+}
+
+/* Above the breakpoint where the fixed left rail (2.5rem left + 200px wide,
+   see .docs-explorer-nav) is actually visible, plain margin:0 auto on
+   .docs-explorer-content centers the column across the *whole* viewport --
+   including the space the rail already occupies. A fixed margin-left big
+   enough to clear the rail "fixed" that but left the column pinned that far
+   from the left edge on every wider screen too, without ever re-centering
+   in the space that opened up on the right -- it read as pushed left
+   instead of centered. Reserving that same width as padding on the parent
+   here instead just shrinks the area .docs-explorer-content's own
+   margin:0 auto centers within, so the browser keeps doing genuine
+   centering (in the space to the right of the rail) at every width, rather
+   than a fixed offset that was only ever correct at one width. */
+@media (min-width: 1100px) {
+  .docs-explorer {
+    padding-left: calc(2.5rem + 200px + 3rem);
+  }
+}
+
+/* Each section is its own full-viewport-tall slide, its content vertically
+   centered within it -- combined with the opacity fade in DocsExplorer.jsx
+   (dim -> full at the section's own vertical center, dim again past it),
+   this is what makes a paragraph appear and disappear only at the middle
+   of the screen instead of just being flatly visible the whole time it's
+   anywhere on screen. scroll-margin-top keeps a section clear of the site's
+   fixed top header if a click ever lands it right at the very top. */
+.docs-explorer-section {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3rem 0;
+  scroll-margin-top: 6rem;
+}
+
+/* Mirrors ReportCrawl.jsx's own last-paragraph fix: the last section's exit
+   fade needs a full extra viewport height of scroll room past its own
+   bottom edge to finish -- every earlier section gets that for free from
+   the next 100vh section immediately following it, but the last one is
+   followed directly by the (much shorter) footer, which would otherwise
+   clip its fade-out partway through. */
+.docs-explorer-content > .docs-explorer-section:last-child {
+  margin-bottom: 100vh;
+}
+
+/* Basement Grotesque (@font-face declared in documentation.html) -- Inter
+   stays as the fallback for the instant before the display font finishes
+   loading, and for anywhere this class list is reused without that
+   @font-face in scope. */
+/* white-space: nowrap plus a cqw-based clamp (tied to .docs-explorer-content's
+   own rendered width via container-type: inline-size above, not the full
+   viewport) is what actually guarantees one line at every width the column
+   can be -- a plain vw clamp keeps growing past the point the column itself
+   caps out at max-width, sizing text for a wider box than it's actually in
+   and overflowing past the column's edge instead of scaling down with it. */
+.docs-explorer-section h2 {
+  font-family: 'Basement Grotesque', 'Inter', sans-serif;
+  font-size: clamp(1.6rem, 8cqw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  white-space: nowrap;
+  margin: 0 0 1.5rem;
+}
+
+/* Short, single-line statements rather than wrapped prose -- spaced well
+   apart (margin-bottom) so each one reads as its own beat instead of a
+   dense paragraph block. Kept in Inter, not Basement Grotesque: that
+   display face is only published in a single Black/900 cut, which reads
+   fine at heading size but gets heavy and hard to scan at body size.
+   white-space: nowrap + the same cqw-based clamp as the h2 above is what
+   keeps a trailing word from spilling onto its own second line -- the
+   SECTIONS content itself (see below) was also cut down to short,
+   single-statement lines instead of longer wrapped sentences. */
+.docs-explorer-section p {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(1.2rem, 5.2cqw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  color: #ffffff;
+  white-space: nowrap;
+  margin: 0 0 1.75rem;
+}
+
+.docs-explorer-section ul {
+  max-width: 46em;
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  color: #ffffff;
+  font-size: clamp(1.3rem, 1.6vw, 1.6rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.75;
+}
+
+.docs-explorer-section li {
+  margin-bottom: 0.4rem;
+}
+
+/* Sub-sections within a section -- e.g. "Scan Endpoints"/"Auth Endpoints"
+   under the API Reference section, or "Data Security"/"Cookies and
+   Sessions" under Privacy Policy. Pulled in from what used to be separate
+   pages (api-reference.html, privacy.html, terms.html,
+   responsible-disclosure.html, status.html -- since removed, this page is
+   now the only copy of that content), one level down from the section's
+   own h2. */
+.docs-explorer-group {
+  margin-top: 2.25rem;
+}
+
+.docs-explorer-group h3 {
+  font-family: 'Basement Grotesque', 'Inter', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0 0 0.75rem;
+}
+
+.docs-explorer-endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 42em;
+  margin: 0.75rem 0 1rem;
+}
+
+.docs-explorer-endpoint {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  padding: 0.9rem 1.1rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.docs-explorer-endpoint-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.docs-explorer-endpoint code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.92rem;
+  color: #ffffff;
+}
+
+.docs-explorer-endpoint p {
+  margin: 0.5rem 0 0;
+  font-size: 0.98rem;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: none;
+}
+
+.docs-explorer-method {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.35rem;
+  letter-spacing: 0.03em;
+}
+
+.docs-explorer-method--get {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+
+.docs-explorer-method--post {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.docs-explorer-method--put {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.docs-explorer-code {
+  max-width: 42em;
+  margin: 0.75rem 0 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #e2e8f0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.docs-explorer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.docs-explorer-links a {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.docs-explorer-links a:hover {
+  text-decoration: underline;
+}
+
+/* Below ~1100px the fixed left-edge rail would sit close enough to the
+   centered content column to crowd or overlap it -- content stays fully
+   readable and every section keeps its id, just without the rail. */
+@media (max-width: 1100px) {
+  .docs-explorer-nav {
+    display: none;
+  }
+
+  .docs-explorer-section {
+    min-height: 0;
+    padding: 2.5rem 0;
+  }
+
+  .docs-explorer-content > .docs-explorer-section:last-child {
+    margin-bottom: 4rem;
+  }
+}

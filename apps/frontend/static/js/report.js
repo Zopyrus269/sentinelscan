@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!activeScanId) {
         hideLoading();
-        showError(
+        dispatchNoScanIdNotice(
             "No scan ID was provided. Start a new scan from the landing page."
         );
         return;
@@ -35,6 +35,21 @@ function getScanId() {
     return (
         queryParams.get("scan_id") ||
         sessionStorage.getItem("sentinelscan_scan_id")
+    );
+}
+
+
+// Handed to the React-owned SpecularButton notice (see ReportBento.jsx's
+// ReportNoScanNotice) instead of the plain #reportError box -- these are
+// the specific "there's nothing to load, and it's not worth pretending
+// otherwise" cases (no scan_id in the URL at all, or historical report data
+// missing) that get that treatment; every other error path below (a fetch
+// that fails partway through, an incomplete/failed scan) still uses
+// showError(). href is where the button's click sends the visitor --
+// defaults to the landing page (the "no scan ID" case's own destination).
+function dispatchNoScanIdNotice(message, href = "/") {
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:no-scan-id", { detail: { message, href } })
     );
 }
 
@@ -73,18 +88,40 @@ async function loadReport() {
         const queryParams = new URLSearchParams(window.location.search);
         
         if (queryParams.has("history_id")) {
-            // Load historical report from session storage (populated by auth.js)
-            const historicalDataStr = sessionStorage.getItem("sentinelscan_historical_report");
-            
+            // View Report (auth.js's viewReport()) stores this in
+            // localStorage, not sessionStorage -- it's opened via
+            // window.open() into a brand new tab, which gets its own fresh
+            // sessionStorage with nothing in it; localStorage is what's
+            // actually shared across tabs on the same origin. Keyed per
+            // scan_id (matching what auth.js writes) so multiple historical
+            // report tabs opened one after another don't clobber each
+            // other's data before each one gets a chance to read it.
+            const historicalDataKey = `sentinelscan_historical_report_${activeScanId}`;
+            const historicalDataStr = localStorage.getItem(historicalDataKey);
+
             if (!historicalDataStr) {
-                throw new Error("Historical report data not found. Please open this report from the dashboard history tab.");
+                hideLoading();
+                dispatchNoScanIdNotice(
+                    "Historical report data not found. Please open this report from the dashboard history tab.",
+                    "/dashboard"
+                );
+                return;
             }
-            
+
             activeScan = JSON.parse(historicalDataStr);
             activeReport = activeScan.report_data || {};
-            
+            // One-shot handoff from the History tab -- read once, then
+            // cleared, rather than left to accumulate in localStorage
+            // (potentially one entry per historical scan ever viewed).
+            localStorage.removeItem(historicalDataKey);
+
             if (!activeReport || Object.keys(activeReport).length === 0) {
-                 throw new Error("This historical scan does not contain a JSON report payload.");
+                hideLoading();
+                dispatchNoScanIdNotice(
+                    "This historical scan does not contain a JSON report payload.",
+                    "/dashboard"
+                );
+                return;
             }
         } else {
             // Load active runtime scan from API
@@ -113,6 +150,20 @@ async function loadReport() {
         hideLoading();
     } catch (error) {
         hideLoading();
+
+        // fetchScan()'s 404 ("The requested scan_id does not exist.") --
+        // typically a stale sessionStorage scan_id left over from before a
+        // backend restart, since scan state is in-memory only -- gets the
+        // same SpecularButton notice as "no scan ID at all" rather than the
+        // plain #reportError box; every other failure here (fetch errors,
+        // an incomplete/failed scan) still uses that box.
+        if (error.status === 404) {
+            dispatchNoScanIdNotice(
+                error.message || "The requested scan_id does not exist.",
+                "/"
+            );
+            return;
+        }
 
         showError(
             error.message ||
@@ -143,11 +194,18 @@ async function fetchScan(scanId) {
     }
 
     if (!response.ok) {
-        throw new Error(
+        const error = new Error(
             payload.message ||
             payload.error ||
             "Unable to retrieve the scan."
         );
+        // Read by loadReport()'s catch to tell "this scan_id doesn't exist"
+        // (backend 404, e.g. a stale sessionStorage scan_id from before a
+        // backend restart -- scan state is in-memory only) apart from every
+        // other fetch failure, so only that specific case gets routed to
+        // the SpecularButton notice instead of the plain #reportError box.
+        error.status = response.status;
+        throw error;
     }
 
     return payload;
@@ -621,9 +679,9 @@ function joinWithAnd(items) {
 function buildFindingsParagraph(findings, riskSummary) {
     if (!findings.length) {
         return (
-            "This assessment did not surface any reportable findings. That does " +
-            "not guarantee the target is fully secure -- confirm every expected " +
-            "worker actually ran before treating this as a clean bill of health."
+            "We didn't find any issues to report. That doesn't mean the site is " +
+            "completely safe -- just make sure every check actually ran before " +
+            "treating this as a clean result."
         );
     }
 
@@ -641,12 +699,12 @@ function buildFindingsParagraph(findings, riskSummary) {
     const remaining = findings.length - titles.length;
 
     let paragraph =
-        `SentinelScan compiled ${findings.length} finding${findings.length === 1 ? "" : "s"} ` +
-        `across ${workerCount} worker${workerCount === 1 ? "" : "s"}` +
-        `${severityParts.length ? `, breaking down to ${joinWithAnd(severityParts)}` : ""}. `;
+        `We found ${findings.length} issue${findings.length === 1 ? "" : "s"} ` +
+        `using ${workerCount} check${workerCount === 1 ? "" : "s"}` +
+        `${severityParts.length ? ` -- that's ${joinWithAnd(severityParts)}` : ""}. `;
 
-    paragraph += `Notable items include ${joinWithAnd(titles.map(t => `"${t}"`))}`;
-    paragraph += remaining > 0 ? `, plus ${remaining} more finding${remaining === 1 ? "" : "s"} below.` : ".";
+    paragraph += `A few examples: ${joinWithAnd(titles.map(t => `"${t}"`))}`;
+    paragraph += remaining > 0 ? `, plus ${remaining} more listed below.` : ".";
 
     return paragraph;
 }
@@ -655,9 +713,9 @@ function buildFindingsParagraph(findings, riskSummary) {
 function buildCvssParagraph(cvssScores, maximumCvss) {
     if (!cvssScores.length || maximumCvss === null) {
         return (
-            "No finding in this assessment received a CVSS v3.1 base score, so " +
-            "there is no CVSS-driven exposure to report here -- the posture score " +
-            "above instead reflects SentinelScan's informational hardening review."
+            "None of the issues here got a formal risk score (CVSS). The score " +
+            "shown above instead comes from a general check of your site's " +
+            "security settings, not from a scored issue."
         );
     }
 
@@ -668,11 +726,10 @@ function buildCvssParagraph(cvssScores, maximumCvss) {
     }, null);
 
     return (
-        `${cvssScores.length} finding${cvssScores.length === 1 ? "" : "s"} received a CVSS v3.1 ` +
-        `base score in this assessment. The highest was ${maximumCvss.toFixed(1)} ` +
-        `(${getCvssSeverity(maximumCvss)})${topScore?.finding ? `, scored against "${topScore.finding}"` : ""}. ` +
-        "Review each scored finding's vector string to understand exactly which " +
-        "conditions drove its score before prioritizing remediation."
+        `${cvssScores.length} issue${cvssScores.length === 1 ? "" : "s"} got a risk score. ` +
+        `The highest was ${maximumCvss.toFixed(1)} out of 10 ` +
+        `(${getCvssSeverity(maximumCvss)})${topScore?.finding ? `, for "${topScore.finding}"` : ""}. ` +
+        "Take a look at each score before deciding what to fix first."
     );
 }
 
@@ -681,29 +738,28 @@ function buildWorkerParagraph(findings) {
     const workers = Array.from(new Set(findings.map(f => f.worker).filter(Boolean)));
 
     if (!workers.length) {
-        return "No worker output was attached to this report's findings.";
+        return "No tool results were attached to this report.";
     }
 
     return (
-        `This assessment ran ${workers.length} worker${workers.length === 1 ? "" : "s"}: ` +
-        `${joinWithAnd(workers.map(formatWorkerName))}. Each worker's raw output ` +
-        "feeds directly into the findings above -- it's the unprocessed evidence " +
-        "behind every summary and severity rating SentinelScan assigned."
+        `We used ${workers.length} tool${workers.length === 1 ? "" : "s"} to scan the site: ` +
+        `${joinWithAnd(workers.map(formatWorkerName))}. Their raw results are what every ` +
+        "finding and severity rating above is based on."
     );
 }
 
 
 function buildRecommendationsParagraph(recommendations) {
     if (!recommendations.length) {
-        return "Sentinel AI did not generate specific recommendations for this assessment.";
+        return "Our AI didn't have any specific suggestions for this scan.";
     }
 
     const titles = recommendations.slice(0, 3).map(r => r.title);
     const remaining = recommendations.length - titles.length;
 
-    let paragraph = `Sentinel AI generated ${recommendations.length} recommendation${recommendations.length === 1 ? "" : "s"}, starting with ${joinWithAnd(titles)}`;
+    let paragraph = `Our AI suggests ${recommendations.length} thing${recommendations.length === 1 ? "" : "s"} to fix, starting with ${joinWithAnd(titles)}`;
     paragraph += remaining > 0 ? `, and ${remaining} more.` : ".";
-    paragraph += " Work through them in order -- they're already prioritized by risk.";
+    paragraph += " Go through them in order -- the most important ones come first.";
 
     return paragraph;
 }
@@ -719,9 +775,8 @@ function dispatchReportCrawl(report, findings, cvssScores, maximumCvss, riskSumm
             workerText: buildWorkerParagraph(findings),
             recommendationsText: buildRecommendationsParagraph(buildRecommendations(findings, cvssScores)),
             rawJsonText:
-                "The complete machine-readable report -- every field captured " +
-                "during this assessment -- is available via the Download JSON " +
-                "button above.",
+                "Want every detail? Click the Download JSON button above to " +
+                "get the full, raw report.",
         };
     } catch (error) {
         console.error("Failed to build report crawl paragraphs:", error);
