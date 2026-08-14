@@ -43,12 +43,12 @@ def create_app() -> Flask:
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://www.gstatic.com; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://www.gstatic.com https://apis.google.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "connect-src 'self' https://*.googleapis.com; "
             "img-src 'self' data: https://*.googleusercontent.com; "
-            "frame-src https://sentinelscan-3f82d.firebaseapp.com; "
+            "frame-src https://sentinelscan-3f82d.firebaseapp.com https://apis.google.com https://accounts.google.com; "
             "frame-ancestors 'none'; "
             "object-src 'none';"
         )
