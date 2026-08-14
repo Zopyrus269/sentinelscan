@@ -10,9 +10,9 @@ This file is always **overwritten**, not appended -- it reflects the current han
 
 ## What's next
 
-**The UI redesign merge is done and live-verified** (session 11, `a510ac0`). **A follow-up CSP fix for the broken Google profile photo/icon has since been pushed to `main` as `3314aee`** (session 12) but **not yet live-verified** — no Chrome authorization was given for this specific fix, so it's unconfirmed whether Render finished deploying it or whether it actually resolves the issue on the live site. If the user reports back or asks for a check, that's the first thing to verify next session. Full detail in [[2026-08-14]] "Session 12".
+**Nothing is pending. The entire UI redesign workstream is closed out.** Merge (session 11, `a510ac0`) + CSP/Google-icon fix (session 12, `3314aee`) are both live on `main` and the user has personally confirmed on the deployed site that it works correctly (profile photo shows when signed in, fallback icon shows when signed out). **The user explicitly said their allotted work for this engagement is done and the next session may be about anything unrelated -- do not assume any of the below is "next up" without the user actually asking for it.**
 
-**Not yet done, and not yet requested by the user this round:** repo cleanup so `main` is the only branch. `feature/ui-redesign-reactbits` still exists on `origin` and locally, now fully merged (safe to delete once the user asks) -- do not delete it unassisted, per the destructive-action confirmation policy. If the user asks for the cleanup next session:
+**Still sitting there, unrequested, in case a future session needs the context:** repo cleanup so `main` is the only branch. `feature/ui-redesign-reactbits` still exists on `origin` and locally, fully merged (safe to delete whenever asked) -- do not delete it unassisted, per the destructive-action confirmation policy. If ever asked for that cleanup:
 
 1. Confirm `git log main..origin/feature/ui-redesign-reactbits` is empty (branch fully contained in `main`) before deleting anything.
 2. `git push origin --delete feature/ui-redesign-reactbits`, then delete the local branch too.
@@ -24,12 +24,12 @@ Merged `feature/ui-redesign-reactbits` (23 commits, the full UI redesign workstr
 
 ## Session 12 summary (2026-08-14) -- full detail in [[2026-08-14]] "Session 12"
 
-Fixed a broken-image glyph in the profile button on the live site. Root cause: `app.py`'s CSP `img-src 'self' data:;` (added by the pre-session-11 security commits) blocked both the real Google profile photo (`lh3.googleusercontent.com`) *and* the logged-out fallback icon, which was hotlinked from `images.shadcnspace.com` -- both failed under CSP, so neither the photo nor its own fallback could render. Vendored the Google icon locally at `apps/frontend/static/icons/google.svg`, repointed all 8 references across the 4 static pages, and added `https://*.googleusercontent.com` to the CSP's `img-src`. `auth.js`'s existing `applyAvatar()` fallback logic needed no changes -- it was already correct, just starved by CSP. Committed directly to `main` as `3314aee`, pushed. **Not yet live-verified this session** -- no Chrome authorization requested/given for this specific check.
+Fixed a broken-image glyph in the profile button on the live site. Root cause: `app.py`'s CSP `img-src 'self' data:;` (added by the pre-session-11 security commits) blocked both the real Google profile photo (`lh3.googleusercontent.com`) *and* the logged-out fallback icon, which was hotlinked from `images.shadcnspace.com` -- both failed under CSP, so neither the photo nor its own fallback could render. Vendored the Google icon locally at `apps/frontend/static/icons/google.svg`, repointed all 8 references across the 4 static pages, and added `https://*.googleusercontent.com` to the CSP's `img-src`. `auth.js`'s existing `applyAvatar()` fallback logic needed no changes -- it was already correct, just starved by CSP. Committed directly to `main` as `3314aee`, pushed. **User confirmed on their own manual check of the live site that it now works** (photo when signed in, fallback icon when signed out) -- this closes the workstream out entirely.
 
 ## Standing rules for this engagement (apply to all future sessions, not just this one)
 
 - **Never spawn a subagent without asking the user first and stating the reason.** Codified globally in `C:\Users\ADMIN\.claude\CLAUDE.md`.
-- **Never call the Claude-in-Chrome skill or any `mcp__claude-in-chrome__*` tool without the user's explicit approval first**, and re-ask for each new need even within the same session (approval doesn't carry over automatically). Codified globally. (Session 11's live-site check was one-time-authorized for that specific purpose -- doesn't carry forward to future sessions.)
+- **Never call the Claude-in-Chrome skill or any `mcp__claude-in-chrome__*` tool without the user's explicit approval first**, and re-ask for each new need even within the same session (approval doesn't carry over automatically). Codified globally. (Session 11's live-site check was one-time-authorized for that specific purpose and did not carry forward -- session 12's fix was instead verified by the user themselves, manually.)
 - **Never write to `knowledge/` while implementation work is in progress** -- read-only during active work; writes only after everything for that unit of work is implemented, tested/reviewed, and committed.
 - **Frontend delegation to Gemini remains suspended** for this workstream (was suspended 2026-08-11) -- now moot since the workstream is merged, but resumes as the default for any *new* frontend work unless the user says otherwise.
 - **Always run the local dev server as `http://localhost:5000`** (Firebase authorized-domains covers `localhost` and the Render domain only). Two-step startup: `npm run build` in `apps/frontend/react-app`, then `python -m apps.backend.app` from repo root.
@@ -59,9 +59,9 @@ Fixed a broken-image glyph in the profile button on the live site. Root cause: `
 
 ## Links
 
-- Latest daily log: [[2026-08-14]] (sessions 5-11, same day)
-- Live site: `https://sentinelscan-yd2u.onrender.com` -- confirmed serving merged `main` as of session 11; session 12's CSP/icon fix (`3314aee`) pushed after that but not yet live-verified.
+- Latest daily log: [[2026-08-14]] (sessions 5-12, same day)
+- Live site: `https://sentinelscan-yd2u.onrender.com` -- confirmed working end-to-end as of session 12 (merge + CSP/icon fix), including the user's own manual check.
 - Render service: `srv-d9rrj6n40ujc73c4efcg`
 - `scripts/README.md` -- team secrets bootstrap setup/usage instructions.
 - `render.yaml` -- Render deployment Blueprint (repo root); confirmed `branch: main`, `autoDeploy: true`.
-- UI redesign workstream plan: [[ui-redesign-reactbits]] (`knowledge/frontend-plans/ui-redesign-reactbits.md`) -- approved 2026-08-11, feature-complete, **merged into `main` as of session 11**.
+- UI redesign workstream plan: [[ui-redesign-reactbits]] (`knowledge/frontend-plans/ui-redesign-reactbits.md`) -- approved 2026-08-11, **fully complete and closed out as of session 12**: merged into `main`, deployed, live-verified by the user.
