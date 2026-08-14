@@ -1,0 +1,46 @@
+/* GooeyNav's own em-based sizing (0.6em/1em padding, 2em gap) is tuned for
+   a page-level nav bar -- scoping a smaller font-size here shrinks the
+   whole thing proportionally to fit inline in a history card's action row
+   or a dropdown footer, without touching any of GooeyNav's own CSS. Colors
+   match this app's terminal theme (see ScanTerminal.jsx) instead of the
+   vendor demo's defaults, since --color-1..4 aren't defined by
+   GooeyNav.css itself. */
+.gooey-action-nav {
+  --color-1: #34d399;
+  --color-2: #22d3ee;
+  --color-3: #4ade80;
+  --color-4: #ffffff;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.gooey-action-nav .gooey-nav-container nav ul {
+  gap: 0.5em;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.gooey-action-nav .gooey-nav-container nav ul li {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.gooey-action-nav .gooey-nav-container nav ul li a {
+  padding: 0.5em 0.85em;
+}
+
+/* Used for a single-action instance (the profile dropdown's Sign Out)
+   where the item should read as one full-width footer button rather than
+   a compact inline chip row. */
+.gooey-action-nav--full .gooey-nav-container nav ul {
+  width: 100%;
+}
+
+.gooey-action-nav--full .gooey-nav-container nav ul li {
+  flex: 1;
+  text-align: center;
+}
+
+.gooey-action-nav--full .gooey-nav-container nav ul li a {
+  display: block;
+  padding: 0.6em 0;
+}

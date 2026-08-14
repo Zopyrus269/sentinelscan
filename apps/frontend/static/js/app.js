@@ -4,6 +4,10 @@ const API_BASE_URL = "/api/v1";
 
 document.addEventListener("DOMContentLoaded", () => {
     const targetInput = document.getElementById("targetInput");
+    // #openConsentButton is a legacy id (see index.html) -- it no longer
+    // opens a consent modal, it directly submits the scan. Kept as-is
+    // rather than renamed, since HeroScanInput (main.jsx) clicks it by
+    // this id to forward the hero input's submit event.
     const openConsentButton = document.getElementById(
         "openConsentButton"
     );
@@ -14,39 +18,11 @@ document.addEventListener("DOMContentLoaded", () => {
         "openLatestReportButton"
     );
 
-    const confirmModal = document.getElementById("confirmModal");
-    const modalBackdrop = document.getElementById("modalBackdrop");
-    const modalCloseButton = document.getElementById(
-        "modalCloseButton"
-    );
-    const modalScrollableContent = document.getElementById(
-        "modalScrollableContent"
-    );
-
-    const ownershipConsent = document.getElementById(
-        "ownershipConsent"
-    );
-    const legalConsent = document.getElementById(
-        "legalConsent"
-    );
-
-    const authorizeScanButton = document.getElementById(
-        "authorizeScanButton"
-    );
-    const cancelConsentButton = document.getElementById(
-        "cancelConsentButton"
-    );
-
     const scanError = document.getElementById("scanError");
 
     const requiredElements = {
         targetInput,
         openConsentButton,
-        confirmModal,
-        ownershipConsent,
-        legalConsent,
-        authorizeScanButton,
-        cancelConsentButton,
         scanError,
     };
 
@@ -117,47 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return hostname;
     }
 
-    function updateAuthorizeButton() {
-        const accepted =
-            ownershipConsent.checked &&
-            legalConsent.checked;
-
-        authorizeScanButton.disabled = !accepted;
-
-        if (accepted) {
-            authorizeScanButton.textContent =
-                "Start Authorized Scan";
-        } else {
-            authorizeScanButton.textContent =
-                "I Authorize This Scan";
-        }
-    }
-
-    function showModal() {
-        clearError();
-
-        ownershipConsent.checked = false;
-        legalConsent.checked = false;
-
-        updateAuthorizeButton();
-
-        if (modalScrollableContent) {
-            modalScrollableContent.scrollTop = 0;
-        }
-
-        confirmModal.classList.remove("hidden");
-        confirmModal.classList.add("flex");
-
-        document.body.style.overflow = "hidden";
-    }
-
-    function hideModal() {
-        confirmModal.classList.add("hidden");
-        confirmModal.classList.remove("flex");
-
-        document.body.style.overflow = "";
-    }
-
     async function readJsonResponse(response) {
         const contentType =
             response.headers.get("Content-Type") || "";
@@ -177,33 +112,17 @@ document.addEventListener("DOMContentLoaded", () => {
     async function startScan() {
         clearError();
 
-        if (
-            !ownershipConsent.checked ||
-            !legalConsent.checked
-        ) {
-            showError(
-                "Confirm both authorization statements."
-            );
-            return;
-        }
-
         let target;
 
         try {
             target = normalizeTarget(targetInput.value);
         } catch (error) {
-            hideModal();
             showError(error.message);
             targetInput.focus();
             return;
         }
 
-        const originalText =
-            authorizeScanButton.textContent;
-
-        authorizeScanButton.disabled = true;
-        authorizeScanButton.textContent =
-            "Starting Assessment...";
+        openConsentButton.disabled = true;
 
         try {
             const idToken = window.getCurrentUserIdToken
@@ -224,10 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     method: "POST",
                     headers,
-                    body: JSON.stringify({
-                        target,
-                        authorization_confirmed: true,
-                    }),
+                    body: JSON.stringify({ target }),
                 }
             );
 
@@ -257,8 +173,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 target
             );
 
-            hideModal();
-
             window.location.href =
                 `/dashboard?scan_id=${encodeURIComponent(
                     payload.scan_id
@@ -269,27 +183,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 "Unable to connect to the SentinelScan backend."
             );
 
-            authorizeScanButton.disabled = false;
-            authorizeScanButton.textContent =
-                originalText;
-
-            updateAuthorizeButton();
+            openConsentButton.disabled = false;
         }
     }
 
     openConsentButton.addEventListener(
         "click",
-        () => {
-            clearError();
-
-            try {
-                normalizeTarget(targetInput.value);
-                showModal();
-            } catch (error) {
-                showError(error.message);
-                targetInput.focus();
-            }
-        }
+        startScan
     );
 
     targetInput.addEventListener(
@@ -300,36 +200,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 openConsentButton.click();
             }
         }
-    );
-
-    ownershipConsent.addEventListener(
-        "change",
-        updateAuthorizeButton
-    );
-
-    legalConsent.addEventListener(
-        "change",
-        updateAuthorizeButton
-    );
-
-    authorizeScanButton.addEventListener(
-        "click",
-        startScan
-    );
-
-    cancelConsentButton.addEventListener(
-        "click",
-        hideModal
-    );
-
-    modalCloseButton?.addEventListener(
-        "click",
-        hideModal
-    );
-
-    modalBackdrop?.addEventListener(
-        "click",
-        hideModal
     );
 
     navNewScanButton?.addEventListener(
@@ -358,18 +228,4 @@ document.addEventListener("DOMContentLoaded", () => {
                 : "/";
         }
     );
-
-    document.addEventListener(
-        "keydown",
-        (event) => {
-            if (
-                event.key === "Escape" &&
-                confirmModal.classList.contains("flex")
-            ) {
-                hideModal();
-            }
-        }
-    );
-
-    updateAuthorizeButton();
 });

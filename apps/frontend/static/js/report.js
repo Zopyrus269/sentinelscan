@@ -10,11 +10,10 @@ document.addEventListener("DOMContentLoaded", () => {
     activeScanId = getScanId();
 
     bindNavigation();
-    bindRawJsonToggle();
 
     if (!activeScanId) {
         hideLoading();
-        showError(
+        dispatchNoScanIdNotice(
             "No scan ID was provided. Start a new scan from the landing page."
         );
         return;
@@ -36,6 +35,21 @@ function getScanId() {
     return (
         queryParams.get("scan_id") ||
         sessionStorage.getItem("sentinelscan_scan_id")
+    );
+}
+
+
+// Handed to the React-owned SpecularButton notice (see ReportBento.jsx's
+// ReportNoScanNotice) instead of the plain #reportError box -- these are
+// the specific "there's nothing to load, and it's not worth pretending
+// otherwise" cases (no scan_id in the URL at all, or historical report data
+// missing) that get that treatment; every other error path below (a fetch
+// that fails partway through, an incomplete/failed scan) still uses
+// showError(). href is where the button's click sends the visitor --
+// defaults to the landing page (the "no scan ID" case's own destination).
+function dispatchNoScanIdNotice(message, href = "/") {
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:no-scan-id", { detail: { message, href } })
     );
 }
 
@@ -66,31 +80,6 @@ function bindNavigation() {
 }
 
 
-function bindRawJsonToggle() {
-    const toggleButton = document.getElementById(
-        "toggleRawJsonButton"
-    );
-    const rawJsonPanel = document.getElementById("rawJsonPanel");
-    const toggleIcon = document.getElementById(
-        "rawJsonToggleIcon"
-    );
-
-    if (!toggleButton || !rawJsonPanel || !toggleIcon) {
-        return;
-    }
-
-    toggleButton.addEventListener("click", () => {
-        const isHidden = rawJsonPanel.classList.contains("hidden");
-
-        rawJsonPanel.classList.toggle("hidden");
-
-        toggleIcon.textContent = isHidden
-            ? "expand_less"
-            : "expand_more";
-    });
-}
-
-
 async function loadReport() {
     showLoading();
     clearError();
@@ -99,18 +88,40 @@ async function loadReport() {
         const queryParams = new URLSearchParams(window.location.search);
         
         if (queryParams.has("history_id")) {
-            // Load historical report from session storage (populated by auth.js)
-            const historicalDataStr = sessionStorage.getItem("sentinelscan_historical_report");
-            
+            // View Report (auth.js's viewReport()) stores this in
+            // localStorage, not sessionStorage -- it's opened via
+            // window.open() into a brand new tab, which gets its own fresh
+            // sessionStorage with nothing in it; localStorage is what's
+            // actually shared across tabs on the same origin. Keyed per
+            // scan_id (matching what auth.js writes) so multiple historical
+            // report tabs opened one after another don't clobber each
+            // other's data before each one gets a chance to read it.
+            const historicalDataKey = `sentinelscan_historical_report_${activeScanId}`;
+            const historicalDataStr = localStorage.getItem(historicalDataKey);
+
             if (!historicalDataStr) {
-                throw new Error("Historical report data not found. Please open this report from the dashboard history tab.");
+                hideLoading();
+                dispatchNoScanIdNotice(
+                    "Historical report data not found. Please open this report from the dashboard history tab.",
+                    "/dashboard"
+                );
+                return;
             }
-            
+
             activeScan = JSON.parse(historicalDataStr);
             activeReport = activeScan.report_data || {};
-            
+            // One-shot handoff from the History tab -- read once, then
+            // cleared, rather than left to accumulate in localStorage
+            // (potentially one entry per historical scan ever viewed).
+            localStorage.removeItem(historicalDataKey);
+
             if (!activeReport || Object.keys(activeReport).length === 0) {
-                 throw new Error("This historical scan does not contain a JSON report payload.");
+                hideLoading();
+                dispatchNoScanIdNotice(
+                    "This historical scan does not contain a JSON report payload.",
+                    "/dashboard"
+                );
+                return;
             }
         } else {
             // Load active runtime scan from API
@@ -139,6 +150,20 @@ async function loadReport() {
         hideLoading();
     } catch (error) {
         hideLoading();
+
+        // fetchScan()'s 404 ("The requested scan_id does not exist.") --
+        // typically a stale sessionStorage scan_id left over from before a
+        // backend restart, since scan state is in-memory only -- gets the
+        // same SpecularButton notice as "no scan ID at all" rather than the
+        // plain #reportError box; every other failure here (fetch errors,
+        // an incomplete/failed scan) still uses that box.
+        if (error.status === 404) {
+            dispatchNoScanIdNotice(
+                error.message || "The requested scan_id does not exist.",
+                "/"
+            );
+            return;
+        }
 
         showError(
             error.message ||
@@ -169,11 +194,18 @@ async function fetchScan(scanId) {
     }
 
     if (!response.ok) {
-        throw new Error(
+        const error = new Error(
             payload.message ||
             payload.error ||
             "Unable to retrieve the scan."
         );
+        // Read by loadReport()'s catch to tell "this scan_id doesn't exist"
+        // (backend 404, e.g. a stale sessionStorage scan_id from before a
+        // backend restart -- scan state is in-memory only) apart from every
+        // other fetch failure, so only that specific case gets routed to
+        // the SpecularButton notice instead of the plain #reportError box.
+        error.status = response.status;
+        throw error;
     }
 
     return payload;
@@ -270,6 +302,13 @@ function renderReport(report) {
         ? Number(report.security_score)
         : calculateSecurityScore(maximumCvss, cvssScores);
 
+    // Dispatched first and defensively -- this used to run last, so any
+    // exception thrown by an earlier render*() call (a shape the report
+    // data didn't anticipate, etc.) meant it never ran at all, leaving the
+    // scroll-reveal paragraphs stuck on their "this section is loading"
+    // placeholder forever with no visible error anywhere else on the page.
+    dispatchReportCrawl(report, findings, cvssScores, maximumCvss, riskSummary);
+
     renderSecurityScore(securityScore, maximumCvss);
     renderMaximumCvss(maximumCvss, cvssScores);
     renderRiskSummary(riskSummary);
@@ -277,13 +316,10 @@ function renderReport(report) {
         report,
         findings,
         cvssScores,
-        maximumCvss
+        maximumCvss,
+        securityScore,
+        riskSummary
     );
-    renderFindings(findings, cvssScores);
-    renderCvssScores(cvssScores);
-    renderWorkerFindings(findings);
-    renderRecommendations(findings, cvssScores);
-    renderRawJson(report);
 }
 
 
@@ -356,12 +392,9 @@ function calculateSecurityScore(maximumCvss, cvssScores) {
 
 function renderSecurityScore(score, maximumCvss = null) {
     const gauge = document.getElementById("securityGauge");
-    const scoreElement = document.getElementById(
-        "securityScore"
-    );
     const riskLabel = document.getElementById("riskLabel");
 
-    if (!gauge || !scoreElement || !riskLabel) {
+    if (!gauge || !riskLabel) {
         return;
     }
 
@@ -378,7 +411,16 @@ function renderSecurityScore(score, maximumCvss = null) {
         circumference - (safeScore / 100) * circumference;
 
     gauge.style.strokeDashoffset = String(offset);
-    scoreElement.textContent = String(Math.round(safeScore));
+
+    // The score itself is rendered by a React-owned CountUp component
+    // (see ReportBento.jsx) which animates 0 -> safeScore rather than a
+    // plain textContent snap -- this dispatches the value for it to pick
+    // up instead of writing into a "securityScore" element directly.
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:security-score-update", {
+            detail: { score: Math.round(safeScore) },
+        })
+    );
 
     const rating = getSecurityRating(maximumCvss);
 
@@ -470,13 +512,7 @@ function getCvssSeverity(score) {
 
 
 function renderMaximumCvss(maximumCvss, cvssScores) {
-    const element = document.getElementById("maxCvssScore");
     const severityElement = document.getElementById("maxCvssSeverity");
-    const card = document.getElementById("maxCvssCard");
-
-    if (!element) {
-        return;
-    }
 
     const hasScore =
         Array.isArray(cvssScores) &&
@@ -489,37 +525,42 @@ function renderMaximumCvss(maximumCvss, cvssScores) {
         ? getCvssSeverity(Number(maximumCvss))
         : "NONE";
 
-    element.textContent = hasScore
-        ? Number(maximumCvss).toFixed(1)
-        : "0.0";
+    // The value itself is rendered by a React-owned CountUp component
+    // (see ReportBento.jsx) instead of a "maxCvssScore" element this
+    // script writes textContent into directly -- it also owns the card's
+    // fixed dark styling now (no more per-severity background swap), so
+    // this only dispatches the value/severity for it to pick up.
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:max-cvss-update", {
+            detail: {
+                value: hasScore ? Number(maximumCvss) : 0,
+                hasScore,
+            },
+        })
+    );
 
     if (severityElement) {
         severityElement.textContent = severity;
-    }
-
-    if (card) {
-        const palette = {
-            CRITICAL: { background: "#fee2e2", color: "#991b1b" },
-            HIGH: { background: "#fee2e2", color: "#b91c1c" },
-            MEDIUM: { background: "#fef3c7", color: "#92400e" },
-            LOW: { background: "#dbeafe", color: "#1d4ed8" },
-            NONE: { background: "#dcfce7", color: "#166534" },
-        };
-        const selected = palette[severity] || palette.NONE;
-        card.style.backgroundColor = selected.background;
-        card.style.color = selected.color;
     }
 }
 
 
 function renderRiskSummary(summary) {
-    setText("criticalCount", summary.CRITICAL);
-    setText("highCount", summary.HIGH);
-    setText("mediumCount", summary.MEDIUM);
-    setText("lowCount", summary.LOW);
-    setText(
-        "informationalCount",
-        summary.INFORMATIONAL
+    // Each count is rendered by a React-owned CountUp component (see
+    // ReportBento.jsx) that animates 0 -> count -- e.g. 5 critical findings
+    // counts up from 0 to 5 -- rather than a plain textContent snap, so
+    // this dispatches the numbers instead of writing into
+    // "criticalCount"/"highCount"/etc. elements directly.
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:risk-summary-update", {
+            detail: {
+                critical: Number(summary.CRITICAL) || 0,
+                high: Number(summary.HIGH) || 0,
+                medium: Number(summary.MEDIUM) || 0,
+                low: Number(summary.LOW) || 0,
+                informational: Number(summary.INFORMATIONAL) || 0,
+            },
+        })
     );
 }
 
@@ -528,7 +569,9 @@ function renderExecutiveSummary(
     report,
     findings,
     cvssScores,
-    maximumCvss
+    maximumCvss,
+    securityScore,
+    riskSummary
 ) {
     const target =
         report.target ||
@@ -541,6 +584,30 @@ function renderExecutiveSummary(
             .filter(Boolean)
     ).size;
 
+    const safeScore = Number.isFinite(Number(securityScore))
+        ? Math.round(Number(securityScore))
+        : 100;
+
+    const hasCvss = cvssScores.length && maximumCvss !== null;
+
+    // The score itself (see renderSecurityScore/calculateSecurityScore) is
+    // never hardcoded to 100 just because there's no CVSS-scored finding --
+    // the backend's report_worker.py falls back to an 80-100 "informational
+    // posture score" derived from other observed hardening signals (SSL
+    // config, headers, cookies, etc.) in that case, which can legitimately
+    // land below 100 (e.g. 88). The summary text used to always claim
+    // "100/100" whenever no CVSS score existed, which went stale the moment
+    // that posture score was anything else -- it now always states the
+    // real, currently-displayed score instead of assuming one.
+    const postureSentence = hasCvss
+        ? `The highest calculated CVSS v3.1 base score was ` +
+          `${maximumCvss.toFixed(1)} (${getCvssSeverity(maximumCvss)}), mapping to an observed ` +
+          `security posture of ${safeScore}/100. `
+        : `No CVSS-scored finding was retained from this assessment, so the ` +
+          `${safeScore}/100 posture score reflects SentinelScan's informational ` +
+          `hardening review (SSL/TLS configuration, HTTP security headers, cookie ` +
+          `flags, DNS/WHOIS exposure) rather than a CVSS mapping. `;
+
     let summary;
 
     if (!findings.length) {
@@ -551,198 +618,191 @@ function renderExecutiveSummary(
             `fully secure. Review the raw worker output and confirm that ` +
             `all expected assessment steps completed successfully.`;
     } else {
-        summary =
-            `SentinelScan completed an AI-guided assessment of ${target}. ` +
-            `${findings.length} finding${findings.length === 1 ? "" : "s"} ` +
-            `were compiled from ${workerCount} worker` +
-            `${workerCount === 1 ? "" : "s"}. `;
+        const critical = riskSummary?.CRITICAL || 0;
+        const high = riskSummary?.HIGH || 0;
+        const medium = riskSummary?.MEDIUM || 0;
+        const low = riskSummary?.LOW || 0;
+        const informational = riskSummary?.INFORMATIONAL || 0;
+        const elevated = critical + high;
 
-        if (
-            cvssScores.length &&
-            maximumCvss !== null
-        ) {
-            summary +=
-                `The highest calculated CVSS v3.1 base score was ` +
-                `${maximumCvss.toFixed(1)}. `;
-        } else {
-            summary +=
-                "No actionable CVSS-scored finding was retained. The maximum " +
-                "CVSS is N/A and the project posture gauge displays 100/100. ";
-        }
+        const severityParts = [
+            critical && `${critical} critical`,
+            high && `${high} high`,
+            medium && `${medium} medium`,
+            low && `${low} low`,
+            informational && `${informational} informational`,
+        ].filter(Boolean);
+
+        summary =
+            `SentinelScan completed an AI-guided assessment of ${target}, ` +
+            `compiling ${findings.length} finding${findings.length === 1 ? "" : "s"} ` +
+            `from ${workerCount} worker${workerCount === 1 ? "" : "s"}` +
+            `${severityParts.length ? ` -- a severity breakdown of ${severityParts.join(", ")}` : ""}. `;
+
+        summary += postureSentence;
+
+        summary += elevated
+            ? `Prioritize remediation of the ${elevated} critical/high-severity ` +
+              `finding${elevated === 1 ? "" : "s"} first, then work through the ` +
+              `remaining medium and low-severity items. `
+            : `No critical or high-severity findings were identified in this ` +
+              `pass, but ${medium || low || informational ? "the remaining lower-severity items are still worth a look" : "continued periodic reassessment is still recommended"}. `;
 
         summary +=
             "Review each finding, verify it manually, and validate the " +
             "recommended actions before making production changes.";
     }
 
-    setText("executiveSummary", summary);
-}
-
-
-function renderFindings(findings, cvssScores) {
-    const list = document.getElementById("findingsList");
-    const count = document.getElementById("findingsCount");
-
-    if (!list || !count) {
-        return;
-    }
-
-    count.textContent =
-        `${findings.length} Finding` +
-        `${findings.length === 1 ? "" : "s"}`;
-
-    if (!findings.length) {
-        list.innerHTML = `
-            <div class="bg-surface border border-border rounded-xl p-md">
-                <div class="flex items-start gap-sm">
-                    <span class="material-symbols-outlined text-on-surface-variant">
-                        info
-                    </span>
-
-                    <div>
-                        <h3 class="text-body-lg font-semibold">
-                            No reportable findings
-                        </h3>
-
-                        <p class="text-body-sm text-on-surface-variant mt-xs">
-                            The generated report did not include any findings.
-                            This does not guarantee that the target is secure.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        `;
-        return;
-    }
-
-    list.innerHTML = findings
-        .map((finding, index) => {
-            const findingSeverity = String(
-                finding.severity || "INFORMATIONAL"
-            ).toUpperCase();
-
-            const score = findingSeverity === "INFORMATIONAL"
-                ? null
-                : findMatchingCvssScore(finding, cvssScores);
-
-            const severity = score
-                ? String(score.severity || findingSeverity).toUpperCase()
-                : findingSeverity;
-
-            const baseScore = score &&
-                Number.isFinite(Number(score.base_score ?? score.score))
-                ? Number(score.base_score ?? score.score).toFixed(1)
-                : null;
-
-            const severityStyle =
-                getSeverityStyle(severity);
-
-            return `
-                <article
-                    class="finding-card bg-surface border border-border rounded-xl p-md"
-                >
-                    <div class="flex flex-col md:flex-row gap-md">
-                        <div
-                            class="w-12 h-12 rounded-lg ${
-                                severityStyle.iconBackground
-                            } flex items-center justify-center ${
-                                severityStyle.text
-                            } shrink-0"
-                        >
-                            <span
-                                class="material-symbols-outlined"
-                                style="font-variation-settings: 'FILL' 1;"
-                            >
-                                ${severityStyle.icon}
-                            </span>
-                        </div>
-
-                        <div class="flex-grow min-w-0">
-                            <div
-                                class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-xs"
-                            >
-                                <div class="min-w-0">
-                                    <p
-                                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
-                                    >
-                                        ${escapeHtml(
-                                            formatWorkerName(
-                                                finding.worker
-                                            )
-                                        )}
-                                    </p>
-
-                                    <h3
-                                        class="text-headline-sm font-headline-sm text-on-surface mt-1 break-words"
-                                    >
-                                        ${escapeHtml(
-                                            getFindingTitle(
-                                                finding,
-                                                index
-                                            )
-                                        )}
-                                    </h3>
-                                </div>
-
-                                <span
-                                    class="${
-                                        severityStyle.badge
-                                    } text-label-sm font-label-sm px-sm py-1 rounded-full uppercase self-start whitespace-nowrap"
-                                >
-                                    ${escapeHtml(severity)}
-                                    ${
-                                        baseScore !== null
-                                            ? ` ${baseScore}`
-                                            : ""
-                                    }
-                                </span>
-                            </div>
-
-                            <p
-                                class="text-body-sm text-on-surface-variant mt-sm break-words"
-                            >
-                                ${escapeHtml(
-                                    finding.summary ||
-                                    "No summary was provided."
-                                )}
-                            </p>
-                        </div>
-                    </div>
-                </article>
-            `;
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:executive-summary-update", {
+            detail: { summary },
         })
-        .join("");
+    );
 }
 
 
-function findMatchingCvssScore(finding, cvssScores) {
-    if (!Array.isArray(cvssScores) || !cvssScores.length) {
-        return null;
+// Builds one short, plain-language paragraph per section -- Assessment
+// Findings, CVSS Scoring, Worker Findings, Sentinel AI Recommendations,
+// Raw Report Data -- instead of the per-item card lists the old crawl (and
+// the static HTML sections before it) rendered, and hands them to a single
+// React-owned scroll-reveal story component (see ReportCrawl.jsx) via one
+// CustomEvent. The reader scrolls past Risk Summary into prose, one
+// section at a time, rather than a long list of individual finding/CVSS/
+// worker-output cards.
+function joinWithAnd(items) {
+    if (items.length <= 1) return items.join("");
+    if (items.length === 2) return `${items[0]} and ${items[1]}`;
+    return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+
+function buildFindingsParagraph(findings, riskSummary) {
+    if (!findings.length) {
+        return (
+            "We didn't find any issues to report. That doesn't mean the site is " +
+            "completely safe -- just make sure every check actually ran before " +
+            "treating this as a clean result."
+        );
     }
 
-    const normalize = (value) => String(value || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
+    const workerCount = new Set(findings.map(f => f.worker).filter(Boolean)).size;
 
-    const candidates = [
-        finding.finding,
-        finding.title,
-        finding.summary,
-    ].map(normalize).filter(Boolean);
+    const severityParts = [
+        riskSummary.CRITICAL && `${riskSummary.CRITICAL} critical`,
+        riskSummary.HIGH && `${riskSummary.HIGH} high`,
+        riskSummary.MEDIUM && `${riskSummary.MEDIUM} medium`,
+        riskSummary.LOW && `${riskSummary.LOW} low`,
+        riskSummary.INFORMATIONAL && `${riskSummary.INFORMATIONAL} informational`,
+    ].filter(Boolean);
 
-    return cvssScores.find((score) => {
-        const scoredFinding = normalize(score.finding);
-        if (!scoredFinding) {
-            return false;
-        }
+    const titles = findings.slice(0, 3).map((f, i) => getFindingTitle(f, i));
+    const remaining = findings.length - titles.length;
 
-        return candidates.some((candidate) =>
-            candidate === scoredFinding ||
-            (scoredFinding.length >= 8 &&
-                (candidate.includes(scoredFinding) || scoredFinding.includes(candidate)))
+    let paragraph =
+        `We found ${findings.length} issue${findings.length === 1 ? "" : "s"} ` +
+        `using ${workerCount} check${workerCount === 1 ? "" : "s"}` +
+        `${severityParts.length ? ` -- that's ${joinWithAnd(severityParts)}` : ""}. `;
+
+    paragraph += `A few examples: ${joinWithAnd(titles.map(t => `"${t}"`))}`;
+    paragraph += remaining > 0 ? `, plus ${remaining} more listed below.` : ".";
+
+    return paragraph;
+}
+
+
+function buildCvssParagraph(cvssScores, maximumCvss) {
+    if (!cvssScores.length || maximumCvss === null) {
+        return (
+            "None of the issues here got a formal risk score (CVSS). The score " +
+            "shown above instead comes from a general check of your site's " +
+            "security settings, not from a scored issue."
         );
-    }) || null;
+    }
+
+    const topScore = cvssScores.reduce((best, score) => {
+        const value = Number(score.base_score ?? score.score);
+        const bestValue = Number(best?.base_score ?? best?.score ?? -1);
+        return Number.isFinite(value) && value > bestValue ? score : best;
+    }, null);
+
+    return (
+        `${cvssScores.length} issue${cvssScores.length === 1 ? "" : "s"} got a risk score. ` +
+        `The highest was ${maximumCvss.toFixed(1)} out of 10 ` +
+        `(${getCvssSeverity(maximumCvss)})${topScore?.finding ? `, for "${topScore.finding}"` : ""}. ` +
+        "Take a look at each score before deciding what to fix first."
+    );
+}
+
+
+function buildWorkerParagraph(findings) {
+    const workers = Array.from(new Set(findings.map(f => f.worker).filter(Boolean)));
+
+    if (!workers.length) {
+        return "No tool results were attached to this report.";
+    }
+
+    return (
+        `We used ${workers.length} tool${workers.length === 1 ? "" : "s"} to scan the site: ` +
+        `${joinWithAnd(workers.map(formatWorkerName))}. Their raw results are what every ` +
+        "finding and severity rating above is based on."
+    );
+}
+
+
+function buildRecommendationsParagraph(recommendations) {
+    if (!recommendations.length) {
+        return "Our AI didn't have any specific suggestions for this scan.";
+    }
+
+    const titles = recommendations.slice(0, 3).map(r => r.title);
+    const remaining = recommendations.length - titles.length;
+
+    let paragraph = `Our AI suggests ${recommendations.length} thing${recommendations.length === 1 ? "" : "s"} to fix, starting with ${joinWithAnd(titles)}`;
+    paragraph += remaining > 0 ? `, and ${remaining} more.` : ".";
+    paragraph += " Go through them in order -- the most important ones come first.";
+
+    return paragraph;
+}
+
+
+function dispatchReportCrawl(report, findings, cvssScores, maximumCvss, riskSummary) {
+    let detail;
+
+    try {
+        detail = {
+            findingsText: buildFindingsParagraph(findings, riskSummary),
+            cvssText: buildCvssParagraph(cvssScores, maximumCvss),
+            workerText: buildWorkerParagraph(findings),
+            recommendationsText: buildRecommendationsParagraph(buildRecommendations(findings, cvssScores)),
+            rawJsonText:
+                "Want every detail? Click the Download JSON button above to " +
+                "get the full, raw report.",
+        };
+    } catch (error) {
+        console.error("Failed to build report crawl paragraphs:", error);
+        const fallback = "This section could not be generated for this report.";
+        detail = {
+            findingsText: fallback,
+            cvssText: fallback,
+            workerText: fallback,
+            recommendationsText: fallback,
+            rawJsonText: fallback,
+        };
+    }
+
+    // Latched on window in addition to being dispatched live: report.js's
+    // fetches can resolve fast enough (confirmed live -- localhost round
+    // trips) to call this before React has finished flushing effects for
+    // ReportCrawl specifically (six nested ScrollReveal/GSAP instances make
+    // its own mount noticeably heavier than the simpler score/risk-summary
+    // listeners elsewhere, which is why only this one was ever observed
+    // missing the event). ReportCrawl reads this synchronously on mount as
+    // a fallback for exactly that race, instead of only ever listening for
+    // a live event it may have already missed.
+    window.__sentinelscanReportCrawl = detail;
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:report-crawl-update", { detail })
+    );
 }
 
 
@@ -761,249 +821,10 @@ function getFindingTitle(finding, index) {
 }
 
 
-function renderCvssScores(cvssScores) {
-    const list = document.getElementById("cvssList");
-
-    if (!list) {
-        return;
-    }
-
-    if (!cvssScores.length) {
-        list.innerHTML = `
-            <div class="bg-surface border border-border rounded-xl p-md">
-                <p class="text-body-sm text-on-surface-variant">
-                    No CVSS-scored findings were included in this report.
-                </p>
-            </div>
-        `;
-        return;
-    }
-
-    list.innerHTML = cvssScores
-        .map((score, index) => {
-            const severity = String(
-                score.severity || "INFORMATIONAL"
-            ).toUpperCase();
-
-            const style = getSeverityStyle(severity);
-
-            const numericScore =
-                Number(score.base_score ?? score.score);
-
-            const baseScore =
-                Number.isFinite(numericScore)
-                    ? numericScore.toFixed(1)
-                    : "N/A";
-
-            const scoreWidth =
-                Number.isFinite(numericScore)
-                    ? Math.max(
-                        0,
-                        Math.min(100, numericScore * 10)
-                    )
-                    : 0;
-
-            return `
-                <article
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <div
-                        class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-md"
-                    >
-                        <div class="flex-grow min-w-0">
-                            <div class="flex items-center gap-sm flex-wrap">
-                                <span
-                                    class="${
-                                        style.badge
-                                    } text-label-sm font-label-sm px-sm py-1 rounded-full uppercase"
-                                >
-                                    ${escapeHtml(severity)}
-                                </span>
-
-                                <span
-                                    class="text-headline-sm font-headline-sm ${
-                                        style.text
-                                    }"
-                                >
-                                    ${baseScore}
-                                </span>
-                            </div>
-
-                            <h3
-                                class="text-body-lg font-semibold text-on-surface mt-sm break-words"
-                            >
-                                ${escapeHtml(
-                                    score.finding ||
-                                    `Scored Finding ${index + 1}`
-                                )}
-                            </h3>
-
-                            <p
-                                class="font-mono-md text-body-sm text-primary mt-xs break-all"
-                            >
-                                ${escapeHtml(
-                                    score.vector ||
-                                    "CVSS vector unavailable"
-                                )}
-                            </p>
-                        </div>
-
-                        <div
-                            class="w-full lg:w-40 bg-surface-variant h-3 rounded-full overflow-hidden"
-                        >
-                            <div
-                                class="${
-                                    style.bar
-                                } h-full rounded-full"
-                                style="width: ${scoreWidth}%"
-                            ></div>
-                        </div>
-                    </div>
-                </article>
-            `;
-        })
-        .join("");
-}
-
-
-function renderWorkerFindings(findings) {
-    const container = document.getElementById(
-        "workerFindings"
-    );
-
-    if (!container) {
-        return;
-    }
-
-    if (!findings.length) {
-        container.innerHTML = `
-            <div class="bg-surface border border-border rounded-xl p-md">
-                <p class="text-body-sm text-on-surface-variant">
-                    No worker findings were included.
-                </p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = findings
-        .map((finding) => {
-            const rawData = finding.evidence || finding.raw_data;
-
-            return `
-                <article
-                    class="bg-surface border border-border rounded-xl p-md min-w-0"
-                >
-                    <div class="flex items-center gap-sm mb-sm">
-                        <div
-                            class="w-10 h-10 rounded-lg bg-primary-fixed text-primary flex items-center justify-center shrink-0"
-                        >
-                            <span class="material-symbols-outlined">
-                                ${getWorkerIcon(finding.worker)}
-                            </span>
-                        </div>
-
-                        <div class="min-w-0">
-                            <p
-                                class="text-label-sm text-on-surface-variant uppercase"
-                            >
-                                Worker
-                            </p>
-
-                            <h3
-                                class="text-body-lg font-semibold break-words"
-                            >
-                                ${escapeHtml(
-                                    formatWorkerName(
-                                        finding.worker
-                                    )
-                                )}
-                            </h3>
-                        </div>
-                    </div>
-
-                    <p
-                        class="text-body-sm text-on-surface-variant mb-sm break-words"
-                    >
-                        ${escapeHtml(
-                            finding.summary ||
-                            "No worker summary was provided."
-                        )}
-                    </p>
-
-                    <details>
-                        <summary
-                            class="cursor-pointer text-label-md font-label-md text-primary"
-                        >
-                            View raw output
-                        </summary>
-
-                        <pre
-                            class="mt-sm bg-inverse-surface text-surface-bright/80 rounded-lg p-sm overflow-auto max-h-72 font-mono-md text-body-sm whitespace-pre-wrap break-words"
-                        >${escapeHtml(
-                            stringifyValue(rawData)
-                        )}</pre>
-                    </details>
-                </article>
-            `;
-        })
-        .join("");
-}
-
-
-function renderRecommendations(findings, cvssScores) {
-    const container = document.getElementById(
-        "recommendationsList"
-    );
-
-    if (!container) {
-        return;
-    }
-
-    const recommendations = buildRecommendations(
-        findings,
-        cvssScores
-    );
-
-    if (!recommendations.length) {
-        container.innerHTML = `
-            <div
-                class="bg-on-surface-variant/10 border border-outline/30 p-md rounded-lg"
-            >
-                <p class="text-body-sm text-surface-variant">
-                    No specific recommendations were generated.
-                </p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = recommendations
-        .map((recommendation, index) => {
-            return `
-                <article
-                    class="bg-on-surface-variant/10 border border-outline/30 p-md rounded-lg"
-                >
-                    <div
-                        class="flex items-center gap-sm text-inverse-on-surface font-label-md mb-xs"
-                    >
-                        <span
-                            class="text-sm bg-primary/20 text-primary-fixed-dim px-2 py-0.5 rounded whitespace-nowrap"
-                        >
-                            STEP ${index + 1}
-                        </span>
-
-                        ${escapeHtml(recommendation.title)}
-                    </div>
-
-                    <p class="text-body-sm text-surface-variant">
-                        ${escapeHtml(recommendation.description)}
-                    </p>
-                </article>
-            `;
-        })
-        .join("");
-}
+// renderCvssScores/renderWorkerFindings/renderRecommendations (the old
+// per-section innerHTML writers) were removed -- dispatchReportCrawl()
+// above now builds this same data and hands it to the React-owned
+// ReportCrawl component in one event instead.
 
 
 function buildRecommendations(findings, cvssScores) {
@@ -1251,76 +1072,6 @@ async function downloadReport(
 }
 
 
-function renderRawJson(report) {
-    const rawJsonContent = document.getElementById(
-        "rawJsonContent"
-    );
-
-    if (!rawJsonContent) {
-        return;
-    }
-
-    rawJsonContent.textContent =
-        JSON.stringify(report, null, 2);
-}
-
-
-function getSeverityStyle(severity) {
-    const styles = {
-        CRITICAL: {
-            badge: "bg-critical text-white",
-            text: "text-critical",
-            bar: "bg-critical",
-            iconBackground: "bg-error-container",
-            icon: "dangerous",
-        },
-
-        HIGH: {
-            badge: "bg-error text-white",
-            text: "text-error",
-            bar: "bg-error",
-            iconBackground: "bg-error-container",
-            icon: "error",
-        },
-
-        MEDIUM: {
-            badge: "bg-warning text-on-surface",
-            text: "text-warning",
-            bar: "bg-warning",
-            iconBackground: "bg-warning/10",
-            icon: "warning",
-        },
-
-        LOW: {
-            badge: "bg-primary text-white",
-            text: "text-primary",
-            bar: "bg-primary",
-            iconBackground: "bg-primary-fixed",
-            icon: "info",
-        },
-
-        INFORMATIONAL: {
-            badge:
-                "bg-surface-variant text-on-surface-variant",
-            text: "text-on-surface-variant",
-            bar: "bg-on-surface-variant",
-            iconBackground: "bg-surface-variant",
-            icon: "info",
-        },
-
-        NONE: {
-            badge: "bg-success/10 text-success",
-            text: "text-success",
-            bar: "bg-success",
-            iconBackground: "bg-success/10",
-            icon: "check_circle",
-        },
-    };
-
-    return styles[severity] || styles.INFORMATIONAL;
-}
-
-
 function formatWorkerName(workerName) {
     if (!workerName) {
         return "Unknown Worker";
@@ -1349,26 +1100,6 @@ function formatWorkerName(workerName) {
                 character.toUpperCase()
             )
     );
-}
-
-
-function getWorkerIcon(workerName) {
-    const icons = {
-        dns_lookup: "dns",
-        reverse_dns_lookup: "travel_explore",
-        port_scan: "router",
-        ssl_check: "lock",
-        http_headers: "http",
-        cookie_analysis: "cookie",
-        robots_txt_parse: "smart_toy",
-        sitemap_parse: "account_tree",
-        whois_lookup: "public",
-        ddos_resilience_check: "shield",
-        calculate_cvss: "speed",
-        generate_report: "description",
-    };
-
-    return icons[workerName] || "security";
 }
 
 
@@ -1401,21 +1132,6 @@ function formatDate(value) {
 }
 
 
-function stringifyValue(value) {
-    if (value === undefined || value === null) {
-        return "No raw data was provided.";
-    }
-
-    if (typeof value === "string") {
-        return value;
-    }
-
-    try {
-        return JSON.stringify(value, null, 2);
-    } catch {
-        return String(value);
-    }
-}
 
 
 function showLoading() {

@@ -1,0 +1,105 @@
+/* SpecularButton (React Bits) ships sized for a short CTA label like "Get
+   Started" -- this report-page usage puts a full sentence in it. This
+   scoped override (not a vendor-file edit -- passed in via SpecularButton's
+   own `className` prop) keeps that sentence on one line rather than
+   wrapping, shrinking the label's font size on narrow viewports (instead of
+   the button's own fixed --lg size) so the single line still fits instead
+   of overflowing. */
+.report-no-scan-button {
+  max-width: 96vw;
+  white-space: nowrap;
+  font-size: clamp(0.7rem, 2.6vw, 1.15rem);
+  padding-left: clamp(16px, 4vw, 40px);
+  padding-right: clamp(16px, 4vw, 40px);
+}
+
+/* Layout wrappers for the three report-page bento grids. These sit
+   alongside MagicBento.css's own card/particle/spotlight rules (untouched)
+   and only decide how many magic-bento-cards sit per row in each section --
+   the demo's own `.card-grid` 6-card masonry (nth-child spans) is
+   deliberately not reused here since these grids have 2, 4 and 5 cards. */
+
+.report-bento-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1em;
+}
+
+.report-bento-risk {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1em;
+}
+
+.report-bento-meta-card {
+  aspect-ratio: auto;
+  min-height: auto;
+  padding: 0.9em 1.1em;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 0.35em;
+}
+
+.report-bento-risk-card {
+  aspect-ratio: auto;
+  min-height: 90px;
+  padding: 0.75em 1em;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 0.25em;
+}
+
+/* MagicBento.css's own nth-child(3)/(4)/(6) rules are unscoped -- they key
+   off ".magic-bento-card:nth-child(N)" directly, with no ".card-grid"
+   ancestor requirement, so they were leaking into this grid too (Medium is
+   the 3rd card here and was inheriting the demo's "span 2 x span 2"
+   masonry tile meant for its own 6-card layout). These grids are uniform
+   single-number cards, so every card in them is pinned back to a plain
+   1x1 cell regardless of position. */
+.report-bento-meta-card,
+.report-bento-risk-card {
+  grid-column: auto !important;
+  grid-row: auto !important;
+}
+
+@media (min-width: 640px) {
+  .report-bento-meta {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 640px) {
+  .report-bento-risk {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .report-bento-risk-card:last-child {
+    grid-column: span 1;
+  }
+}
+
+.report-bento-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1em;
+}
+
+.report-bento-score-card,
+.report-bento-summary-card {
+  aspect-ratio: auto;
+  min-height: auto;
+}
+
+@media (min-width: 1024px) {
+  .report-bento-summary {
+    grid-template-columns: repeat(12, 1fr);
+  }
+
+  .report-bento-score-card {
+    grid-column: span 4;
+  }
+
+  .report-bento-summary-card {
+    grid-column: span 8;
+  }
+}

@@ -1,0 +1,332 @@
+/* Preflight intentionally omitted: this bundle mounts into the existing
+   plain-HTML site, and Tailwind's preflight reset (html/body/headings/etc.)
+   would leak globally and clobber static/css/style.css. Theme + utilities
+   only. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* No global `@layer base` html/body rules here on purpose -- those are
+   Tailwind/shadcn defaults that would override the existing site's
+   typography and colors on every page. Component styling below is scoped
+   to our own mount container instead. */
+#sentinelscan-react-bg {
+  @apply fixed inset-0;
+  z-index: -1;
+}
+
+/* Site-wide background integration: the existing pages paint an opaque
+   color on <body> (Tailwind's `bg-background` utility, generated at
+   runtime by the Tailwind CDN script). Overriding it here is the only way
+   to let the FloatingLines mount show through as the page background
+   without editing every page's markup. `!important` is required because
+   the CDN script injects its utility CSS after this stylesheet. */
+body,
+footer {
+  background: transparent !important;
+}
+
+/* StaggeredMenu is mounted once, site-wide, as a fixed full-viewport overlay
+   (see main.jsx). Its own shipped header row (logo + toggle) spans 100% width
+   with `justify-content: space-between` -- we keep the logo slot in the DOM
+   (so the toggle still lands on the right) but hide it with `visibility`
+   rather than `display: none`, since `display: none` would collapse the flex
+   item and re-justify the toggle to the left. The toggle's color is forced to
+   follow the site's existing `--ss-text` variable (resolved via the
+   static `class="dark"` on <html>) because the component sets an inline
+   color via GSAP that would otherwise stay fixed regardless of theme. */
+.sentinelscan-nav-menu .sm-logo {
+  visibility: hidden;
+}
+
+.sentinelscan-nav-menu .sm-toggle {
+  color: var(--ss-text, #0f172a) !important;
+}
+
+/* The static pages' own <header> is `z-50` (or `fixed` with no explicit
+   z-index, on report.html) with an opaque background, painted after this
+   bundle's fixed-position mount point. The shipped wrapper's own z-index
+   (40) sits below that, so its toggle button was being fully covered by
+   the site header. Raise it above z-50 so the toggle stays clickable. */
+.sentinelscan-nav-menu.fixed-wrapper {
+  z-index: 60 !important;
+}
+
+/* static/css/styles.css has a sitewide `html.dark header { background-color:
+   ... !important }` rule (for the real page headers). The shipped component
+   renders its own internal chrome as a literal <header> tag too, so that
+   rule was painting an opaque bar over it, hiding everything underneath
+   (brand text, account icon) whenever the overlay's z-index put it on top.
+   Two classes beats the global rule's one-class specificity, so this wins
+   regardless of stylesheet order. */
+.sentinelscan-nav-menu .staggered-menu-header {
+  background: transparent !important;
+}
+
+/* The menu panel only spans a right-hand slice of the viewport
+   (`clamp(260px, 38vw, 420px)`), so page content further left -- the
+   footer's leftmost link in particular -- was peeking out from under it
+   while the menu was open. Hide just the link row (bottom-right), not the
+   whole footer -- the bottom-left CircularText brand mark should stay
+   visible throughout. `main.jsx` mirrors the menu's own `data-open` state
+   onto <body> as `.ss-menu-open` since the footer isn't a DOM sibling of
+   the menu's mount root. */
+body.ss-menu-open .ss-footer-links {
+  visibility: hidden;
+}
+
+/* Dashboard page opts out of the site-wide fixed nav-menu toggle: the
+   trigger button (top-right) should scroll away with the page like the
+   rest of the header instead of staying pinned to the viewport. Scoped to
+   `.ss-dashboard-page` (set on <body> in dashboard.html) so every other
+   page keeps the always-visible fixed toggle. */
+body.ss-dashboard-page .staggered-menu-wrapper.fixed-wrapper {
+  position: absolute;
+}
+
+/* SplitText's own inline style sets `overflow: hidden` on its wrapper tag
+   (to contain the per-character slide-up entrance), which was clipping
+   descenders -- the "y" in "Security" in particular -- since this heading's
+   line-height/box doesn't leave room below the baseline. A stylesheet
+   `!important` rule beats a plain (non-important) inline style, so this
+   overrides it without touching the vendored component file. No x/y split
+   needed here (unlike the earlier ShutterText) since nothing in this
+   animation moves or clips along the x-axis. */
+.ss-hero-split {
+  overflow: visible !important;
+}
+
+/* The shipped header uses a flat 2em padding on every side, which sits the
+   toggle noticeably lower than the real site header's vertically-centered
+   content (a 64px/h-16 row, see index.html's <nav>). Trim just the top
+   padding so the icon rides higher, closer to that row's center, while the
+   right padding (and thus its top-right position) stays untouched. */
+.sentinelscan-nav-menu .staggered-menu-header {
+  padding-top: 1.1em;
+}
+
+/* Panel theme: the shipped component hardcodes a white panel with black
+   item text (StaggeredMenu.css) with no color props for these -- scoped
+   override here instead of editing the shipped file. */
+.sentinelscan-nav-menu .staggered-menu-panel {
+  background: #000;
+}
+
+.sentinelscan-nav-menu .sm-panel-item {
+  color: #fff;
+}
+
+/* The shipped item font-size (3.5rem) is wider than the panel's own max
+   width (420px) once padding and the numbering column are subtracted, so
+   long labels like "Documentation" were being clipped by the panel's
+   overflow instead of wrapping or shrinking -- e.g. "Documentation" only
+   showed as "Documenta". Scale the label down and trim its right padding
+   so the longest nav label fits on one line within the panel frame. */
+.sentinelscan-nav-menu .sm-panel-item {
+  font-size: clamp(1.5rem, 4.2vw, 2.25rem);
+  letter-spacing: -1px;
+  padding-right: 2.75rem;
+}
+
+/* The shipped list's 0.5rem gap reads as cramped now that the labels are
+   smaller than the shipped 3.5rem default -- the four items bunch into a
+   tight block near the panel's top padding instead of reading as a spaced
+   nav list. */
+.sentinelscan-nav-menu .sm-panel-list {
+  gap: 1.75rem;
+}
+
+/* The shipped rule positions the "01"/"02" counter with `right` in em units
+   relative to the item's own (large, responsive) font-size, and the item's
+   padding-right the same way -- at this component's smaller, clamped font
+   size that gutter collapses and the counter lands on top of the label
+   instead of beside it. Pin both the counter's offset and size in rem
+   (independent of the item's font-size) so the gutter stays a fixed, safe
+   width at every label length and viewport. */
+.sentinelscan-nav-menu .sm-panel-list[data-numbering] .sm-panel-item::after {
+  right: 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* Footer brand mark: the shipped CircularText component is sized for a
+   200px demo canvas -- scaled down here to sit comfortably in the footer's
+   left column without dominating it.
+
+   The wrapper is a fixed 140px box (never itself transformed) with
+   overflow:hidden, sized just past the ring's worst-case rotated bounding
+   box (a 96px square spinning about its own center reaches ~135.8px on the
+   diagonal at 45/135/225/315deg). CSS transforms don't affect layout, but
+   Chrome does include a transformed descendant's *visual* overflow in an
+   ancestor's scrollable area -- with this mark sitting flush in the page's
+   bottom-left corner and the page height pinned to exactly 100vh, that
+   periodic few-pixel growth as the ring rotates through the diagonal was
+   enough to toggle the vertical scrollbar on and off every spin. Clipping
+   at a static 140px (comfortably above the 135.8px max) stops the
+   scrollable area from ever growing, without visibly cropping the ring at
+   any rotation angle. */
+.ss-footer-brandmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 140px;
+  height: 140px;
+  overflow: hidden;
+  /* The 96px ring sits centered in this 140px clip box, 22px of empty
+     padding above and below it ((140-96)/2). With the row's items-end
+     alignment putting this box's bottom flush with the link text's bottom,
+     that 22px of empty padding below the ring was the actual gap reading
+     as "hovering above" the links -- pulling the box down by that same
+     22px (past the flex line, into negative margin) puts the ring's own
+     edge, not the box's, flush with the text baseline. This only moves the
+     ring; the link row's own alignment/height is untouched. */
+  margin-bottom: -22px;
+}
+
+/* Footer link row (Skiper UI Skiper40, Link000 variant): a plain flex row
+   so each anchor stays shrink-to-fit around its own text -- that's what
+   keeps the hover underline's width matching the word above it instead of
+   stretching across leftover row space. */
+.ss-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 14px;
+  color: var(--ss-text, #dbe1ff);
+}
+
+/* GitHub's trailing arrow (Link001) renders at ~7.7px (0.55em of this row's
+   14px font) with its stroke reaching within a fraction of a pixel of the
+   SVG's own viewBox edge -- at that size, sub-pixel rounding lands the
+   arrowhead's corner just outside the box, and the SVG's default
+   `overflow: hidden` clips that corner off, leaving what looks like half an
+   arrow. The path itself never exceeds its viewBox, so letting the box
+   overflow costs nothing visually and stops the clipping. */
+.ss-footer-links svg {
+  overflow: visible;
+}
+
+
+.ss-footer-brandmark .ss-footer-brandmark-ring {
+  width: 96px;
+  height: 96px;
+}
+
+.ss-footer-brandmark .ss-footer-brandmark-ring span {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--ss-text, #dbe1ff);
+}

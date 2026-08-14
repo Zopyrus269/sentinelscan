@@ -1,15 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <script>
         (() => {
-            const key = "sentinelscan_theme";
-            const stored = localStorage.getItem(key);
-            const preference = ["light", "dark", "system"].includes(stored) ? stored : "system";
-            const dark = preference === "dark" || (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-            document.documentElement.classList.toggle("dark", dark);
-            document.documentElement.classList.toggle("light", !dark);
-            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+            if (sessionStorage.getItem("sentinelscan_intro_seen") !== "1") {
+                document.documentElement.style.visibility = "hidden";
+            }
         })();
     </script>
     <meta charset="utf-8">
@@ -261,78 +257,93 @@
             background: #737686;
             border-radius: 9999px;
         }
+
+        /* Vendored from basementstudio/basement-grotesque on GitHub (SIL Open
+           Font License -- free for commercial/web use) -- same face used for
+           the documentation page's headings, applied here to the scroll-crawl
+           paragraphs below Risk Summary. Only the Black (900) weight is
+           published by that project. */
+        @font-face {
+            font-family: "Basement Grotesque";
+            src: url("/static/fonts/BasementGrotesque-Black.woff2") format("woff2");
+            font-weight: 900;
+            font-style: normal;
+            font-display: swap;
+        }
     </style>
-    <script src="/static/js/theme.js" defer></script>
+  <link rel="stylesheet" href="/static/react-dist/main.css">
 </head>
 
 <body class="font-body-md text-on-background">
     <!-- Top Navigation Bar -->
     <header
-        class="bg-surface border-b border-border fixed top-0 w-full z-50"
+        class="fixed top-0 w-full z-50"
     >
         <div
-            class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16 max-w-[1440px] mx-auto"
+            class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16"
         >
             <a
-                class="text-headline-md font-headline-md font-bold text-primary"
+                class="text-2xl font-bold"
                     href="/"
                 >
-                    SentinelScan
+                    <span id="sentinelscan-brand-shiny"></span>
                 </a>
 
-                <nav class="hidden md:flex items-center gap-lg">
-                    <a
-                        class="text-on-surface-variant font-label-md hover:text-primary transition-colors duration-200"
-                        href="/dashboard"
-                    >
-                        Dashboard
-                    </a>
-
-                    <a
-                        class="text-primary border-b-2 border-primary pb-1 font-label-md"
-                        href="/report"
-                    >
-                        Reports
-                    </a>
-
-                    <a
-                        class="text-on-surface-variant font-label-md hover:text-primary transition-colors duration-200"
-                        href="/documentation"
-                    >
-                        Documentation
-                    </a>
-                </nav>
-
-            <div class="flex items-center gap-md">
-                <button
-                    id="newScanButton"
-                    type="button"
-                    class="bg-primary text-on-primary px-sm py-xs rounded-lg font-label-md transition-opacity hover:opacity-90"
-                >
-                    New Scan
-                </button>
-
+            <div class="flex items-center gap-md mr-16 md:mr-20">
                 <div class="relative" id="profileButtonWrapper">
                   <button
                     id="profileButton"
-                    class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-primary-fixed text-primary overflow-hidden"
+                    class="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden transition-all duration-300 hover:scale-[1.2] cursor-pointer"
                     aria-label="SentinelScan profile"
                   >
-                    <span id="profileIconDefault" class="material-symbols-outlined text-[18px]">
-                      shield_person
+                    <span id="profileIconDefault" class="flex h-[18px] w-[18px] items-center justify-center">
+                      <img
+                        src="https://images.shadcnspace.com/assets/svgs/icon-google.svg"
+                        alt="google icon"
+                        class="h-4 w-4"
+                      />
                     </span>
-                    <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" />
+                    <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" referrerpolicy="no-referrer" />
                   </button>
-                  <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-lg border border-border bg-background shadow-lg z-50">
-                    <div class="px-4 py-3 border-b border-border">
-                      <p id="profileEmail" class="text-sm truncate"></p>
+                  <!-- Same terminal theme as ScanTerminal.jsx / the account
+                       history modal: black background, monospace type,
+                       macOS-style traffic lights. Sign Out is a
+                       GooeyActionNav (React Bits GooeyNav), mounted by
+                       main.jsx into #signOutActions -- see auth.js's
+                       window.performSignOutAction for what it calls once
+                       its click animation finishes. -->
+                  <div id="profileDropdown" class="absolute right-0 mt-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-black font-mono shadow-lg z-50">
+                    <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
+                      <div class="h-2.5 w-2.5 rounded-full bg-red-500"></div>
+                      <div class="h-2.5 w-2.5 rounded-full bg-yellow-500"></div>
+                      <div class="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+                      <span class="ml-2 text-[10px] text-gray-500">sentinelscan@profile:~$</span>
                     </div>
-                    <button id="openAccountButton" class="w-full text-left px-4 py-2 text-sm hover:bg-primary-fixed">
-                      Account
-                    </button>
-                    <button id="signOutButton" class="w-full text-left px-4 py-2 text-sm hover:bg-primary-fixed">
-                      Sign out
-                    </button>
+                    <div class="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5">
+                        <span id="profileDropdownIconDefault" class="flex h-5 w-5 items-center justify-center">
+                          <img
+                            src="https://images.shadcnspace.com/assets/svgs/icon-google.svg"
+                            alt="google icon"
+                            class="h-5 w-5"
+                          />
+                        </span>
+                        <img id="profileDropdownAvatar" class="absolute inset-0 hidden h-full w-full object-cover" alt="Profile photo" referrerpolicy="no-referrer" />
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p id="profileDropdownName" class="truncate text-sm font-semibold text-white"></p>
+                        <p id="profileEmail" class="truncate text-xs text-cyan-400"></p>
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1 px-2 py-2">
+                      <button id="openAccountButton" class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
+                        <span class="material-symbols-outlined text-[18px] text-emerald-400">person</span>
+                        View Profile
+                      </button>
+                    </div>
+                    <div class="border-t border-white/10 px-2 py-2">
+                      <div id="signOutActions"></div>
+                    </div>
                   </div>
                 </div>
             </div>
@@ -365,279 +376,24 @@
             </span>
         </div>
 
-        <!-- Report Metadata -->
-        <section
-            class="bg-surface border border-border rounded-xl p-md mb-lg"
-        >
-            <div
-                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-sm"
-            >
-                <div
-                    class="p-sm bg-background border border-border rounded-lg"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
-                    >
-                        Target
-                    </p>
-
-                    <p
-                        id="reportTarget"
-                        class="font-mono-md text-primary mt-1 break-all"
-                    >
-                        Loading...
-                    </p>
-                </div>
-
-                <div
-                    class="p-sm bg-background border border-border rounded-lg"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
-                    >
-                        Scan ID
-                    </p>
-
-                    <p
-                        id="reportScanId"
-                        class="font-mono-md text-on-surface mt-1 break-all"
-                    >
-                        Loading...
-                    </p>
-                </div>
-
-                <div
-                    class="p-sm bg-background border border-border rounded-lg"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
-                    >
-                        Completed
-                    </p>
-
-                    <p
-                        id="reportCompletedAt"
-                        class="text-label-md text-on-surface mt-1"
-                    >
-                        Loading...
-                    </p>
-                </div>
-
-                <div
-                    class="p-sm bg-background border border-border rounded-lg"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase tracking-wider"
-                    >
-                        Status
-                    </p>
-
-                    <p
-                        id="reportStatus"
-                        class="text-label-md text-primary mt-1"
-                    >
-                        Loading...
-                    </p>
-                </div>
-            </div>
+        <!-- "No scan ID was provided" notice -- SpecularButton (React Bits),
+             mounted by main.jsx. Empty/no-op unless report.js dispatches
+             sentinelscan:no-scan-id (no scan_id/history_id in the URL). -->
+        <section class="mb-lg">
+            <div id="sentinelscan-report-no-scan-notice"></div>
         </section>
 
-        <!-- Summary Section -->
-        <section
-            class="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-lg"
-        >
-            <!-- Security Score Gauge -->
-            <div
-                class="lg:col-span-4 bg-surface border border-border rounded-xl p-lg flex flex-col items-center justify-center text-center"
-            >
-                <h2
-                    class="text-label-sm font-label-sm uppercase tracking-widest text-on-surface-variant mb-md"
-                >
-                    Overall Security Score
-                </h2>
-
-                <div
-                    class="relative w-48 h-48 flex items-center justify-center"
-                >
-                    <svg
-                        class="w-full h-full transform -rotate-90"
-                        viewBox="0 0 192 192"
-                        aria-label="Overall security score"
-                    >
-                        <circle
-                            class="text-surface-container"
-                            cx="96"
-                            cy="96"
-                            fill="transparent"
-                            r="88"
-                            stroke="currentColor"
-                            stroke-width="12"
-                        ></circle>
-
-                        <circle
-                            id="securityGauge"
-                            class="text-primary gauge-ring"
-                            cx="96"
-                            cy="96"
-                            fill="transparent"
-                            r="88"
-                            stroke="currentColor"
-                            stroke-dasharray="552.92"
-                            stroke-dashoffset="552.92"
-                            stroke-linecap="round"
-                            stroke-width="12"
-                        ></circle>
-                    </svg>
-
-                    <div
-                        class="absolute inset-0 flex flex-col items-center justify-center"
-                    >
-                        <span
-                            id="securityScore"
-                            class="text-display font-display text-on-surface"
-                        >
-                            0
-                        </span>
-
-                        <span
-                            class="text-label-md font-label-md text-on-surface-variant"
-                        >
-                            / 100
-                        </span>
-                    </div>
-                </div>
-
-                <div
-                    id="riskLabel"
-                    class="mt-md text-primary font-label-md flex items-center gap-base"
-                >
-                    <span class="material-symbols-outlined text-sm">
-                        shield
-                    </span>
-
-                    Awaiting score
-                </div>
-
-                <p
-                    id="scoreMappingLabel"
-                    class="mt-xs text-body-sm text-on-surface-variant"
-                >
-                    CVSS N/A → 100/100
-                </p>
-            </div>
-
-            <!-- Executive Summary -->
-            <div
-                class="lg:col-span-8 bg-surface border border-border rounded-xl p-lg"
-            >
-                <div
-                    class="flex flex-col md:flex-row justify-between items-start md:items-center mb-md gap-md"
-                >
-                    <div>
-                        <h1
-                            class="text-headline-lg font-headline-lg text-on-surface"
-                        >
-                            Security Assessment Report
-                        </h1>
-
-                        <p
-                            id="reportIdLabel"
-                            class="text-body-sm text-on-surface-variant font-mono-md mt-xs"
-                        >
-                            REPORT_ID: Loading...
-                        </p>
-                    </div>
-
-                    <div
-                        id="maxCvssCard"
-                        class="bg-surface-container text-on-surface px-md py-sm rounded-lg flex items-center gap-sm"
-                    >
-                        <span class="material-symbols-outlined">
-                            priority_high
-                        </span>
-
-                        <div>
-                            <div class="text-label-sm font-label-sm">
-                                MAX CVSS EXPOSURE
-                            </div>
-
-                            <div
-                                id="maxCvssScore"
-                                class="text-headline-sm font-headline-sm"
-                            >
-                                N/A
-                            </div>
-                            <div
-                                id="maxCvssSeverity"
-                                class="text-label-sm font-label-sm mt-1"
-                            >
-                                NONE
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="border-t border-border pt-md">
-                    <h2
-                        class="text-label-md font-label-md text-on-surface mb-sm"
-                    >
-                        Executive Summary
-                    </h2>
-
-                    <p
-                        id="executiveSummary"
-                        class="text-body-md text-on-surface-variant leading-relaxed"
-                    >
-                        SentinelScan is preparing the executive summary.
-                    </p>
-                </div>
-
-                <div
-                    class="mt-lg flex flex-col sm:flex-row gap-sm"
-                >
-                    <button
-                        id="downloadPdfButton"
-                        type="button"
-                        disabled
-                        class="flex items-center justify-center gap-xs px-md py-sm border border-border rounded-lg text-on-surface hover:bg-surface-container transition-colors font-label-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span class="material-symbols-outlined">
-                            picture_as_pdf
-                        </span>
-
-                        Download PDF
-                    </button>
-
-                    <button
-                        id="downloadJsonButton"
-                        type="button"
-                        disabled
-                        class="flex items-center justify-center gap-xs px-md py-sm border border-border rounded-lg text-on-surface hover:bg-surface-container transition-colors font-label-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span class="material-symbols-outlined">
-                            code
-                        </span>
-
-                        Download JSON
-                    </button>
-
-                    <button
-                        id="backToDashboardButton"
-                        type="button"
-                        class="flex items-center justify-center gap-xs px-md py-sm border border-border rounded-lg text-on-surface hover:bg-surface-container transition-colors font-label-md"
-                    >
-                        <span class="material-symbols-outlined">
-                            dashboard
-                        </span>
-
-                        Back to Dashboard
-                    </button>
-                </div>
-            </div>
+        <!-- Report Metadata -- MagicBento (React Bits) grid, mounted by main.jsx -->
+        <section class="mb-lg">
+            <div id="sentinelscan-report-meta-bento"></div>
         </section>
 
+        <!-- Summary Section -- MagicBento (React Bits) grid, mounted by main.jsx -->
+        <section class="mb-lg">
+            <div id="sentinelscan-report-summary-bento"></div>
+        </section>
 
-        <!-- Risk Summary -->
+        <!-- Risk Summary -- MagicBento (React Bits) grid, mounted by main.jsx -->
         <section class="mb-lg">
             <div
                 class="flex items-center justify-between gap-md mb-md"
@@ -657,389 +413,27 @@
                 </div>
             </div>
 
-            <div
-                class="grid grid-cols-2 md:grid-cols-5 gap-sm"
-            >
-                <div
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase"
-                    >
-                        Critical
-                    </p>
-
-                    <p
-                        id="criticalCount"
-                        class="text-headline-lg font-headline-lg text-critical mt-xs"
-                    >
-                        0
-                    </p>
-                </div>
-
-                <div
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase"
-                    >
-                        High
-                    </p>
-
-                    <p
-                        id="highCount"
-                        class="text-headline-lg font-headline-lg text-error mt-xs"
-                    >
-                        0
-                    </p>
-                </div>
-
-                <div
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase"
-                    >
-                        Medium
-                    </p>
-
-                    <p
-                        id="mediumCount"
-                        class="text-headline-lg font-headline-lg text-warning mt-xs"
-                    >
-                        0
-                    </p>
-                </div>
-
-                <div
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase"
-                    >
-                        Low
-                    </p>
-
-                    <p
-                        id="lowCount"
-                        class="text-headline-lg font-headline-lg text-primary mt-xs"
-                    >
-                        0
-                    </p>
-                </div>
-
-                <div
-                    class="bg-surface border border-border rounded-xl p-md col-span-2 md:col-span-1"
-                >
-                    <p
-                        class="text-label-sm text-on-surface-variant uppercase"
-                    >
-                        Informational
-                    </p>
-
-                    <p
-                        id="informationalCount"
-                        class="text-headline-lg font-headline-lg text-on-surface-variant mt-xs"
-                    >
-                        0
-                    </p>
-                </div>
-            </div>
+            <div id="sentinelscan-report-risk-bento"></div>
         </section>
 
-        <!-- Findings -->
-        <section class="mb-lg">
-            <div
-                class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-sm mb-md"
-            >
-                <div>
-                    <h2
-                        class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-sm"
-                    >
-                        <span class="material-symbols-outlined text-primary">
-                            view_list
-                        </span>
-
-                        Assessment Findings
-                    </h2>
-
-                    <p
-                        class="text-body-sm text-on-surface-variant mt-1"
-                    >
-                        AI-written summaries based on worker output.
-                    </p>
-                </div>
-
-                <span
-                    id="findingsCount"
-                    class="text-label-md font-label-md text-primary"
-                >
-                    0 Findings
-                </span>
-            </div>
-
-            <div
-                id="findingsList"
-                class="grid grid-cols-1 gap-md"
-            >
-                <div
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <p class="text-body-sm text-on-surface-variant">
-                        Findings are loading.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- CVSS Results -->
-        <section class="mb-lg">
-            <div class="mb-md">
-                <h2
-                    class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-sm"
-                >
-                    <span class="material-symbols-outlined text-primary">
-                        speed
-                    </span>
-
-                    CVSS Scoring
-                </h2>
-
-                <p
-                    class="text-body-sm text-on-surface-variant mt-1"
-                >
-                    CVSS v3.1 base scores calculated from metrics supplied by
-                    the AI agent.
-                </p>
-            </div>
-
-            <div
-                id="cvssList"
-                class="grid grid-cols-1 gap-md"
-            >
-                <div
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <p class="text-body-sm text-on-surface-variant">
-                        CVSS results are loading.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Worker Findings -->
-        <section class="mb-lg">
-            <div class="mb-md">
-                <h2
-                    class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-sm"
-                >
-                    <span class="material-symbols-outlined text-primary">
-                        account_tree
-                    </span>
-
-                    Worker Findings
-                </h2>
-
-                <p
-                    class="text-body-sm text-on-surface-variant mt-1"
-                >
-                    Raw output captured from the workers selected during the
-                    assessment.
-                </p>
-            </div>
-
-            <div
-                id="workerFindings"
-                class="grid grid-cols-1 md:grid-cols-2 gap-md"
-            >
-                <div
-                    class="bg-surface border border-border rounded-xl p-md"
-                >
-                    <p class="text-body-sm text-on-surface-variant">
-                        Worker results are loading.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Recommendations -->
-        <section class="mb-lg">
-            <div
-                class="bg-inverse-surface rounded-xl p-lg overflow-hidden relative"
-            >
-                <div
-                    class="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full -mr-32 -mt-32"
-                ></div>
-
-                <h2
-                    class="text-headline-sm font-headline-sm text-inverse-on-surface mb-lg flex items-center gap-sm relative z-10"
-                >
-                    <span class="material-symbols-outlined text-primary-fixed-dim">
-                        auto_awesome
-                    </span>
-
-                    Sentinel AI Recommendations
-                </h2>
-
-                <div
-                    id="recommendationsList"
-                    class="grid grid-cols-1 md:grid-cols-2 gap-md relative z-10"
-                >
-                    <div
-                        class="bg-on-surface-variant/10 border border-outline/30 p-md rounded-lg"
-                    >
-                        <p class="text-body-sm text-surface-variant">
-                            Recommendations are loading.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Raw JSON Preview -->
-        <section>
-            <div
-                class="bg-surface border border-border rounded-xl overflow-hidden"
-            >
-                <button
-                    id="toggleRawJsonButton"
-                    type="button"
-                    class="w-full flex items-center justify-between p-md text-left hover:bg-surface-container-low transition-colors"
-                >
-                    <span
-                        class="flex items-center gap-sm text-headline-sm font-headline-sm"
-                    >
-                        <span class="material-symbols-outlined text-primary">
-                            data_object
-                        </span>
-
-                        Raw Report Data
-                    </span>
-
-                    <span
-                        id="rawJsonToggleIcon"
-                        class="material-symbols-outlined text-on-surface-variant"
-                    >
-                        expand_more
-                    </span>
-                </button>
-
-                <div
-                    id="rawJsonPanel"
-                    class="hidden border-t border-border p-md bg-inverse-surface"
-                >
-                    <pre
-                        id="rawJsonContent"
-                        class="report-json font-mono-md text-surface-bright/80"
-                    >Report data is loading...</pre>
-                </div>
-            </div>
-        </section>
+        <!-- Assessment Findings / CVSS Scoring / Worker Findings /
+             Sentinel AI Recommendations / Raw Report Data -- replaced with
+             a single scroll-scrubbed crawl reveal, mounted by main.jsx.
+             See ReportCrawl.jsx: each entry fades/slides in as it's
+             scrolled down to, and reverses the same way scrolling back up,
+             all the way back to hidden by the time this section is passed
+             again. -->
+        <section id="sentinelscan-report-crawl"></section>
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-background border-t border-border mt-xl">
-        <div
-            class="grid grid-cols-1 md:grid-cols-4 gap-lg px-margin-mobile md:px-margin-desktop py-xl max-w-[1440px] mx-auto"
-        >
-            <div>
-                <div
-                    class="text-headline-sm font-headline-sm font-bold text-primary mb-md"
-                >
-                    SentinelScan
-                </div>
-
-                <p class="text-body-sm text-on-surface-variant">
-                    AI-guided security reconnaissance and professional
-                    reporting for authorized assessments.
-                </p>
-            </div>
-
-            <div class="flex flex-col gap-sm">
-                <span
-                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
-                >
-                    Product
-                </span>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/documentation"
-                >
-                    Documentation
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/status"
-                >
-                    API Status
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/"
-                >
-                    New Scan
-                </a>
-            </div>
-
-            <div class="flex flex-col gap-sm">
-                <span
-                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
-                >
-                    Legal
-                </span>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/privacy"
-                >
-                    Privacy Policy
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/terms"
-                >
-                    Terms of Service
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/documentation"
-                >
-                    Responsible Disclosure
-                </a>
-            </div>
-
-            <div class="flex flex-col gap-sm">
-                <span
-                    class="text-label-sm font-label-sm text-on-surface uppercase mb-xs"
-                >
-                    Assessment
-                </span>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/dashboard"
-                >
-                    Dashboard
-                </a>
-
-                <a
-                    class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-all"
-                    href="/documentation"
-                >
-                    Authorized Use
-                </a>
-
-                <p
-                    class="text-body-sm text-on-surface-variant mt-md"
-                >
-                    © 2026 SentinelScan. All rights reserved.
-                </p>
-            </div>
+    <!-- Footer -- same React-mounted brand mark + links footer as the
+         landing page (index.html), mounted by main.jsx via these same two
+         element IDs. The old static 4-column link grid this page used to
+         have is gone. -->
+    <footer>
+        <div class="flex w-full items-end justify-between px-margin-mobile py-lg md:px-margin-desktop">
+            <div id="sentinelscan-footer-brand"></div>
+            <div id="sentinelscan-footer-links"></div>
         </div>
     </footer>
 
@@ -1052,33 +446,40 @@
         aria-labelledby="accountModalTitle"
     >
         <div id="accountModalBackdrop" class="fixed inset-0 bg-inverse-surface/50 backdrop-blur-sm" aria-hidden="true"></div>
-        <div class="relative z-10 my-auto w-full max-w-xl rounded-xl border border-border bg-surface shadow-2xl">
-            <div class="sticky top-0 z-20 flex items-center justify-between gap-sm rounded-t-xl border-b border-border bg-surface px-md py-sm">
-                <div class="flex items-center gap-sm">
-                    <span class="material-symbols-outlined text-headline-md">shield_person</span>
-                    <h2 id="accountModalTitle" class="font-headline-sm text-headline-sm text-on-background">Account</h2>
+        <!-- Same terminal theme as ScanTerminal.jsx (dashboard's live scan
+             console): black background, monospace type, macOS-style traffic
+             lights in the header bar. Not the React component itself --
+             this modal is built/opened by plain auth.js, not mounted by
+             main.jsx -- just the same visual language applied in plain
+             HTML/Tailwind. -->
+        <div class="relative z-10 my-auto w-full max-w-xl overflow-hidden rounded-lg border border-white/10 bg-black font-mono shadow-2xl">
+            <div class="sticky top-0 z-20 flex items-center gap-2 border-b border-white/10 bg-black px-3 py-3 text-xs text-gray-400">
+                <div class="flex gap-1.5">
+                    <div class="h-3 w-3 rounded-full bg-red-500"></div>
+                    <div class="h-3 w-3 rounded-full bg-yellow-500"></div>
+                    <div class="h-3 w-3 rounded-full bg-green-500"></div>
                 </div>
-                <button id="accountModalCloseButton" type="button" class="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface" aria-label="Close account dialog">
-                    <span class="material-symbols-outlined">close</span>
+                <h2 id="accountModalTitle" class="flex-1 text-center font-semibold">sentinelscan@account:~$ | Scan History</h2>
+                <button id="accountModalCloseButton" type="button" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 transition-colors hover:bg-white/10 hover:text-white" aria-label="Close account dialog">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
                 </button>
             </div>
-            <div class="flex border-b border-border px-md">
-                <button id="accountTabHistory" class="account-tab px-4 py-3 text-sm font-medium border-b-2 border-primary text-primary" data-tab="history">History</button>
-            </div>
-            <div id="accountModalScrollableContent" class="max-h-[calc(100vh-14rem)] overflow-y-auto px-md py-md">
+            <div id="accountModalScrollableContent" class="max-h-[calc(100vh-14rem)] overflow-y-auto bg-black px-4 py-4" style="scrollbar-width: thin; scrollbar-color: #10b981 #1f2937;">
                 <div id="accountPanelHistory" class="account-panel">
-                    <div id="historyLoading" class="hidden text-sm text-on-surface-variant py-6 text-center">Loading history...</div>
-                    <div id="historyEmpty" class="hidden text-sm text-on-surface-variant py-6 text-center">
+                    <div class="mb-3 text-xs text-gray-500">$ ls ~/scans --recent</div>
+                    <div id="historyLoading" class="hidden py-6 text-center text-sm text-gray-500">Loading history...</div>
+                    <div id="historyEmpty" class="hidden py-6 text-center text-sm text-gray-500">
                         <p>No scan history yet.</p>
                         <p class="mt-2">Run your first scan to see it here.</p>
                     </div>
-                    <div id="historyError" class="hidden text-sm text-error py-6 text-center"></div>
-                    <div id="historyList" class="flex flex-col gap-4 py-2"></div>
+                    <div id="historyError" class="hidden py-6 text-center text-sm text-red-400"></div>
+                    <div id="historyList" class="flex flex-col gap-3 py-2"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/react-dist/main.js"></script>
 </body>
 </html>

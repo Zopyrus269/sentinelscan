@@ -76,25 +76,12 @@ def create_app() -> Flask:
     def serve_documentation():
         return send_from_directory(FRONTEND_DIR, "documentation.html")
 
-    @app.route("/privacy")
-    def serve_privacy():
-        return send_from_directory(FRONTEND_DIR, "privacy.html")
-
-    @app.route("/status")
-    def serve_status():
-        return send_from_directory(FRONTEND_DIR, "status.html")
-
-    @app.route("/terms")
-    def serve_terms():
-        return send_from_directory(FRONTEND_DIR, "terms.html")
-
-    @app.route("/api-reference")
-    def serve_api_reference():
-        return send_from_directory(FRONTEND_DIR, "api-reference.html")
-
-    @app.route("/responsible-disclosure")
-    def serve_responsible_disclosure():
-        return send_from_directory(FRONTEND_DIR, "responsible-disclosure.html")
+    # privacy.html, terms.html, api-reference.html, responsible-disclosure.html,
+    # and status.html (and their /privacy, /terms, /api-reference,
+    # /responsible-disclosure, /status routes) were removed -- their content
+    # now lives entirely in the documentation page's own sections (see
+    # DocsExplorer.jsx). The site-wide footer's Privacy Policy/Terms links
+    # point at /documentation#privacy and /documentation#terms instead.
 
     @app.route("/<path:filename>")
     def serve_static(filename):

@@ -1,0 +1,24 @@
+.specular-frame {
+  --sfr-radius: 12px;
+  position: relative;
+  border-radius: var(--sfr-radius);
+}
+
+/* Canvas extends past the frame so the rim glow can bleed outside the edge */
+.specular-frame__fx {
+  position: absolute;
+  inset: -20px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.specular-frame__fx canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.specular-frame__content {
+  position: relative;
+  z-index: 2;
+}

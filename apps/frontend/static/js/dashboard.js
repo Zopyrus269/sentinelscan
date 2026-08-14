@@ -4,23 +4,7 @@ const API_BASE_URL = "/api/v1";
 const POLL_INTERVAL_MS = 500;
 
 let pollTimer = null;
-let scanStartedAt = null;
 let activeScanId = null;
-
-const SENTINELSCAN_STAGES = [
-    "dns_lookup",
-    "reverse_dns_lookup",
-    "whois_lookup",
-    "ssl_check",
-    "http_headers",
-    "cookie_analysis",
-    "robots_txt_parse",
-    "sitemap_parse",
-    "port_scan",
-    "ddos_resilience_check",
-    "calculate_cvss",
-    "generate_report",
-];
 
 document.addEventListener("DOMContentLoaded", () => {
     activeScanId = getScanId();
@@ -28,9 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     bindNavigation();
 
     if (!activeScanId) {
-        showError(
-            "No scan ID was provided. Return to the landing page and start a new scan."
-        );
+        showNoScanNotice();
         return;
     }
 
@@ -63,10 +45,6 @@ function bindNavigation() {
         "newScanButton"
     );
 
-    const viewReportButton = document.getElementById(
-        "viewReportButton"
-    );
-
     const openLatestReportButton =
         document.getElementById(
             "openLatestReportButton"
@@ -74,10 +52,6 @@ function bindNavigation() {
 
     newScanButton?.addEventListener("click", () => {
         window.location.href = "/";
-    });
-
-    viewReportButton?.addEventListener("click", () => {
-        openReport();
     });
 
     openLatestReportButton?.addEventListener(
@@ -107,7 +81,6 @@ async function loadScan() {
 
         if (scan.status === "COMPLETED") {
             stopPolling();
-            enableReportButton();
         }
 
         if (scan.status === "FAILED") {
@@ -193,349 +166,14 @@ async function fetchScan(scanId) {
 }
 
 function renderScan(scan) {
-    const progress = clampProgress(
-        Number(scan.progress_percent || 0)
+    // ScanTerminal (mounted at #sentinelscan-scan-terminal, see main.jsx)
+    // owns rendering of scan progress, live events, worker status, and
+    // duration -- this dispatch is the only way it receives data, since it
+    // runs in the React bundle and dashboard.js is a plain script, not an
+    // ES module either side could import from.
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:scan-update", { detail: scan })
     );
-
-    setText(
-        "scanTarget",
-        scan.target || "Unknown target"
-    );
-
-    setText(
-        "scanIdDisplay",
-        scan.scan_id || activeScanId
-    );
-
-    setText(
-        "currentWorker",
-        friendlyName(
-            scan.current_action || "initializing"
-        )
-    );
-
-    setText(
-        "scanStatusBadge",
-        friendlyName(scan.status || "IN_PROGRESS")
-    );
-
-    renderProgress(progress, scan);
-    renderDuration(scan);
-    renderEvents(scan.events || []);
-    renderWorkers(
-        scan.events || [],
-        scan.current_action,
-        scan.status
-    );
-    renderInsight(scan);
-}
-
-function renderProgress(progress, scan) {
-    const progressPercent = document.getElementById(
-        "progressPercent"
-    );
-
-    const progressBar = document.getElementById(
-        "progressBar"
-    );
-
-    const statusText = document.getElementById(
-        "scanStatusText"
-    );
-
-    if (progressPercent) {
-        progressPercent.innerHTML =
-            `${progress}` +
-            `<span class="text-headline-md">%</span>`;
-    }
-
-    if (progressBar) {
-        progressBar.style.width = `${progress}%`;
-    }
-
-    if (!statusText) {
-        return;
-    }
-
-    if (scan.status === "COMPLETED") {
-        statusText.textContent =
-            "Assessment complete.";
-    } else if (scan.status === "FAILED") {
-        statusText.textContent =
-            "Assessment failed.";
-    } else {
-        statusText.textContent =
-            `Running ${friendlyName(
-                scan.current_action || "initialization"
-            )}...`;
-    }
-}
-
-function renderDuration(scan) {
-    if (!scan.started_at) {
-        setText("scanDuration", "00:00");
-        return;
-    }
-
-    if (!scanStartedAt) {
-        scanStartedAt = new Date(scan.started_at);
-    }
-
-    const endTime = scan.completed_at
-        ? new Date(scan.completed_at)
-        : new Date();
-
-    const totalSeconds = Math.max(
-        0,
-        Math.floor(
-            (endTime.getTime() -
-                scanStartedAt.getTime()) /
-                1000
-        )
-    );
-
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-
-    setText(
-        "scanDuration",
-        `${String(minutes).padStart(2, "0")}:${String(
-            seconds
-        ).padStart(2, "0")}`
-    );
-}
-
-function renderEvents(events) {
-    const terminal = document.getElementById(
-        "terminalLogs"
-    );
-
-    if (!terminal) {
-        return;
-    }
-
-    if (!events.length) {
-        terminal.innerHTML =
-            "<p>Waiting for scan events...</p>";
-
-        setText("eventCount", "0 Events");
-        setText("completedWorkers", "0 Workers");
-        return;
-    }
-
-    terminal.innerHTML = "";
-
-    for (const event of events) {
-        const line = document.createElement("p");
-
-        line.className = getLogClass(event.level);
-
-        const timestamp = event.timestamp
-            ? new Date(event.timestamp).toLocaleTimeString(
-                  [],
-                  {
-                      hour12: false,
-                  }
-              )
-            : "--:--:--";
-
-        line.textContent =
-            `[${timestamp}] ` +
-            `${String(
-                event.level || "info"
-            ).toUpperCase()}: ` +
-            `${event.message || ""}`;
-
-        terminal.appendChild(line);
-    }
-
-    terminal.scrollTop = terminal.scrollHeight;
-
-    setText(
-        "eventCount",
-        `${events.length} Event${
-            events.length === 1 ? "" : "s"
-        }`
-    );
-
-    const workerCount = new Set(
-        events
-            .filter((event) => event.tool_name && event.phase === "completed")
-            .map((event) => event.tool_name)
-    ).size;
-
-    setText(
-        "completedWorkers",
-        `${workerCount} Worker${
-            workerCount === 1 ? "" : "s"
-        }`
-    );
-}
-
-function renderWorkers(events, currentWorker, scanStatus) {
-    const workerGrid = document.getElementById(
-        "workerGrid"
-    );
-
-    if (!workerGrid) {
-        return;
-    }
-
-    const workers = collectWorkers(events, scanStatus);
-
-    workerGrid.innerHTML = workers
-        .map(({ tool_name: worker, reasoning, status }) => {
-            const isCurrent =
-                worker === currentWorker && status === "RUNNING";
-
-            const normalizedStatus = String(status || "PENDING").toUpperCase();
-            const statusLabel = {
-                PENDING: "Pending",
-                RUNNING: "Running",
-                COMPLETED: "Completed",
-                WARNING: "Warning",
-                NOT_APPLICABLE: "N/A",
-                FAILED: "Failed",
-                TIMEOUT: "Timeout",
-                UNREACHABLE: "Unreachable",
-                NOT_RUN: "Not run",
-            }[normalizedStatus] || normalizedStatus;
-
-            const statusClass = isCurrent
-                ? "text-primary"
-                : normalizedStatus === "COMPLETED"
-                  ? "text-success"
-                  : ["FAILED", "TIMEOUT", "UNREACHABLE"].includes(normalizedStatus)
-                    ? "text-error"
-                    : normalizedStatus === "WARNING"
-                      ? "text-warning"
-                      : "text-on-surface-variant";
-
-            return `
-                <article
-                    class="bg-surface border ${
-                        isCurrent
-                            ? "border-primary"
-                            : "border-border"
-                    } p-md rounded-xl"
-                >
-                    <div
-                        class="flex justify-between items-start gap-sm"
-                    >
-                        <span
-                            class="material-symbols-outlined text-primary"
-                        >
-                            ${getWorkerIcon(worker)}
-                        </span>
-
-                        <span
-                            class="${statusClass} text-label-sm font-semibold"
-                        >
-                            ${escapeHtml(statusLabel)}
-                        </span>
-                    </div>
-
-                    <h3 class="font-semibold mt-sm">
-                        ${escapeHtml(
-                            friendlyName(worker)
-                        )}
-                    </h3>
-
-                    <p
-                        class="text-body-sm text-on-surface-variant mt-xs"
-                    >
-                        ${escapeHtml(
-                            reasoning || getWorkerDescription(worker)
-                        )}
-                    </p>
-                </article>
-            `;
-        })
-        .join("");
-}
-
-function renderInsight(scan) {
-    const insight = document.getElementById(
-        "aiInsight"
-    );
-
-    if (!insight) {
-        return;
-    }
-
-    if (scan.status === "COMPLETED") {
-        insight.textContent =
-            "The assessment is complete. Open the report to review findings, CVSS scores and recommendations.";
-    } else if (scan.status === "FAILED") {
-        insight.textContent =
-            scan.error ||
-            "The assessment failed before completion.";
-    } else {
-        insight.textContent =
-            `The AI agent is coordinating ` +
-            `${friendlyName(
-                scan.current_action ||
-                    "initialization"
-            )} for ${scan.target || "the target"}.`;
-    }
-}
-
-function collectWorkers(events, scanStatus = "IN_PROGRESS") {
-    const state = new Map(
-        SENTINELSCAN_STAGES.map((toolName) => [
-            toolName,
-            {
-                tool_name: toolName,
-                reasoning: getWorkerDescription(toolName),
-                status: "PENDING",
-            },
-        ])
-    );
-
-    for (const event of events) {
-        if (!event.tool_name || !state.has(event.tool_name)) {
-            continue;
-        }
-
-        const item = state.get(event.tool_name);
-
-        if (event.reasoning) {
-            item.reasoning = event.reasoning;
-        }
-
-        if (event.phase === "selected") {
-            item.status = "RUNNING";
-        }
-
-        if (event.phase === "completed") {
-            item.status = String(
-                event.worker_status || "COMPLETED"
-            ).toUpperCase();
-        }
-    }
-
-    if (["COMPLETED", "FAILED"].includes(String(scanStatus).toUpperCase())) {
-        for (const item of state.values()) {
-            if (item.status === "PENDING") {
-                // Honest distinction: a stage that was never selected is not
-                // automatically "not applicable".
-                item.status = "NOT_RUN";
-                item.reasoning = "This stage was not executed during this assessment.";
-            }
-        }
-    }
-
-    return [...state.values()];
-}
-
-function enableReportButton() {
-    const button = document.getElementById(
-        "viewReportButton"
-    );
-
-    if (button) {
-        button.disabled = false;
-    }
 }
 
 function stopPolling() {
@@ -545,143 +183,31 @@ function stopPolling() {
     }
 }
 
-function clampProgress(progress) {
-    if (!Number.isFinite(progress)) {
-        return 0;
-    }
-
-    return Math.max(
-        0,
-        Math.min(100, Math.round(progress))
+function dispatchDashboardNotice(message) {
+    // #sentinelscan-dashboard-notice (mounted by main.jsx) renders the
+    // SpecularButton React Bits component for every edge case above the
+    // terminal -- no scan ID, an invalid/missing scan, or a fetch/backend
+    // error -- so this is the single bridge into it, mirroring the
+    // sentinelscan:scan-update pattern used to feed ScanTerminal.
+    window.dispatchEvent(
+        new CustomEvent("sentinelscan:dashboard-notice", {
+            detail: { message },
+        })
     );
 }
 
-function getLogClass(level) {
-    switch (String(level || "").toLowerCase()) {
-        case "error":
-            return "text-error-container";
-
-        case "warning":
-            return "text-warning";
-
-        case "success":
-            return "text-success";
-
-        default:
-            return "text-surface-bright/80";
-    }
-}
-
-function friendlyName(value) {
-    const aliases = {
-        initializing: "Initialization",
-        initialization: "Initialization",
-        complete: "Complete",
-        dns_lookup: "DNS Lookup",
-        reverse_dns_lookup: "Reverse DNS Lookup",
-        port_scan: "Port Scan",
-        ssl_check: "SSL Check",
-        http_headers: "HTTP Headers",
-        cookie_analysis: "Cookie Analysis",
-        robots_txt_parse: "robots.txt Parser",
-        sitemap_parse: "Sitemap Parser",
-        whois_lookup: "WHOIS Lookup",
-        ddos_resilience_check: "Passive DDoS Resilience",
-        calculate_cvss: "CVSS Calculator",
-        generate_report: "Report Generator",
-        IN_PROGRESS: "In Progress",
-        COMPLETED: "Completed",
-        FAILED: "Failed",
-    };
-
-    return (
-        aliases[value] ||
-        String(value || "Waiting")
-            .replaceAll("_", " ")
-            .replace(/\b\w/g, (character) =>
-                character.toUpperCase()
-            )
-    );
-}
-
-function getWorkerIcon(worker) {
-    const icons = {
-        dns_lookup: "dns",
-        reverse_dns_lookup: "travel_explore",
-        port_scan: "router",
-        ssl_check: "lock",
-        http_headers: "http",
-        cookie_analysis: "cookie",
-        robots_txt_parse: "smart_toy",
-        sitemap_parse: "account_tree",
-        whois_lookup: "public",
-        ddos_resilience_check: "shield",
-        calculate_cvss: "speed",
-        generate_report: "description",
-    };
-
-    return icons[worker] || "security";
-}
-
-function getWorkerDescription(worker) {
-    const descriptions = {
-        dns_lookup:
-            "Retrieves public DNS records.",
-        reverse_dns_lookup:
-            "Resolves IP addresses to public hostnames.",
-        port_scan:
-            "Checks the configured authorized port set.",
-        ssl_check:
-            "Inspects certificate and negotiated TLS details.",
-        http_headers:
-            "Checks important HTTP security headers.",
-        cookie_analysis:
-            "Inspects cookie security attributes.",
-        robots_txt_parse:
-            "Parses publicly available robots.txt directives.",
-        sitemap_parse:
-            "Discovers publicly listed sitemap URLs.",
-        whois_lookup:
-            "Retrieves public domain registration information.",
-        ddos_resilience_check:
-            "Passively checks public CDN/WAF/edge and rate-limit indicators without generating attack traffic.",
-        calculate_cvss:
-            "Calculates supported CVSS v3.1 base scores once after evidence collection.",
-        generate_report:
-            "Generates and verifies the final JSON and PDF assessment reports.",
-    };
-
-    return (
-        descriptions[worker] ||
-        "SentinelScan worker activity."
+function showNoScanNotice() {
+    dispatchDashboardNotice(
+        "No scan ID was provided. Return to the landing page and start a new scan."
     );
 }
 
 function showError(message) {
-    const errorBox = document.getElementById(
-        "dashboardError"
-    );
-
-    if (!errorBox) {
-        console.error(message);
-        return;
-    }
-
-    errorBox.textContent = message;
-    errorBox.classList.remove("hidden");
+    dispatchDashboardNotice(message);
 }
 
 function clearError() {
-    const errorBox = document.getElementById(
-        "dashboardError"
-    );
-
-    if (!errorBox) {
-        return;
-    }
-
-    errorBox.textContent = "";
-    errorBox.classList.add("hidden");
+    dispatchDashboardNotice(null);
 }
 
 function setText(elementId, value) {
@@ -691,13 +217,4 @@ function setText(elementId, value) {
     if (element) {
         element.textContent = String(value);
     }
-}
-
-function escapeHtml(value) {
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
 }

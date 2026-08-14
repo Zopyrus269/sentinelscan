@@ -1,15 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <script>
         (() => {
-            const key = "sentinelscan_theme";
-            const stored = localStorage.getItem(key);
-            const preference = ["light", "dark", "system"].includes(stored) ? stored : "system";
-            const dark = preference === "dark" || (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-            document.documentElement.classList.toggle("dark", dark);
-            document.documentElement.classList.toggle("light", !dark);
-            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+            if (sessionStorage.getItem("sentinelscan_intro_seen") !== "1") {
+                document.documentElement.style.visibility = "hidden";
+            }
         })();
     </script>
     <meta charset="utf-8">
@@ -224,7 +220,7 @@
         rel="stylesheet"
         href="/static/css/styles.css"
     >
-    <script src="/static/js/theme.js" defer></script>
+  <link rel="stylesheet" href="/static/react-dist/main.css">
 </head>
 
 <body
@@ -232,71 +228,73 @@
 >
     <!-- Navigation -->
     <header
-        class="sticky top-0 z-50 border-b border-border bg-surface"
+        class="sticky top-0 z-50"
     >
         <nav
-            class="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between px-margin-mobile md:px-margin-desktop"
+            class="flex h-16 w-full items-center justify-between px-margin-mobile md:px-margin-desktop"
         >
             <a
                 href="/"
-                class="text-headline-md font-headline-md font-bold tracking-tight text-primary"
+                class="text-2xl font-bold tracking-tight"
             >
-                SentinelScan
+                <span id="sentinelscan-brand-shiny"></span>
             </a>
 
-            <div class="hidden items-center gap-lg md:flex">
-                <a
-                    href="/dashboard"
-                    class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
-                >
-                    Dashboard
-                </a>
-
-                <a
-                    href="/report"
-                    class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
-                >
-                    Reports
-                </a>
-
-                <a
-                    href="/documentation"
-                    class="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
-                >
-                    Documentation
-                </a>
-            </div>
-
-            <div class="flex items-center gap-sm">
-                <button
-                    id="navNewScanButton"
-                    type="button"
-                    class="rounded-lg bg-primary px-sm py-xs font-label-md text-label-md text-on-primary transition-all hover:bg-primary-container active:scale-[0.98]"
-                >
-                    New Scan
-                </button>
-
+            <div class="flex items-center gap-sm mr-16 md:mr-20">
                 <div class="relative" id="profileButtonWrapper">
                   <button
                     id="profileButton"
-                    class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-primary-fixed text-primary overflow-hidden"
+                    class="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden transition-all duration-300 hover:scale-[1.2] cursor-pointer"
                     aria-label="SentinelScan profile"
                   >
-                    <span id="profileIconDefault" class="material-symbols-outlined text-[18px]">
-                      shield_person
+                    <span id="profileIconDefault" class="flex h-[18px] w-[18px] items-center justify-center">
+                      <img
+                        src="https://images.shadcnspace.com/assets/svgs/icon-google.svg"
+                        alt="google icon"
+                        class="h-4 w-4"
+                      />
                     </span>
-                    <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" />
+                    <img id="profileAvatar" class="h-full w-full object-cover hidden" alt="Profile photo" referrerpolicy="no-referrer" />
                   </button>
-                  <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-lg border border-border bg-background shadow-lg z-50">
-                    <div class="px-4 py-3 border-b border-border">
-                      <p id="profileEmail" class="text-sm truncate"></p>
+                  <!-- Same terminal theme as ScanTerminal.jsx / the account
+                       history modal: black background, monospace type,
+                       macOS-style traffic lights. Sign Out is a
+                       GooeyActionNav (React Bits GooeyNav), mounted by
+                       main.jsx into #signOutActions -- see auth.js's
+                       window.performSignOutAction for what it calls once
+                       its click animation finishes. -->
+                  <div id="profileDropdown" class="absolute right-0 mt-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-black font-mono shadow-lg z-50">
+                    <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
+                      <div class="h-2.5 w-2.5 rounded-full bg-red-500"></div>
+                      <div class="h-2.5 w-2.5 rounded-full bg-yellow-500"></div>
+                      <div class="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+                      <span class="ml-2 text-[10px] text-gray-500">sentinelscan@profile:~$</span>
                     </div>
-                    <button id="openAccountButton" class="w-full text-left px-4 py-2 text-sm hover:bg-primary-fixed">
-                      Account
-                    </button>
-                    <button id="signOutButton" class="w-full text-left px-4 py-2 text-sm hover:bg-primary-fixed">
-                      Sign out
-                    </button>
+                    <div class="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5">
+                        <span id="profileDropdownIconDefault" class="flex h-5 w-5 items-center justify-center">
+                          <img
+                            src="https://images.shadcnspace.com/assets/svgs/icon-google.svg"
+                            alt="google icon"
+                            class="h-5 w-5"
+                          />
+                        </span>
+                        <img id="profileDropdownAvatar" class="absolute inset-0 hidden h-full w-full object-cover" alt="Profile photo" referrerpolicy="no-referrer" />
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p id="profileDropdownName" class="truncate text-sm font-semibold text-white"></p>
+                        <p id="profileEmail" class="truncate text-xs text-cyan-400"></p>
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1 px-2 py-2">
+                      <button id="openAccountButton" class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
+                        <span class="material-symbols-outlined text-[18px] text-emerald-400">person</span>
+                        View Profile
+                      </button>
+                    </div>
+                    <div class="border-t border-white/10 px-2 py-2">
+                      <div id="signOutActions"></div>
+                    </div>
                   </div>
                 </div>
             </div>
@@ -325,59 +323,37 @@
             <div
                 class="relative z-10 mx-auto max-w-[1440px] px-margin-mobile text-center md:px-margin-desktop"
             >
-                <span
-                    class="mb-md inline-block rounded-full bg-secondary-container px-sm py-base font-label-sm text-label-sm uppercase tracking-widest text-on-secondary-container"
-                >
-                    Next-Generation Security
-                </span>
+                <div
+                    id="sentinelscan-hero-shutter"
+                    class="relative mx-auto mb-md w-full"
+                ></div>
 
-                <h1
-                    class="mx-auto mb-md max-w-4xl font-display text-display text-on-background"
-                >
-                    AI-Powered Website Security Scanner
-                </h1>
-
-                <p
-                    class="mx-auto mb-lg max-w-2xl font-body-lg text-body-lg text-on-surface-variant"
-                >
-                    Perform authorized security reconnaissance using
-                    AI-guided DNS, WHOIS, SSL, HTTP header, cookie, sitemap,
-                    robots.txt, port and CVSS workers.
-                </p>
+                <div
+                    id="sentinelscan-hero-subtitle"
+                    class="mx-auto mb-lg max-w-2xl"
+                ></div>
 
                 <!-- Scan Input -->
                 <div class="mx-auto max-w-2xl">
-                    <div
-                        class="flex flex-col gap-xs rounded-xl border border-border bg-surface p-base shadow-sm sm:flex-row"
+                    <div id="sentinelscan-hero-input"></div>
+
+                    <input
+                        id="targetInput"
+                        type="text"
+                        autocomplete="url"
+                        spellcheck="false"
+                        class="hidden"
+                        aria-hidden="true"
+                        tabindex="-1"
                     >
-                        <div
-                            class="flex flex-1 items-center gap-xs px-sm"
-                        >
-                            <span
-                                class="material-symbols-outlined text-outline"
-                            >
-                                language
-                            </span>
 
-                            <input
-                                id="targetInput"
-                                type="text"
-                                autocomplete="url"
-                                spellcheck="false"
-                                class="w-full border-none bg-transparent font-body-md text-body-md focus:ring-0"
-                                placeholder="example.com"
-                                aria-label="Target domain"
-                            >
-                        </div>
-
-                        <button
-                            id="openConsentButton"
-                            type="button"
-                            class="whitespace-nowrap rounded-lg bg-primary px-lg py-sm font-label-md text-label-md text-on-primary shadow-md transition-all hover:bg-primary-container active:scale-95"
-                        >
-                            Start AI-Powered Scan
-                        </button>
-                    </div>
+                    <button
+                        id="openConsentButton"
+                        type="button"
+                        class="hidden"
+                        aria-hidden="true"
+                        tabindex="-1"
+                    ></button>
 
                     <p
                         id="scanError"
@@ -385,267 +361,23 @@
                         role="alert"
                     ></p>
                 </div>
-
-                <div
-                    class="mt-md flex items-center justify-center gap-xs font-label-sm text-label-sm font-bold uppercase text-error"
-                >
-                    <span
-                        class="material-symbols-outlined text-[16px]"
-                        style="font-variation-settings: 'FILL' 1;"
-                    >
-                        warning
-                    </span>
-
-                    <span>
-                        Authorized Personnel Only
-                    </span>
-                </div>
             </div>
         </section>
 
-        <!-- Features -->
+        <!-- How SentinelScan Works (summary) -->
         <section
             id="documentation"
-            class="bg-surface-container-lowest py-xl"
+            class="py-xl"
         >
             <div
-                class="mx-auto max-w-[1440px] px-margin-mobile md:px-margin-desktop"
+                class="mx-auto flex max-w-[1440px] justify-center px-margin-mobile md:px-margin-desktop"
             >
-                <div class="mb-lg text-center">
-                    <h2
-                        class="font-headline-lg text-headline-lg text-on-surface"
-                    >
-                        How SentinelScan Works
-                    </h2>
-
-                    <p
-                        class="mx-auto mt-xs max-w-2xl text-body-md text-on-surface-variant"
-                    >
-                        The AI agent selects independent workers, interprets
-                        their structured output, calculates supported CVSS
-                        scores and generates downloadable reports.
-                    </p>
-                </div>
-
-                <div
-                    class="grid grid-cols-1 gap-lg md:grid-cols-3"
-                >
-                    <article
-                        class="glass-card flex flex-col items-start gap-md rounded-xl p-lg transition-all duration-300 hover:border-primary hover:shadow-md"
-                    >
-                        <div
-                            class="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-fixed text-primary"
-                        >
-                            <span
-                                class="material-symbols-outlined"
-                                style="font-variation-settings: 'FILL' 1;"
-                            >
-                                account_tree
-                            </span>
-                        </div>
-
-                        <div>
-                            <h3
-                                class="mb-xs font-headline-sm text-headline-sm"
-                            >
-                                AI Worker Orchestration
-                            </h3>
-
-                            <p
-                                class="font-body-md text-body-md text-on-surface-variant"
-                            >
-                                Gemini selects relevant workers and uses their
-                                output to guide the assessment workflow.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article
-                        class="glass-card flex flex-col items-start gap-md rounded-xl p-lg transition-all duration-300 hover:border-primary hover:shadow-md"
-                    >
-                        <div
-                            class="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container"
-                        >
-                            <span
-                                class="material-symbols-outlined"
-                                style="font-variation-settings: 'FILL' 1;"
-                            >
-                                verified_user
-                            </span>
-                        </div>
-
-                        <div>
-                            <h3
-                                class="mb-xs font-headline-sm text-headline-sm"
-                            >
-                                Ownership Verification
-                            </h3>
-
-                            <p
-                                class="font-body-md text-body-md text-on-surface-variant"
-                            >
-                                DNS TXT or hosted-file verification is required
-                                before a protected scan can begin.
-                            </p>
-                        </div>
-                    </article>
-
-                    <article
-                        class="glass-card flex flex-col items-start gap-md rounded-xl p-lg transition-all duration-300 hover:border-primary hover:shadow-md"
-                    >
-                        <div
-                            class="flex h-12 w-12 items-center justify-center rounded-lg bg-surface-variant text-on-surface-variant"
-                        >
-                            <span
-                                class="material-symbols-outlined"
-                                style="font-variation-settings: 'FILL' 1;"
-                            >
-                                description
-                            </span>
-                        </div>
-
-                        <div>
-                            <h3
-                                class="mb-xs font-headline-sm text-headline-sm"
-                            >
-                                Structured Reports
-                            </h3>
-
-                            <p
-                                class="font-body-md text-body-md text-on-surface-variant"
-                            >
-                                Review live findings and download PDF or JSON
-                                reports after the assessment completes.
-                            </p>
-                        </div>
-                    </article>
-                </div>
+                <div id="sentinelscan-how-it-works"></div>
             </div>
         </section>
 
 
     </main>
-
-    <!-- Authorization Modal -->
-    <div
-        id="confirmModal"
-        class="fixed inset-0 z-[100] hidden items-start justify-center overflow-y-auto bg-inverse-surface/50 px-4 py-6 sm:py-10"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="authorizationTitle"
-    >
-        <div
-            id="modalBackdrop"
-            class="fixed inset-0 bg-inverse-surface/50 backdrop-blur-sm"
-            aria-hidden="true"
-        ></div>
-
-        <div
-            class="relative z-10 my-auto w-full max-w-xl rounded-xl border border-border bg-surface shadow-2xl"
-        >
-            <!-- Modal Header -->
-            <div
-                class="sticky top-0 z-20 flex items-center justify-between gap-sm rounded-t-xl border-b border-border bg-surface px-md py-sm"
-            >
-                <div class="flex items-center gap-sm text-warning">
-                    <span
-                        class="material-symbols-outlined text-headline-md"
-                    >
-                        gavel
-                    </span>
-
-                    <h2
-                        id="authorizationTitle"
-                        class="font-headline-sm text-headline-sm text-on-background"
-                    >
-                        Authorization Required
-                    </h2>
-                </div>
-
-                <button
-                    id="modalCloseButton"
-                    type="button"
-                    class="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
-                    aria-label="Close authorization dialog"
-                >
-                    <span class="material-symbols-outlined">
-                        close
-                    </span>
-                </button>
-            </div>
-
-            <!-- Modal Content -->
-            <div
-                id="modalScrollableContent"
-                class="max-h-[calc(100vh-10rem)] overflow-y-auto px-md py-md"
-            >
-                <p
-                    class="mb-md font-body-md text-body-md text-on-surface-variant"
-                >
-                    By continuing, you confirm that you own the target domain
-                    or have explicit written permission from its owner to
-                    perform this assessment.
-                </p>
-
-                <div class="space-y-sm">
-                    <label
-                        class="flex cursor-pointer items-start gap-sm rounded-lg border border-border bg-background p-sm"
-                    >
-                        <input
-                            id="ownershipConsent"
-                            type="checkbox"
-                            class="mt-1 rounded border-outline text-primary focus:ring-primary"
-                        >
-
-                        <span
-                            class="text-body-sm text-on-surface-variant"
-                        >
-                            I confirm that I own this target or have written
-                            authorization to assess it.
-                        </span>
-                    </label>
-
-                    <label
-                        class="flex cursor-pointer items-start gap-sm rounded-lg border border-border bg-background p-sm"
-                    >
-                        <input
-                            id="legalConsent"
-                            type="checkbox"
-                            class="mt-1 rounded border-outline text-primary focus:ring-primary"
-                        >
-
-                        <span
-                            class="text-body-sm text-on-surface-variant"
-                        >
-                            I understand that unauthorized scanning may violate
-                            applicable laws, contracts and policies.
-                        </span>
-                    </label>
-                </div>
-
-                <!-- app.js inserts verification instructions here -->
-                <div class="mt-md flex flex-col gap-xs">
-                    <button
-                        id="authorizeScanButton"
-                        type="button"
-                        disabled
-                        data-mode="create"
-                        class="w-full rounded-lg bg-primary py-sm font-label-md text-label-md text-on-primary transition-all hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        I Authorize This Scan
-                    </button>
-
-                    <button
-                        id="cancelConsentButton"
-                        type="button"
-                        class="w-full rounded-lg bg-transparent py-sm font-label-md text-label-md text-on-surface-variant transition-all hover:bg-surface-container-low"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Account Modal -->
     <div
@@ -656,121 +388,44 @@
         aria-labelledby="accountModalTitle"
     >
         <div id="accountModalBackdrop" class="fixed inset-0 bg-inverse-surface/50 backdrop-blur-sm" aria-hidden="true"></div>
-        <div class="relative z-10 my-auto w-full max-w-xl rounded-xl border border-border bg-surface shadow-2xl">
-            <div class="sticky top-0 z-20 flex items-center justify-between gap-sm rounded-t-xl border-b border-border bg-surface px-md py-sm">
-                <div class="flex items-center gap-sm">
-                    <span class="material-symbols-outlined text-headline-md">shield_person</span>
-                    <h2 id="accountModalTitle" class="font-headline-sm text-headline-sm text-on-background">Account</h2>
+        <!-- Same terminal theme as ScanTerminal.jsx (dashboard's live scan
+             console): black background, monospace type, macOS-style traffic
+             lights in the header bar. Not the React component itself --
+             this modal is built/opened by plain auth.js, not mounted by
+             main.jsx -- just the same visual language applied in plain
+             HTML/Tailwind. -->
+        <div class="relative z-10 my-auto w-full max-w-xl overflow-hidden rounded-lg border border-white/10 bg-black font-mono shadow-2xl">
+            <div class="sticky top-0 z-20 flex items-center gap-2 border-b border-white/10 bg-black px-3 py-3 text-xs text-gray-400">
+                <div class="flex gap-1.5">
+                    <div class="h-3 w-3 rounded-full bg-red-500"></div>
+                    <div class="h-3 w-3 rounded-full bg-yellow-500"></div>
+                    <div class="h-3 w-3 rounded-full bg-green-500"></div>
                 </div>
-                <button id="accountModalCloseButton" type="button" class="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface" aria-label="Close account dialog">
-                    <span class="material-symbols-outlined">close</span>
+                <h2 id="accountModalTitle" class="flex-1 text-center font-semibold">sentinelscan@account:~$ | Scan History</h2>
+                <button id="accountModalCloseButton" type="button" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 transition-colors hover:bg-white/10 hover:text-white" aria-label="Close account dialog">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
                 </button>
             </div>
-            <div class="flex border-b border-border px-md">
-                <button id="accountTabHistory" class="account-tab px-4 py-3 text-sm font-medium border-b-2 border-primary text-primary" data-tab="history">History</button>
-            </div>
-            <div id="accountModalScrollableContent" class="max-h-[calc(100vh-14rem)] overflow-y-auto px-md py-md">
+            <div id="accountModalScrollableContent" class="max-h-[calc(100vh-14rem)] overflow-y-auto bg-black px-4 py-4" style="scrollbar-width: thin; scrollbar-color: #10b981 #1f2937;">
                 <div id="accountPanelHistory" class="account-panel">
-                    <div id="historyLoading" class="hidden text-sm text-on-surface-variant py-6 text-center">Loading history...</div>
-                    <div id="historyEmpty" class="hidden text-sm text-on-surface-variant py-6 text-center">
+                    <div class="mb-3 text-xs text-gray-500">$ ls ~/scans --recent</div>
+                    <div id="historyLoading" class="hidden py-6 text-center text-sm text-gray-500">Loading history...</div>
+                    <div id="historyEmpty" class="hidden py-6 text-center text-sm text-gray-500">
                         <p>No scan history yet.</p>
                         <p class="mt-2">Run your first scan to see it here.</p>
                     </div>
-                    <div id="historyError" class="hidden text-sm text-error py-6 text-center"></div>
-                    <div id="historyList" class="flex flex-col gap-4 py-2"></div>
+                    <div id="historyError" class="hidden py-6 text-center text-sm text-red-400"></div>
+                    <div id="historyList" class="flex flex-col gap-3 py-2"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Footer -->
-    <footer class="border-t border-border bg-background">
-        <div
-            class="mx-auto grid max-w-[1440px] grid-cols-1 gap-lg px-margin-mobile py-xl md:grid-cols-4 md:px-margin-desktop"
-        >
-            <div>
-                <div
-                    class="mb-sm font-headline-sm text-headline-sm font-bold text-primary"
-                >
-                    SentinelScan
-                </div>
-
-                <p
-                    class="font-body-sm text-body-sm text-on-surface-variant"
-                >
-                    AI-guided security reconnaissance and reporting for
-                    authorized assessments.
-                </p>
-            </div>
-
-            <div>
-                <h3
-                    class="mb-sm font-label-md text-label-md text-on-surface"
-                >
-                    Product
-                </h3>
-
-                <div class="space-y-xs">
-                    <a
-                        href="/documentation"
-                        class="block text-body-sm text-on-surface-variant hover:text-primary"
-                    >
-                        Documentation
-                    </a>
-
-                    <a
-                        href="/dashboard"
-                        class="block text-body-sm text-on-surface-variant hover:text-primary"
-                    >
-                        Dashboard
-                    </a>
-
-                    <button
-                        type="button"
-                        class="block text-left text-body-sm text-on-surface-variant hover:text-primary"
-                        onclick="document.getElementById('targetInput').scrollIntoView({behavior:'smooth', block:'center'}); document.getElementById('targetInput').focus();"
-                    >
-                        New Scan
-                    </button>
-                </div>
-            </div>
-
-            <div>
-                <h3
-                    class="mb-sm font-label-md text-label-md text-on-surface"
-                >
-                    Authorized Use
-                </h3>
-
-                <p
-                    class="text-body-sm text-on-surface-variant"
-                >
-                    Scan only systems that you own or are explicitly authorized
-                    to assess.
-                </p>
-            </div>
-
-            <div>
-                <h3
-                    class="mb-sm font-label-md text-label-md text-on-surface"
-                >
-                    Local Development
-                </h3>
-
-                <p
-                    class="text-body-sm text-on-surface-variant"
-                >
-                    Backend: port 5000
-                    <br>
-                    Frontend: port 5500
-                </p>
-
-                <p
-                    class="mt-md text-body-sm text-on-surface-variant"
-                >
-                    © 2026 SentinelScan
-                </p>
-            </div>
+    <footer>
+        <div class="flex w-full items-end justify-between px-margin-mobile py-lg md:px-margin-desktop">
+            <div id="sentinelscan-footer-brand"></div>
+            <div id="sentinelscan-footer-links"></div>
         </div>
     </footer>
 
@@ -779,5 +434,6 @@
         defer
     ></script>
     <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/react-dist/main.js"></script>
 </body>
 </html>

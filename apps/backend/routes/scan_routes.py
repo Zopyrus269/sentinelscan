@@ -145,6 +145,7 @@ def _run_scan_background(scan_id: str, target: str, uid: str = None) -> None:
                 phase="completed",
                 worker_status=str(status or "COMPLETED").upper(),
                 action=action,
+                summary=result_text,
             )
 
     try:
