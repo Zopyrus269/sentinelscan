@@ -48,6 +48,7 @@ def create_app() -> Flask:
             "font-src 'self' https://fonts.gstatic.com; "
             "connect-src 'self' https://*.googleapis.com; "
             "img-src 'self' data: https://*.googleusercontent.com; "
+            "frame-src https://sentinelscan-3f82d.firebaseapp.com; "
             "frame-ancestors 'none'; "
             "object-src 'none';"
         )
