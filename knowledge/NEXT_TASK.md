@@ -35,16 +35,23 @@ Repo cleanup: deleted `feature/ui-redesign-reactbits` (fully merged already, loc
 every scan submission), added missing test coverage, opened it as PR #1 instead of merging directly.
 Adopted a new permanent project rule: every merge to `main` requires an accepted PR, no exceptions --
 codified in CLAUDE.md section 10 and enforced server-side via GitHub branch protection on `main`
-(`required_approving_review_count: 1`, `enforce_admins: true`, no force-push/deletion). Opened as PR #2.
+(`required_approving_review_count: 0` — corrected same day from an initial `1`, since GitHub can never
+let a PR author approve their own PR and these PRs are opened under the repo owner's own account;
+see DECISIONS.md's 2026-08-20 correction entry — `enforce_admins: true`, no force-push/deletion still
+in effect, so a PR is still mandatory, it just doesn't need an unobtainable approval). Opened as PR #2.
 
 ## Standing rules for this engagement (apply to all future sessions, not just this one)
 
-- **New as of session 14: every merge to `main` requires an accepted GitHub PR, no exceptions** --
-  see CLAUDE.md section 10 and [[2026-08-20]] in DECISIONS.md. Applies to Claude Code, the repo owner,
-  and every other collaborator equally; enforced both as a documented rule and via GitHub branch
-  protection. Never `git push` directly to `main` or `git merge` into a locally checked-out `main` and
-  push that -- always branch -> commit -> push branch -> open PR -> wait for acceptance -> merge via
-  GitHub.
+- **New as of session 14: every merge to `main` requires a GitHub PR to exist (no direct pushes), no
+  exceptions** -- see CLAUDE.md section 10 and DECISIONS.md's two 2026-08-20 entries (original decision
+  + same-day correction). Applies to Claude Code, the repo owner, and every other collaborator equally;
+  enforced both as a documented rule and via GitHub branch protection (`enforce_admins` on). Required
+  approving reviews are set to **0**, not 1 -- GitHub blocks a PR author from approving their own PR,
+  and these PRs are opened under the repo owner's own account, so requiring an approval would make them
+  permanently unmergeable. The owner opens the PR, reads the diff, and merges it themselves -- that's
+  the actual control, not a second person's sign-off. Never `git push` directly to `main` or
+  `git merge` into a locally checked-out `main` and push that -- always branch -> commit -> push branch
+  -> open PR -> read the diff -> merge via GitHub.
 - **Never spawn a subagent without asking the user first and stating the reason.** Codified globally in
   `C:\Users\ADMIN\.claude\CLAUDE.md`.
 - **Never call the Claude-in-Chrome skill or any `mcp__claude-in-chrome__*` tool without the user's

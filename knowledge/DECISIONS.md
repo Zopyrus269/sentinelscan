@@ -40,6 +40,34 @@ on the repo (`Dannyo6`, `sbsai25`, `bhuvan-sk`, `Zopyrus269`) there's always som
 provide the required approval. If the repo ever drops to a single active collaborator, this setting
 would need revisiting (a solo maintainer can't get a second approval from themselves).
 
+## 2026-08-20 (correction, same day): required approving reviews dropped from 1 to 0
+
+**Context:** The above decision set `required_approving_review_count: 1`, assuming any of the 4
+collaborators could approve any PR. In practice, the PRs opened this session (`gh pr create`) were
+authored under the repo owner's own GitHub account (`Zopyrus269`, since that's who `gh` is
+authenticated as) — and GitHub has a hard platform rule that a PR author can never approve their own
+PR, for anyone, regardless of admin status. That's not a branch-protection setting and can't be
+configured around. With `required_approving_review_count: 1`, every PR the owner opens under their own
+account would be permanently stuck needing an approval nobody involved can give. The owner's actual
+goal (stated directly) was never "get a second person's sign-off" — it was building a personal habit of
+reading the diff before merging AI-generated code.
+
+**Decision:** Set `required_approving_review_count: 0`. `main` still cannot be pushed to directly
+(branch protection still requires a PR to exist, `enforce_admins` stays on) — but a PR the owner authors
+no longer needs an unobtainable approval to merge; they open it, read it, and merge it themselves. If
+another collaborator opens a PR and wants an actual second-person review before merging, they can still
+request and wait for one — this setting doesn't forbid that, it just doesn't force it.
+
+**Alternatives considered:** Opening future PRs from a separate bot/service account so the owner could
+approve them — rejected as unnecessary complexity for a solo-habit goal, and it would mean Claude Code
+managing a second set of credentials; lowering `enforce_admins` instead so the owner could bypass PRs
+entirely — rejected, since that would remove the "a PR must exist" guarantee too, not just the
+unobtainable-approval problem, defeating the actual point of the rule.
+
+**Consequences:** The "required PR" guarantee (no direct pushes to `main`, forced diff review before
+merge) still holds for everyone. The "someone else approved it" guarantee never actually existed for
+solo-authored PRs and is now honestly reflected in the setting rather than silently unsatisfiable.
+
 ## 2026-08-07: MCP filesystem server invocation moved from `npx` to a locally pinned dependency
 
 **Context:** `.mcp.json` pinned the server version via a CLI arg string (`npx -y @modelcontextprotocol/server-filesystem@2025.7.1`). That pin is only as reliable as `npx`'s resolution/caching behavior on every invocation — it isn't installed, tracked, or auditable as part of the repo, and nothing prevents a future edit or environment difference from silently resolving a different version. This risk was not hypothetical: while preparing this cleanup commit, `package.json`/`package-lock.json` were found to have drifted (uncommitted) to `2025.11.25` — a version re-confirmed via source audit to still contain the roots-protocol override that caused the original scoping bug.
