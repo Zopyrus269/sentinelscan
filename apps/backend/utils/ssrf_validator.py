@@ -20,6 +20,7 @@ def is_safe_target(target_input: str):
 
     try:
         # Validate all resolved IP addresses (IPv4 & IPv6)
+        addr_info = socket.getaddrinfo(hostname, None)
         for entry in addr_info:
             ip_str = entry[4][0]
             ip = ipaddress.ip_address(ip_str)
