@@ -10,35 +10,32 @@ This file is always **overwritten**, not appended -- it reflects the current han
 
 ## What's next
 
-**Two PRs are open on GitHub, awaiting human review/acceptance** -- under the new rule below, this
-session (or any Claude Code session) cannot merge them itself:
+**Nothing is pending.** Both PRs from session 14 are merged into `main` (PR #1 `c585671`, PR #2
+`6eee4b4`), every side branch has been deleted, and the repo now has exactly one branch, `main`, on
+both local and `origin`. Full test suite re-run on merged `main`: 139 passed, 1 skipped, same 5
+pre-existing unrelated failures as before (see "Other findings" below) -- nothing broken by the merge.
+Do not assume anything below is "next up" without the user actually asking.
 
-- **PR #1** — https://github.com/Zopyrus269/sentinelscan/pull/1 — `fix/dhanush-security-changes` -> `main`.
-  Brings in `dhanush-changes`' security hardening (secret-scanning CI, tighter rate limits, removed
-  insecure JWT-fallback decode, `.env.example` secret placeholder fix) plus a bug fix found during
-  review: `ssrf_validator.py` was missing its `addr_info` resolution call, which would have 500'd every
-  `/api/v1/scan` submission. New test coverage added (`tests/test_ssrf_validator.py`).
-- **PR #2** — https://github.com/Zopyrus269/sentinelscan/pull/2 — `chore/pr-required-for-main` -> `main`.
-  The new CLAUDE.md rule (section 10) + this session's knowledge-vault update.
-
-**Once PR #1 is merged**, delete `origin/dhanush-changes` (superseded by the fix branch) -- same steps
-as the `feature/ui-redesign-reactbits` cleanup below.
-
-**Once PR #2 is merged**, the PR-required rule is live in `main`'s own `CLAUDE.md` -- from then on,
-*every* future session must open a PR for any further work reaching `main`, including a routine
-knowledge-vault-only update. Don't push straight to `main` even for something as small as a log entry.
+**The PR-required-for-main rule (CLAUDE.md section 10) is now live in `main` itself**, not just on a
+branch. From this point on, *every* future session must open a short-lived branch + PR for any work
+reaching `main` -- including a routine knowledge-vault-only update -- then delete that branch once
+merged, to keep `main` as the repo's only permanent branch, per explicit user instruction. GitHub branch
+protection backs this up server-side (`enforce_admins: true`, direct pushes to `main` are rejected).
 
 ## Session 14 summary (2026-08-20) -- full detail in [[2026-08-20]]
 
-Repo cleanup: deleted `feature/ui-redesign-reactbits` (fully merged already, local + remote). Reviewed
+Repo cleanup: deleted `feature/ui-redesign-reactbits` (fully merged already). Reviewed
 `origin/dhanush-changes`, found and fixed a real bug (`ssrf_validator.py` `NameError` that would break
-every scan submission), added missing test coverage, opened it as PR #1 instead of merging directly.
-Adopted a new permanent project rule: every merge to `main` requires an accepted PR, no exceptions --
-codified in CLAUDE.md section 10 and enforced server-side via GitHub branch protection on `main`
-(`required_approving_review_count: 0` — corrected same day from an initial `1`, since GitHub can never
-let a PR author approve their own PR and these PRs are opened under the repo owner's own account;
-see DECISIONS.md's 2026-08-20 correction entry — `enforce_admins: true`, no force-push/deletion still
-in effect, so a PR is still mandatory, it just doesn't need an unobtainable approval). Opened as PR #2.
+every scan submission), added missing test coverage, opened it as PR #1 rather than merging directly.
+Adopted a new permanent project rule: every merge to `main` requires a PR, no exceptions -- codified in
+CLAUDE.md section 10 and enforced server-side via GitHub branch protection on `main`
+(`required_approving_review_count: 0` -- corrected same day from an initial `1`, since GitHub can never
+let a PR author approve their own PR and these PRs are opened under the repo owner's own account; see
+DECISIONS.md's 2026-08-20 correction entry -- `enforce_admins: true`, no force-push/deletion, still in
+effect). Opened as PR #2. User merged both PRs on GitHub using Squash and merge. This session then
+verified the merge (content + full test suite on `main`) and deleted every branch except `main` --
+`chore/pr-required-for-main`, `fix/dhanush-security-changes`, and `origin/dhanush-changes` are all gone,
+local and remote. Repo now has exactly one branch.
 
 ## Standing rules for this engagement (apply to all future sessions, not just this one)
 
@@ -51,7 +48,13 @@ in effect, so a PR is still mandatory, it just doesn't need an unobtainable appr
   permanently unmergeable. The owner opens the PR, reads the diff, and merges it themselves -- that's
   the actual control, not a second person's sign-off. Never `git push` directly to `main` or
   `git merge` into a locally checked-out `main` and push that -- always branch -> commit -> push branch
-  -> open PR -> read the diff -> merge via GitHub.
+  -> open PR -> read the diff -> merge via GitHub (**Squash and merge** is the recommended method --
+  keeps `main` to one clean commit per PR, matches the "small, atomic commits" convention, and GitHub
+  still credits co-authors via a `Co-authored-by:` trailer even when commits get folded together).
+- **User wants only `main` to exist in this repo, permanently** -- confirmed explicitly in session 14
+  after the cleanup. Delete every branch (local + remote) as soon as its PR is merged; don't leave
+  merged branches sitting around "just in case." This includes short-lived branches created purely for
+  a knowledge-vault update.
 - **Never spawn a subagent without asking the user first and stating the reason.** Codified globally in
   `C:\Users\ADMIN\.claude\CLAUDE.md`.
 - **Never call the Claude-in-Chrome skill or any `mcp__claude-in-chrome__*` tool without the user's
@@ -122,6 +125,8 @@ in effect, so a PR is still mandatory, it just doesn't need an unobtainable appr
 ## Links
 
 - Latest daily log: [[2026-08-20]] (session 14)
+- Merged PRs: [#1](https://github.com/Zopyrus269/sentinelscan/pull/1) (dhanush-changes security
+  hardening + SSRF fix), [#2](https://github.com/Zopyrus269/sentinelscan/pull/2) (PR-required rule)
 - Live site: `https://sentinelscan-yd2u.onrender.com` -- Google sign-in confirmed working end-to-end as
   of session 13.
 - Render service: `srv-d9rrj6n40ujc73c4efcg`
