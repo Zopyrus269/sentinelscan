@@ -79,4 +79,22 @@ Cost-aware, not agent-happy:
 
 All previously flagged items here were resolved on 2026-08-09 (see `knowledge/daily-logs/2026-08-09.md`, Pass 6): the hardcoded JWT literal was removed from `headless_auth_test.py` in favor of an env-var-supplied token, the stray empty `LICENSE.md` was deleted, and README's test-count claim was corrected to match the actual `pytest tests/` output. No open hygiene items at this time.
 
+## 10. Git Workflow — Pull Request Required for All Merges to `main`
+
+**Permanent, project-scoped rule. No exceptions, including single-line knowledge-vault or doc commits.**
+
+- No commit reaches `main` directly, ever. All work — code, docs, `knowledge/` updates, everything —
+  happens on a branch first. Landing on `main` always goes through a GitHub pull request that is
+  reviewed and explicitly accepted before merging.
+- Applies no matter who or what is doing the merging — Claude Code, the repo owner, or any other
+  collaborator. This is enforced both here and via GitHub branch protection on `main` (required PR
+  review, `enforce_admins` on, no force-push/delete) — the doc rule and the server-side setting are
+  meant to match.
+- Workflow: create/checkout a branch → commit there → push the branch → open a PR (`gh pr create` or
+  the GitHub MCP `create_pull_request` tool) → wait for it to be reviewed and accepted → merge via
+  GitHub (`gh pr merge`, the merge button, or the MCP `merge_pull_request` tool). Never `git merge`
+  a branch into a locally checked-out `main` and push that.
+- Rationale: forces a human to actually read AI-generated code before it reaches `main`, rather than
+  trusting it blindly. See `knowledge/DECISIONS.md`, 2026-08-20 entry.
+
 See `knowledge/PROJECT_CONTEXT.md` for full current-state detail.
