@@ -19,22 +19,19 @@ def is_safe_target(target_input: str):
         return False, "Invalid target format."
 
     try:
-        # Resolve to IP address
-        addr_info = socket.getaddrinfo(hostname, None)
-        # socket.getaddrinfo returns a list of 5-tuples: (family, type, proto, canonname, sockaddr)
-        # Extract the first resolved IP
-        ip_str = addr_info[0][4][0]
-        ip = ipaddress.ip_address(ip_str)
+        # Validate all resolved IP addresses (IPv4 & IPv6)
+        for entry in addr_info:
+            ip_str = entry[4][0]
+            ip = ipaddress.ip_address(ip_str)
 
-        # Check for private, loopback, link-local, or reserved ranges
-        if ip.is_loopback:
-            return False, "Target resolves to a loopback address."
-        if ip.is_private:
-            return False, "Target resolves to a private IP address."
-        if ip.is_link_local:
-            return False, "Target resolves to a link-local address."
-        if ip.is_reserved or ip.is_unspecified or ip.is_multicast:
-            return False, "Target resolves to a reserved or unspecified address."
+            if ip.is_loopback:
+                return False, "Target resolves to a loopback address."
+            if ip.is_private:
+                return False, "Target resolves to a private IP address."
+            if ip.is_link_local:
+                return False, "Target resolves to a link-local address."
+            if ip.is_reserved or ip.is_unspecified or ip.is_multicast:
+                return False, "Target resolves to a reserved or unspecified address."
         
         return True, "Target is safe."
     except socket.gaierror:

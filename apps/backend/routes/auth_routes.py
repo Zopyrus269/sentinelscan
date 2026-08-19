@@ -13,10 +13,13 @@ from flask import Blueprint, jsonify, g, request
 from apps.backend.auth.auth_utils import require_auth
 from apps.backend.auth.firebase_client import get_db
 
+from apps.backend.extensions import limiter
+
 auth_bp = Blueprint("auth_routes", __name__, url_prefix="/api/v1/auth")
 
 
 @auth_bp.route("/session", methods=["POST"])
+@limiter.limit("10 per minute")
 @require_auth
 def create_session():
     """

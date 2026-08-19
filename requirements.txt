@@ -19,6 +19,7 @@ python-dotenv
 gunicorn
 
 pytest
+pre-commit
 flask-cors
 firebase-admin
 

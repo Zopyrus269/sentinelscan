@@ -13,12 +13,15 @@ from flask import Blueprint, jsonify
 from apps.backend.auth.auth_utils import require_auth, require_developer
 from apps.backend.auth.firebase_client import get_db
 
+from apps.backend.extensions import limiter
+
 logger = logging.getLogger(__name__)
 
 dev_bp = Blueprint("dev_routes", __name__, url_prefix="/api/v1/dev")
 
 
 @dev_bp.route("/bootstrap-secrets", methods=["GET"])
+@limiter.limit("5 per minute")
 @require_auth
 @require_developer
 def bootstrap_secrets():
