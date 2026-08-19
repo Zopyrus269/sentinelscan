@@ -79,4 +79,28 @@ Cost-aware, not agent-happy:
 
 All previously flagged items here were resolved on 2026-08-09 (see `knowledge/daily-logs/2026-08-09.md`, Pass 6): the hardcoded JWT literal was removed from `headless_auth_test.py` in favor of an env-var-supplied token, the stray empty `LICENSE.md` was deleted, and README's test-count claim was corrected to match the actual `pytest tests/` output. No open hygiene items at this time.
 
+## 10. Git Workflow — Pull Request Required for All Merges to `main`
+
+**Permanent, project-scoped rule. No exceptions, including single-line knowledge-vault or doc commits.**
+
+- No commit reaches `main` directly, ever. All work — code, docs, `knowledge/` updates, everything —
+  happens on a branch first. Landing on `main` always goes through a GitHub pull request; a direct push
+  to `main` is blocked outright by branch protection (`enforce_admins` on, so this applies to the repo
+  owner too, not just other collaborators).
+- Required approving reviews on `main` are set to **0**, not 1 — GitHub hard-blocks a PR author from
+  approving their own PR (no setting overrides this), and since the sole repo owner opens most PRs
+  under their own account, requiring 1 approval would make those PRs permanently unmergeable. The
+  control that matters here is "a PR must exist and be manually merged," not "someone else approved
+  it" — the owner opening the PR, reading the diff, and clicking merge themselves satisfies the actual
+  goal (see `knowledge/DECISIONS.md`, 2026-08-20 entries). If another collaborator opens a PR, they're
+  welcome to request/receive a real review from someone else before merging — nothing here prevents
+  that, it's just not force-required by GitHub.
+- Workflow: create/checkout a branch → commit there → push the branch → open a PR (`gh pr create` or
+  the GitHub MCP `create_pull_request` tool — the GitHub MCP token has been observed to lack
+  PR-creation scope, so `gh pr create` is the reliable path) → read the diff → merge via GitHub
+  (`gh pr merge`, the merge button, or the MCP `merge_pull_request` tool). Never `git merge` a branch
+  into a locally checked-out `main` and push that.
+- Rationale: forces a human to actually read AI-generated code before it reaches `main`, rather than
+  trusting it blindly — a habit, not a gate that needs a second person.
+
 See `knowledge/PROJECT_CONTEXT.md` for full current-state detail.
