@@ -1,12 +1,44 @@
 ---
 type: knowledge-vault-core
-last_updated: 2026-08-07
+last_updated: 2026-08-20
 updated_by: claude-code
 ---
 
 # Decisions
 
 Lightweight, reverse-chronological decision log. Not full ADR ceremony — kept cheap enough to actually maintain. Newest first.
+
+## 2026-08-20: All merges to `main` require a reviewed, accepted pull request — no exceptions
+
+**Context:** Reviewing the `dhanush-changes` branch during a repo cleanup surfaced a real bug that would
+have broken every scan submission (`ssrf_validator.py`'s rewritten loop referenced `addr_info` without
+ever assigning it — see [[2026-08-20]]) if it had been merged straight into `main` without review.
+Several prior sessions had also pushed commits directly to `main` when the user gave in-session
+authorization (e.g. session 13's CSP fixes) — convenient, but it means nothing forces a second set of
+eyes on AI-generated code before it ships, even when the diff is subtle enough to hide a
+crash-on-every-request bug.
+
+**Decision:** Every commit that reaches `main` — code, docs, and `knowledge/` vault updates alike, no
+size exception — must go through a GitHub pull request that is reviewed and explicitly accepted first.
+This is codified two ways: a new CLAUDE.md section (10) documenting the rule for any Claude Code
+session, and GitHub branch protection on `main` (`required_pull_request_reviews` with
+`required_approving_review_count: 1`, `enforce_admins: true`, force-push/deletion disabled) so it's
+enforced server-side for every collaborator, not just as a convention Claude Code happens to follow.
+
+**Alternatives considered:** Keeping the rule as a documented convention only, without branch
+protection — rejected because a documented rule doesn't stop a direct `git push origin main` by anyone
+(including Claude Code under a future looser instruction, or another collaborator not using Claude
+Code); a lighter version scoped to "feature branches only" (letting small doc/vault commits go straight
+to `main`) — rejected per explicit user instruction that this should apply to every commit, since the
+whole point is forcing a human read, and small commits are exactly the ones most likely to get rubber-stamped
+without one.
+
+**Consequences:** Every future unit of work — including a routine knowledge-vault log update — now
+needs its own branch and PR, which is slower than a direct commit. The repo owner (`Zopyrus269`, admin)
+is also subject to `enforce_admins`, so even they can't bypass the PR requirement; with 4 collaborators
+on the repo (`Dannyo6`, `sbsai25`, `bhuvan-sk`, `Zopyrus269`) there's always someone else available to
+provide the required approval. If the repo ever drops to a single active collaborator, this setting
+would need revisiting (a solo maintainer can't get a second approval from themselves).
 
 ## 2026-08-07: MCP filesystem server invocation moved from `npx` to a locally pinned dependency
 
