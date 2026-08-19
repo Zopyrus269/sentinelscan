@@ -41,16 +41,11 @@ def require_auth(f: Callable) -> Callable:
             if firebase_auth:
                 decoded_token = firebase_auth.verify_id_token(id_token)
             else:
-                # Fallback to local decode if firebase is not installed (e.g. localhost)
-                import base64
-                import json
-                parts = id_token.split(".")
-                if len(parts) != 3:
-                    raise Exception("Malformed token")
-                payload = parts[1]
-                payload += "=" * ((4 - len(payload) % 4) % 4)
-                decoded_token = json.loads(base64.urlsafe_b64decode(payload).decode("utf-8"))
-                decoded_token["uid"] = decoded_token.get("user_id")
+                return jsonify({
+                    "error": "Service Unavailable",
+                    "message": "Authentication verification is disabled on the server.",
+                    "code": 503,
+                }), 503
         except Exception as e:
             if "default Firebase app does not exist" in str(e) or "FirebaseApp" in str(e):
                 return jsonify({
