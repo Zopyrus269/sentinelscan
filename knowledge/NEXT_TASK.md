@@ -10,25 +10,46 @@ This file is always **overwritten**, not appended -- it reflects the current han
 
 ## What's next
 
-**Nothing is pending.** PR #6 (session 16, frontend dead-code cleanup + fixed the 5 pre-existing
-test failures) is merged into `main` as `2b7fe76`. Repo has exactly one branch, `main`, both
-locally and on `origin`. Full test suite on merged `main`: **144 passed, 1 skipped**, zero failures
-(up from 139 passed/1 skipped/5 failed as of session 15) -- the 5 pre-existing failures flagged in
-the last session's "Other findings" are now actually fixed, not just documented. Frontend build
-(`npm run build`) clean.
+**Nothing is pending**, assuming this session's final PR (session 17, Graphify backup-hygiene fix)
+merges cleanly -- same pattern as every prior PR, awaiting user review/merge at time of writing.
+PR #6 (session 16, frontend dead-code cleanup + fixed the 5 pre-existing test failures) is merged
+into `main` as `2b7fe76`. Full test suite on merged `main`: **144 passed, 1 skipped**, zero
+failures (up from 139 passed/1 skipped/5 failed as of session 15). Frontend build (`npm run build`)
+clean.
 
-`graphify-out/graph.json` regenerated this session (`apps/frontend/` and `tests/` both changed):
-**1030 nodes, 1722 edges, 80 communities** (was 1050/1747/86 as of session 15 -- the decrease
-matches the deleted frontend files). Verified clean scope (zero nodes from excluded paths, none
-`.md`). Treat `graphify query <question>`, `graphify affected <symbol>`, `graphify path <A> <B>`,
-`graphify explain <concept>` as the first tool for structural questions in this repo -- see
-`CLAUDE.md` section 11. One practical refinement from this session: `graphify affected` (reverse
+`graphify-out/graph.json` regenerated in session 16 (`apps/frontend/` and `tests/` both changed):
+**1030 nodes, 1722 edges, 80 communities** (was 1050/1747/86 as of session 15). Verified clean
+scope (zero nodes from excluded paths, none `.md`). Treat `graphify query <question>`, `graphify
+affected <symbol>`, `graphify path <A> <B>`, `graphify explain <concept>` as the first tool for
+structural questions in this repo -- see `CLAUDE.md` section 11. `graphify affected` (reverse
 traversal, "what depends on X") has proven reliable and precise; `graphify query`'s forward BFS
-("is X referenced anywhere") has been noisy/imprecise in practice (same-community nodes rather
-than precise import edges) -- prefer Grep for that specific question shape until/unless the query
-heuristics improve.
+("is X referenced anywhere") has been noisy/imprecise in practice -- prefer Grep for that specific
+question shape.
+
+**Important, new as of session 17: always pass `GRAPHIFY_NO_BACKUP=1` when running `graphify
+extract`/`graphify label` in this repo.** Without it, Graphify auto-snapshots the entire graph into
+a dated `graphify-out/YYYY-MM-DD/` folder before every overwrite (triggers because our graph has
+real LLM-assigned labels) -- a ~30K-line duplicate of a file git already versions, and sessions 15
+and 16 both accidentally committed one before this was caught and fixed. See `CLAUDE.md` section 11
+and [[2026-08-21]] session 17 for full detail. If a dated folder ever reappears anyway, delete it
+rather than committing it -- `.gitignore` backstops the pattern but the env var is the real fix.
 
 Do not assume anything below is "next up" without the user actually asking.
+
+## Session 17 summary (2026-08-21) -- full detail in [[2026-08-21]]
+
+User reviewing PR #7 noticed it added 30K+ lines and asked whether graph regeneration was a full
+rebuild or incremental, and whether that was wasteful. Investigated: confirmed `--force` genuinely
+does a full re-scan (by design -- `graphify update` is deliberately never used, no `--code-only`
+flag), but the ~30K-line bulk of the diff was actually `graphify`'s own `backup_if_protected()`
+auto-snapshotting the graph into a dated folder every regen -- a redundant duplicate, disableable
+via `GRAPHIFY_NO_BACKUP=1` (found in the installed package source). Deleted the two already-
+committed dated folders (~67,600 lines net), added a `.gitignore` backstop pattern, documented the
+env var requirement in `CLAUDE.md` section 11. User gave one-time explicit authorization to push
+this directly to `main`; checked first and found `enforce_admins: true` branch protection would
+reject a direct push regardless of authorization -- surfaced that rather than assuming, user opted
+for the normal branch+PR flow instead (protection left untouched). Full test suite unaffected: 144
+passed, 1 skipped.
 
 ## Session 16 summary (2026-08-21) -- full detail in [[2026-08-21]]
 
@@ -84,8 +105,10 @@ graphify's own cache directory, squash-merged as `790c000`. User then set a new 
   (reverse traversal) has proven the most reliable for "what depends on X" questions; `graphify
   query`'s forward BFS has been noisy for "is X referenced anywhere" dead-code checks -- Grep still
   wins there in practice (see session 16). Regenerate only at session-end, batched with the
-  knowledge-vault write, using `graphify extract . --code-only --force` -- never `graphify
-  update .` (no `--code-only` flag, can silently reintroduce excluded paths).
+  knowledge-vault write, using `GRAPHIFY_NO_BACKUP=1 graphify extract . --code-only --force` --
+  never `graphify update .` (no `--code-only` flag, can silently reintroduce excluded paths).
+  **Always include `GRAPHIFY_NO_BACKUP=1`** on both `extract` and `label` (new as of session 17) --
+  without it, Graphify commits a redundant ~30K-line dated backup folder on every regen; see above.
 - **Never call the Claude-in-Chrome skill or any `mcp__claude-in-chrome__*` tool without the
   user's explicit approval first**, and re-ask for each new need even within the same session.
 - **Never write to `knowledge/` while implementation work is in progress** -- read-only during
