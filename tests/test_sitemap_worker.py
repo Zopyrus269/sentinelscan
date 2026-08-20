@@ -276,26 +276,34 @@ class TestRunWorker:
 
     # ── Network error cases ───────────────────────────────────────────────
 
+    @patch("apps.backend.workers.sitemap_worker.fetch_with_browser")
     @patch("apps.backend.workers.sitemap_worker.requests.get")
-    def test_connection_error(self, mock_get):
-        """Connection error returns structured error response."""
+    def test_connection_error(self, mock_get, mock_fetch_with_browser):
+        """Connection error returns structured error response when the
+        Playwright fallback also fails (both the primary request and the
+        browser retry must fail for this to surface as a worker error)."""
         mock_get.side_effect = requests.exceptions.ConnectionError("Connection refused")
+        mock_fetch_with_browser.side_effect = Exception("browser fallback failed")
 
         result = run_worker({"url": "https://example.com"})
 
         assert result["status"] == "error"
         assert result["data"] == {}
-        assert "Connection error" in result["error"]
+        assert "Browser fallback failed" in result["error"]
 
+    @patch("apps.backend.workers.sitemap_worker.fetch_with_browser")
     @patch("apps.backend.workers.sitemap_worker.requests.get")
-    def test_timeout_error(self, mock_get):
-        """Timeout returns structured error response."""
+    def test_timeout_error(self, mock_get, mock_fetch_with_browser):
+        """Timeout returns structured error response when the Playwright
+        fallback also fails (both the primary request and the browser retry
+        must fail for this to surface as a worker error)."""
         mock_get.side_effect = requests.exceptions.Timeout("timed out")
+        mock_fetch_with_browser.side_effect = Exception("browser fallback failed")
 
         result = run_worker({"url": "https://example.com"})
 
         assert result["status"] == "error"
-        assert "timed out" in result["error"].lower()
+        assert "browser fallback failed" in result["error"].lower()
 
     @patch("apps.backend.workers.sitemap_worker.requests.get")
     def test_generic_request_exception(self, mock_get):

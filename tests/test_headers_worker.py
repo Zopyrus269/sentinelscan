@@ -56,14 +56,18 @@ class TestHeadersWorker(unittest.TestCase):
         self.assertEqual(len(result["missing_headers"]), 0)
 
     @patch("requests.get")
-    def test_headers_worker_timeout_exception(self, mock_get):
-        """Test timeout exception handling in headers_worker."""
+    @patch("headers_worker.fetch_with_browser")
+    def test_headers_worker_timeout_exception(self, mock_fetch_with_browser, mock_get):
+        """Test timeout exception handling in headers_worker when the
+        Playwright fallback also fails (both the primary request and the
+        browser retry must fail for this to surface as a worker error)."""
         mock_get.side_effect = requests.exceptions.Timeout("Connection timed out")
+        mock_fetch_with_browser.side_effect = Exception("browser fallback failed")
 
         result = headers_worker(self.target_url)
 
         self.assertIn("error", result)
-        self.assertEqual(result["error"], "Request timed out.")
+        self.assertEqual(result["error"], "Browser fallback failed")
 
 
 if __name__ == "__main__":
