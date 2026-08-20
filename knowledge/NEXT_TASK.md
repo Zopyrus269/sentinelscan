@@ -10,23 +10,24 @@ This file is always **overwritten**, not appended -- it reflects the current han
 
 ## What's next
 
-**One PR awaiting merge: PR #4** (session 15, Graphify code-structure graph integration) --
-https://github.com/Zopyrus269/sentinelscan/pull/4, branch `feat/graphify-setup`. Committed, pushed,
-tested (graph scope verified, real query smoke-tested), not yet merged -- per the standing
-PR-required-for-main rule, that's for the user to read and merge (Squash and merge recommended, per
-session 14's convention), then delete the branch. Full detail in [[2026-08-20]] (session 15).
+**Nothing is pending.** PR #4 (session 15, Graphify code-structure graph integration) is merged into
+`main` as `790c000` -- squash-merged after fixing a Gitleaks false positive (graphify's internal
+`cache/` directory stored content hashes that read as secret-shaped strings; untracked it and rewrote
+the branch history to a single clean commit before merging, see [[2026-08-20]]). Repo has exactly one
+branch, `main`, both locally and on `origin` -- verified via `git branch -a -v`.
 
-Once merged: treat `graphify query <question>`, `graphify path <A> <B>`, `graphify explain <concept>` as
-the first tool for any structural "what calls X / where is Y / how do these connect" question in this
-repo -- `graphify-out/graph.json` will exist on `main` at that point. See `CLAUDE.md` section 11 for the
+`graphify-out/graph.json` now exists on `main` -- treat `graphify query <question>`,
+`graphify path <A> <B>`, `graphify explain <concept>` as the first tool for any structural "what calls X
+/ where is Y / how do these connect" question in this repo. See `CLAUDE.md` section 11 for the
 read-anytime/write-at-session-end policy and the corrected regen command
-(`graphify extract . --code-only --force`, never `update`).
+(`graphify extract . --code-only --force`, never `update`, and only when `apps/`, `scripts/`, or
+`tests/` have actually changed -- confirmed unchanged as of session 15's close, so the graph is current).
 
-Otherwise, nothing else is pending. Both PRs from session 14 are merged into `main` (PR #1 `c585671`,
-PR #2 `6eee4b4`), every side branch from that session was deleted. Full test suite re-run on merged
-`main` (pre-session-15): 139 passed, 1 skipped, same 5 pre-existing unrelated failures as before (see
-"Other findings" below) -- nothing broken by the merge. Do not assume anything below is "next up"
-without the user actually asking.
+Both PRs from session 14 are also merged into `main` (PR #1 `c585671`, PR #2 `6eee4b4`), every side
+branch from that session was deleted. Full test suite re-run on merged `main` (pre-session-15): 139
+passed, 1 skipped, same 5 pre-existing unrelated failures as before (see "Other findings" below) --
+nothing broken by any merge so far. Do not assume anything below is "next up" without the user actually
+asking.
 
 **The PR-required-for-main rule (CLAUDE.md section 10) is now live in `main` itself**, not just on a
 branch. From this point on, *every* future session must open a short-lived branch + PR for any work
@@ -43,8 +44,12 @@ unwanted `PreToolUse` hook + CLAUDE.md text). Built the initial graph (`graphify
 `cluster-only --no-label`, `label --backend=claude-cli`). Caught and fixed a real issue mid-build: a
 minified Vite bundle (`apps/frontend/static/react-dist/main.js`) was 57% of the first build's nodes,
 pure noise -- excluded it and rebuilt to a clean **1050 nodes / 1747 edges / 86 communities**. Verified
-scope (zero nodes from excluded paths) and smoke-tested with a real query. Opened as PR #4, not yet
-merged.
+scope (zero nodes from excluded paths) and smoke-tested with a real query. Opened as PR #4; Gitleaks then
+flagged `graphify-out/cache/stat-index.json`'s content-hash strings as a false-positive secret --
+untracked `cache/`, rewrote the branch to one clean commit, and squash-merged as `790c000`. Deleted
+`feat/graphify-setup` (local + remote) -- repo back down to just `main`. User then set a new global rule
+(not project-specific, see standing rules below): no `Co-Authored-By: Claude` trailer on any commit,
+ever.
 
 ## Session 14 summary (2026-08-20) -- full detail in [[2026-08-20]]
 
@@ -73,15 +78,22 @@ local and remote. Repo now has exactly one branch.
   the actual control, not a second person's sign-off. Never `git push` directly to `main` or
   `git merge` into a locally checked-out `main` and push that -- always branch -> commit -> push branch
   -> open PR -> read the diff -> merge via GitHub (**Squash and merge** is the recommended method --
-  keeps `main` to one clean commit per PR, matches the "small, atomic commits" convention, and GitHub
-  still credits co-authors via a `Co-authored-by:` trailer even when commits get folded together).
+  keeps `main` to one clean commit per PR, matches the "small, atomic commits" convention). Commits no
+  longer carry a `Co-authored-by:` trailer at all as of session 15 -- see the no-Claude-co-author rule
+  below.
 - **User wants only `main` to exist in this repo, permanently** -- confirmed explicitly in session 14
   after the cleanup. Delete every branch (local + remote) as soon as its PR is merged; don't leave
   merged branches sitting around "just in case." This includes short-lived branches created purely for
   a knowledge-vault update.
 - **Never spawn a subagent without asking the user first and stating the reason.** Codified globally in
   `C:\Users\ADMIN\.claude\CLAUDE.md`.
-- **New as of session 15: `graphify-out/graph.json` exists once PR #4 merges -- reach for `graphify
+- **New as of session 15: no commit in this repo (or any repo on this machine) should carry a
+  `Co-Authored-By: Claude` trailer.** Commits show only the user's own git identity. Codified globally in
+  `C:\Users\ADMIN\.claude\CLAUDE.md` ("Git commit authorship" section) and in Claude Code's cross-session
+  memory -- not a SentinelScan-specific decision, so there's no `knowledge/DECISIONS.md` entry for it,
+  just this note. The pre-existing merged commit `790c000` still has the old trailer and was **not**
+  rewritten (would need a force-push to `main`, not requested).
+- **New as of session 15: `graphify-out/graph.json` exists on `main` -- reach for `graphify
   query`/`path`/`explain` first on any structural question** ("what calls X", "where is Y defined",
   "how do these connect") before a grep-and-read sweep. Codified globally (applies to every project) in
   `~/.claude/CLAUDE.md`, with repo-specific scope/policy detail in this project's `CLAUDE.md` section 11.
@@ -157,9 +169,8 @@ local and remote. Repo now has exactly one branch.
 ## Links
 
 - Latest daily log: [[2026-08-20]] (sessions 14-15)
-- Open PR: [#4](https://github.com/Zopyrus269/sentinelscan/pull/4) (Graphify integration, session 15,
-  awaiting merge)
-- Merged PRs: [#1](https://github.com/Zopyrus269/sentinelscan/pull/1) (dhanush-changes security
+- Merged PRs: [#4](https://github.com/Zopyrus269/sentinelscan/pull/4) (Graphify integration, session 15,
+  merged as `790c000`), [#1](https://github.com/Zopyrus269/sentinelscan/pull/1) (dhanush-changes security
   hardening + SSRF fix), [#2](https://github.com/Zopyrus269/sentinelscan/pull/2) (PR-required rule)
 - Live site: `https://sentinelscan-yd2u.onrender.com` -- Google sign-in confirmed working end-to-end as
   of session 13.
