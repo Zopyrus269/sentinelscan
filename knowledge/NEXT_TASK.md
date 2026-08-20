@@ -10,17 +10,41 @@ This file is always **overwritten**, not appended -- it reflects the current han
 
 ## What's next
 
-**Nothing is pending.** Both PRs from session 14 are merged into `main` (PR #1 `c585671`, PR #2
-`6eee4b4`), every side branch has been deleted, and the repo now has exactly one branch, `main`, on
-both local and `origin`. Full test suite re-run on merged `main`: 139 passed, 1 skipped, same 5
-pre-existing unrelated failures as before (see "Other findings" below) -- nothing broken by the merge.
-Do not assume anything below is "next up" without the user actually asking.
+**One PR awaiting merge: PR #4** (session 15, Graphify code-structure graph integration) --
+https://github.com/Zopyrus269/sentinelscan/pull/4, branch `feat/graphify-setup`. Committed, pushed,
+tested (graph scope verified, real query smoke-tested), not yet merged -- per the standing
+PR-required-for-main rule, that's for the user to read and merge (Squash and merge recommended, per
+session 14's convention), then delete the branch. Full detail in [[2026-08-20]] (session 15).
+
+Once merged: treat `graphify query <question>`, `graphify path <A> <B>`, `graphify explain <concept>` as
+the first tool for any structural "what calls X / where is Y / how do these connect" question in this
+repo -- `graphify-out/graph.json` will exist on `main` at that point. See `CLAUDE.md` section 11 for the
+read-anytime/write-at-session-end policy and the corrected regen command
+(`graphify extract . --code-only --force`, never `update`).
+
+Otherwise, nothing else is pending. Both PRs from session 14 are merged into `main` (PR #1 `c585671`,
+PR #2 `6eee4b4`), every side branch from that session was deleted. Full test suite re-run on merged
+`main` (pre-session-15): 139 passed, 1 skipped, same 5 pre-existing unrelated failures as before (see
+"Other findings" below) -- nothing broken by the merge. Do not assume anything below is "next up"
+without the user actually asking.
 
 **The PR-required-for-main rule (CLAUDE.md section 10) is now live in `main` itself**, not just on a
 branch. From this point on, *every* future session must open a short-lived branch + PR for any work
 reaching `main` -- including a routine knowledge-vault-only update -- then delete that branch once
 merged, to keep `main` as the repo's only permanent branch, per explicit user instruction. GitHub branch
 protection backs this up server-side (`enforce_admins: true`, direct pushes to `main` are rejected).
+
+## Session 15 summary (2026-08-20) -- full detail in [[2026-08-20]]
+
+Copied the user's already-working Graphify integration from their other project (Clyro) into this repo:
+`.claude/skills/graphify/`, a repo-scoped `.graphifyignore`, and a new `CLAUDE.md` section 11 -- all
+copied/written by hand, never via `graphify install` (which Clyro's notes document as auto-installing an
+unwanted `PreToolUse` hook + CLAUDE.md text). Built the initial graph (`graphify extract . --code-only`,
+`cluster-only --no-label`, `label --backend=claude-cli`). Caught and fixed a real issue mid-build: a
+minified Vite bundle (`apps/frontend/static/react-dist/main.js`) was 57% of the first build's nodes,
+pure noise -- excluded it and rebuilt to a clean **1050 nodes / 1747 edges / 86 communities**. Verified
+scope (zero nodes from excluded paths) and smoke-tested with a real query. Opened as PR #4, not yet
+merged.
 
 ## Session 14 summary (2026-08-20) -- full detail in [[2026-08-20]]
 
@@ -57,6 +81,14 @@ local and remote. Repo now has exactly one branch.
   a knowledge-vault update.
 - **Never spawn a subagent without asking the user first and stating the reason.** Codified globally in
   `C:\Users\ADMIN\.claude\CLAUDE.md`.
+- **New as of session 15: `graphify-out/graph.json` exists once PR #4 merges -- reach for `graphify
+  query`/`path`/`explain` first on any structural question** ("what calls X", "where is Y defined",
+  "how do these connect") before a grep-and-read sweep. Codified globally (applies to every project) in
+  `~/.claude/CLAUDE.md`, with repo-specific scope/policy detail in this project's `CLAUDE.md` section 11.
+  Regenerate only at session-end, batched with the knowledge-vault write, using
+  `graphify extract . --code-only --force` -- never `graphify update .` (has no `--code-only` flag, can
+  silently reintroduce excluded paths). See [[DECISIONS]]'s 2026-08-20 Graphify entry for full
+  rationale.
 - **Never call the Claude-in-Chrome skill or any `mcp__claude-in-chrome__*` tool without the user's
   explicit approval first**, and re-ask for each new need even within the same session (approval
   doesn't carry over automatically) -- *except* continuing to use it within a single already-authorized
@@ -124,7 +156,9 @@ local and remote. Repo now has exactly one branch.
 
 ## Links
 
-- Latest daily log: [[2026-08-20]] (session 14)
+- Latest daily log: [[2026-08-20]] (sessions 14-15)
+- Open PR: [#4](https://github.com/Zopyrus269/sentinelscan/pull/4) (Graphify integration, session 15,
+  awaiting merge)
 - Merged PRs: [#1](https://github.com/Zopyrus269/sentinelscan/pull/1) (dhanush-changes security
   hardening + SSRF fix), [#2](https://github.com/Zopyrus269/sentinelscan/pull/2) (PR-required rule)
 - Live site: `https://sentinelscan-yd2u.onrender.com` -- Google sign-in confirmed working end-to-end as

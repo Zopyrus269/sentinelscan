@@ -1,0 +1,57 @@
+# Graphify is a CODE-ONLY structural layer for this repo (see CLAUDE.md).
+# Scope is deliberately just apps/backend/, apps/frontend/, scripts/ and tests/ —
+# the SentinelScan codebase itself. The knowledge/ vault covers intent, history
+# and prose; graphify must not duplicate it, and must never need an LLM to
+# index this repo.
+#
+# Regenerate with:  graphify extract . --code-only --force
+# NOT with `graphify update .` — update has no --code-only flag and simply
+# re-extracts whatever the manifest already holds, so it cannot narrow scope.
+# Verify after regenerating: the graph should contain no node whose source is
+# a .md file or lives under .agents/, .claude/, docs/, knowledge/ or secrets/.
+
+# --- The other memory layer -------------------------------------------------
+knowledge/
+knowledge/.obsidian/
+
+# --- Prose specs ------------------------------------------------------------
+# Authoritative, but documentation rather than structure.
+docs/
+*.md
+
+# --- Agent and editor tooling -----------------------------------------------
+.agents/
+.claude/
+.cursor/
+.vscode/
+
+# --- Generated output and caches --------------------------------------------
+graphify-out/
+node_modules/
+dist/
+build/
+.next/
+coverage/
+*.lock
+package-lock.json
+
+# Vite-built React bundle (minified, includes vendored three.js etc.) — a
+# build artifact, not source. Accounted for 1409/2459 nodes (57%) on the
+# first build, all "Minified Bundle Internals" / "WebGL Renderer Internals"
+# noise. Source lives in apps/frontend/react-app/src/.
+apps/frontend/static/react-dist/
+
+# --- Python environment and caches ------------------------------------------
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+
+# --- Runtime output, credentials and secrets ---------------------------------
+# Generated scan output, not code; nothing here should ever land in a
+# committed graph.
+reports/
+secrets/
+auth_session.json
+scripts/oauth_client.json

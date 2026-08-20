@@ -103,4 +103,14 @@ All previously flagged items here were resolved on 2026-08-09 (see `knowledge/da
 - Rationale: forces a human to actually read AI-generated code before it reaches `main`, rather than
   trusting it blindly — a habit, not a gate that needs a second person.
 
+## 11. Graphify — code structure layer
+
+`graphify-out/` holds a code-only structural graph (imports, calls, classes — via local AST parsing, no LLM) built by [Graphify](https://github.com/Graphify-Labs/graphify). It is a **separate layer from `knowledge/`**: `knowledge/` is WHY/intent/history (manual, human-curated); `graphify-out/` is WHAT exists/WHERE/HOW it connects (automatic, code-only). Scope is permanently code-only (`apps/backend/`, `apps/frontend/`, `scripts/`, `tests/`) — `knowledge/`, `docs/`, `.agents/`, `.claude/`, `secrets/` and generated/runtime output are hard-excluded via `.graphifyignore`, so Graphify never needs to spawn subagents (which would otherwise require the per-instance approval required by the global Subagent policy).
+
+**Read side — automatic, no approval needed.** During any build task, freely run `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` against `graphify-out/graph.json` (when it exists) to understand code structure before editing — cheaper and more targeted than a grep-and-read sweep. Treat its answers as a starting point, not gospel: verify against the actual file before editing, since the graph can lag behind the latest edits.
+
+**Write side — session-end only, same rule as the knowledge vault.** Any regeneration of `graphify-out/` is **never** run mid-task or after every prompt — only when the user signals the session is wrapping up, batched together with the (separate, still-on-explicit-request-only) knowledge base update above. Reasoning: a session may add and remove features repeatedly before settling, so refreshing the graph after every intermediate step wastes cycles and defeats the point of using it to cut tokens.
+
+**Regenerate with `graphify extract . --code-only --force`, not `graphify update .`.** `update` has **no** `--code-only` flag — it re-extracts whatever the manifest already holds, so it cannot narrow scope and would let excluded paths back into the graph. Then name the clusters with `graphify label . --backend=claude-cli --max-concurrency=1`; there is no `GEMINI_API_KEY`/`GOOGLE_API_KEY` on this machine, and the local CLI backend needs neither. Afterwards **verify the scope held**: no node's `source_file` should be a `.md` or live under `.agents/`, `.claude/`, `docs/`, `knowledge/` or `secrets/`.
+
 See `knowledge/PROJECT_CONTEXT.md` for full current-state detail.
