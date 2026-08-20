@@ -1,6 +1,6 @@
 ---
 type: knowledge-vault-core
-last_updated: 2026-08-09
+last_updated: 2026-08-20
 updated_by: claude-code
 ---
 
@@ -9,6 +9,24 @@ updated_by: claude-code
 This file holds only **changes since** `docs/ARCHITECTURE.md` — it never restates the static doc. If a change here becomes permanent/stable, it's still logged here (not deleted); reconciling it back into `docs/ARCHITECTURE.md` is a separate, deliberate editorial decision, not automatic.
 
 Each entry: date, what changed, why, where.
+
+## 2026-08-20: Graphify code-structure graph added as a second, automatic memory layer
+
+- Added `graphify-out/` (a code-only, LLM-free AST call/import/class graph built by the third-party
+  [Graphify](https://github.com/Graphify-Labs/graphify) CLI), `.graphifyignore`, and
+  `.claude/skills/graphify/` — sits alongside `knowledge/`, not inside it. `knowledge/` stays
+  WHY/intent/history (manual, session-end writes); `graphify-out/` is WHAT-exists/WHERE/HOW-it-connects
+  (automatic, code-only, rebuilt only at session-end same as the vault).
+- No changes to `apps/backend/` or `apps/frontend/` runtime behavior — this is tooling/process only,
+  same category as the 2026-08-07 knowledge-vault entry below.
+- Setup was copied from an already-working integration in the user's other project (Clyro), adapted for
+  this repo's scope (`apps/backend/`, `apps/frontend/`, `scripts/`, `tests/`) and its own generated/
+  sensitive paths (`reports/`, `secrets/`, `.venv/`, `auth_session.json`, `scripts/oauth_client.json`,
+  all hard-excluded via `.graphifyignore`).
+- See [[2026-08-20]] (session 15) for the full build process and a bug caught mid-build (a minified Vite
+  bundle, `apps/frontend/static/react-dist/main.js`, initially polluted 57% of the graph with build-
+  artifact noise — excluded and rebuilt) and [[DECISIONS]] for the full rationale, mirroring Clyro's own
+  ADR for the same integration.
 
 ## 2026-08-07: Knowledge vault + Claude Code workflow added
 

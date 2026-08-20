@@ -107,3 +107,13 @@ scripts/oauth_client.json
 
 # Obsidian vault local state (not project content)
 .obsidian/
+
+# Graphify local-only cost log (graphify-out/ itself is committed — see CLAUDE.md)
+graphify-out/cost.json
+
+# Graphify's internal AST/stat cache — pure local performance cache, regenerates
+# automatically from file mtimes/hashes, nothing to review in a diff. Also trips
+# gitleaks' generic-api-key rule: stat-index.json stores SHA256 content hashes
+# per file, which read as high-entropy secret-shaped strings (false positive,
+# confirmed 2026-08-20 — see knowledge/DECISIONS.md).
+graphify-out/cache/

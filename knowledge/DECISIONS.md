@@ -8,6 +8,62 @@ updated_by: claude-code
 
 Lightweight, reverse-chronological decision log. Not full ADR ceremony — kept cheap enough to actually maintain. Newest first.
 
+## 2026-08-20: Integrate Graphify as a code-only structural graph layer, copied from Clyro
+
+**Context:** The user had already worked out this integration once, in their other project (Clyro), and
+wanted the identical setup in this repo rather than a fresh design — see [[2026-08-20]] (session 15) for
+the full copy-and-adapt process. Clyro's own vault documented a real gotcha worth inheriting the fix
+for: `graphify install --project` / `graphify claude install` auto-append a section to `CLAUDE.md` and
+auto-install a `PreToolUse` hook intercepting every Read/Grep/Bash call — neither wanted, since it adds
+a second enforcement layer on top of this project's existing permission-gate philosophy that nobody
+asked for.
+
+**Decision:**
+1. **Scope permanently code-only.** `.graphifyignore` excludes `knowledge/`, `docs/`, `.agents/`,
+   `.claude/`, `secrets/`, `.venv/`, and other non-code/sensitive paths; every build uses `--code-only`.
+   Graphify's semantic/subagent path never triggers, so it never collides with the global "ask before
+   spawning any subagent" rule.
+2. **No installer, no hook.** Every file (`.claude/skills/graphify/`, `.graphifyignore`, the CLAUDE.md
+   section) was copied/written by hand from Clyro's working setup, never via `graphify install`. This
+   project's existing single `PostToolUse` vault-reminder hook in `.claude/settings.json` stays as the
+   only hook.
+3. **Read/write asymmetry, mirroring the knowledge vault exactly.** Querying the graph (`graphify
+   query`/`path`/`explain`) is allowed automatically, anytime, during a build task — no approval needed.
+   Regenerating it only happens at session-end, batched with the (unchanged) knowledge-vault write
+   trigger.
+4. **Regenerate with `graphify extract . --code-only --force`, never `graphify update .`** — inherited
+   directly from a bug Clyro hit and fixed on 2026-08-18: `update` has no `--code-only` flag, so it
+   re-extracts whatever the manifest already holds and cannot narrow scope, letting excluded paths back
+   into the graph silently.
+5. **`graphify-out/` is committed to git**, except `graphify-out/cost.json` (gitignored, local-only
+   noise) — same call Clyro made, appropriate at this project's similar solo/small-team scale.
+6. Already-installed CLI (`uv tool install graphifyy`, v0.9.45, done previously for Clyro) — machine-wide,
+   not a project dependency, nothing added to `package.json`/`requirements.txt`.
+
+**A real bug caught during the first build (not present in Clyro's setup, SentinelScan-specific):**
+`apps/frontend/static/react-dist/main.js`, a minified Vite build bundle vendoring three.js, was not
+excluded and accounted for 1409 of the first build's 2459 nodes (57%) — pure build-artifact noise,
+surfacing as meaningless communities like "Minified Bundle Internals". Added
+`apps/frontend/static/react-dist/` to `.graphifyignore` and rebuilt to a clean 1050-node graph. Verified
+afterward that no node's `source_file` lives under any excluded path.
+
+**Consequences:** Structural questions during build tasks ("what calls X", "where is Y defined") can be
+answered from a pre-built index instead of a grep-and-read sweep, at zero ongoing token cost for
+extraction (ND: community labeling used the local `claude-cli` backend, ~93k input / 3.6k output tokens
+for 86 communities, since no `GEMINI_API_KEY`/`GOOGLE_API_KEY` is set on this machine — a one-time cost
+per relabel, not per query). The graph can go stale mid-session by design (write side is session-end
+only) — always verify a query's answer against the real file before editing, never trust it blindly. If
+Graphify is ever reinstalled/upgraded past v0.9.45, re-check for the installer-hook/CLAUDE.md-append
+behavior — Clyro's experience showed it should not be assumed to only do what's expected.
+
+**Rejected alternatives:** same as Clyro's original ADR (including docs/PDFs in the graph — would
+require per-instance subagent-spawn approval on every doc-touching rebuild; using
+`graphify install`/`claude install` — adds an unwanted second enforcement layer;
+`graphify update .` after every prompt — wastes cycles during in-session iteration). Not re-litigated
+here since the underlying reasoning is identical to Clyro's; see that project's
+`knowledge/Decisions/Integrate Graphify as a code-only structural graph layer.md` if the full original
+writeup is ever needed.
+
 ## 2026-08-20: All merges to `main` require a reviewed, accepted pull request — no exceptions
 
 **Context:** Reviewing the `dhanush-changes` branch during a repo cleanup surfaced a real bug that would
