@@ -175,16 +175,20 @@ class TestSSLWorker:
     # 6. Socket Timeout Test
     @patch("apps.backend.workers.ssl_worker.verified_tls_connection")
     def test_socket_timeout(self, mock_fetch):
-        """Test handling of connection timeouts."""
+        """A TLS handshake timeout is treated as security evidence (the
+        target dropped the connection before presenting a cert), not a
+        worker failure -- same philosophy as the SSLCertVerificationError
+        branch just above it in perform_ssl_inspection."""
         mock_fetch.side_effect = socket.timeout("timed out")
 
         input_payload = {"target": "slow-server.com", "timeout": 2.0}
         result = run_worker(input_payload)
 
         assert result["worker"] == "ssl"
-        assert result["status"] == "error"
-        assert result["data"] == {}
-        assert "TLS connection timed out" in result["error"]
+        assert result["status"] == "success"
+        assert result["error"] is None
+        assert result["data"]["certificate_verified"] is False
+        assert "dropped connection" in result["data"]["verification_error"].lower()
 
     # 7. Connection Refused Test
     @patch("apps.backend.workers.ssl_worker.verified_tls_connection")

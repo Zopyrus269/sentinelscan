@@ -68,14 +68,18 @@ class TestCookieWorker(unittest.TestCase):
         self.assertIn("HttpOnly", cookie_info["missing_flags"])
 
     @patch("requests.get")
-    def test_cookies_worker_connection_error(self, mock_get):
-        """Test connection error handling in cookie_worker."""
+    @patch("cookie_worker.fetch_with_browser")
+    def test_cookies_worker_connection_error(self, mock_fetch_with_browser, mock_get):
+        """Test connection error handling in cookie_worker when the Playwright
+        fallback also fails (both the primary request and the browser retry
+        must fail for this to surface as a worker error)."""
         mock_get.side_effect = requests.exceptions.ConnectionError("Failed to resolve host")
+        mock_fetch_with_browser.side_effect = Exception("browser fallback failed")
 
         result = cookie_worker(self.target_url)
 
         self.assertIn("error", result)
-        self.assertEqual(result["error"], "Failed to connect to target URL.")
+        self.assertEqual(result["error"], "Browser fallback failed")
 
 
 if __name__ == "__main__":
