@@ -138,6 +138,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers.Authorization = `Bearer ${idToken}`;
             }
 
+            // No-op today: telemetry.js isn't loaded on this page yet. Once a later
+            // phase adds it, this starts tagging each scan request with a session/trace
+            // id automatically, with no further change needed here.
+            if (window.SentinelTelemetry) {
+                headers["X-SentinelScan-Session"] = window.SentinelTelemetry.getSessionId();
+                headers["X-SentinelScan-Trace"] = window.SentinelTelemetry.newTraceId();
+            }
+
             const response = await fetch(
                 `${API_BASE_URL}/scans`,
                 {
