@@ -1,0 +1,3 @@
+"""
+SentinelScan Log Site package.
+"""

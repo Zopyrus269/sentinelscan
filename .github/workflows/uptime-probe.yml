@@ -1,0 +1,56 @@
+name: SentinelScan Uptime Probe
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uptime-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Main Site Health & Post Telemetry
+        env:
+          PROBE_TOKEN: ${{ secrets.LOGSITE_PROBE_TOKEN }}
+          MAIN_SITE_URL: ${{ vars.MAIN_SITE_URL || 'https://sentinelscan-yd2u.onrender.com' }}
+          LOGSITE_URL: ${{ vars.LOGSITE_URL || 'https://sentinelscan-logs.onrender.com' }}
+        run: |
+          START_TIME=$(date +%s%3N)
+          CHECKED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Execute curl without --fail so failures are captured as data
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${MAIN_SITE_URL}/health" || echo "000")
+          END_TIME=$(date +%s%3N)
+          LATENCY_MS=$((END_TIME - START_TIME))
+
+          OK=false
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            OK=true
+          fi
+
+          echo "Probe checked ${MAIN_SITE_URL}/health: status=${HTTP_STATUS}, latency=${LATENCY_MS}ms, ok=${OK}"
+
+          # Construct payload JSON
+          PAYLOAD=$(cat <<EOF
+          {
+            "component": "web",
+            "ok": ${OK},
+            "status": ${HTTP_STATUS},
+            "latency_ms": ${LATENCY_MS},
+            "checked_at": "${CHECKED_AT}"
+          }
+          EOF
+          )
+
+          # Post probe result to Log Site
+          if [ -n "$PROBE_TOKEN" ]; then
+            curl -s -X POST "${LOGSITE_URL}/api/probe" \
+              -H "Content-Type: application/json" \
+              -H "X-Probe-Token: ${PROBE_TOKEN}" \
+              -d "$PAYLOAD" || echo "Failed to post probe result to logsite."
+          else
+            echo "LOGSITE_PROBE_TOKEN secret is not set. Skipping payload POST."
+          fi

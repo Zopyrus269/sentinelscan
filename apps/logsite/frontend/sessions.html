@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SentinelScan session explorer and AI trace debugger.">
+  <title>Sessions — SentinelScan</title>
+  <link rel="stylesheet" href="/static/css/logsite.css">
+  <style>
+    .session-item { padding:12px 14px; border-radius:8px; cursor:pointer; transition:background 150ms,border-color 150ms; border:1px solid transparent; }
+    .session-item:hover { background:var(--ss-surface-low); }
+    .session-item.selected { background:var(--ss-primary-bg); border-color:var(--ss-primary); }
+  </style>
+</head>
+<body>
+
+  <header class="ls-header">
+    <div class="ls-header-inner">
+      <a href="/" class="ls-brand">SentinelScan <span class="ls-brand-sub">/ Observability</span></a>
+      <button class="ls-mobile-toggle" onclick="window.toggleMobileNav()" aria-label="Toggle navigation">☰</button>
+      <nav id="mainNav" class="ls-nav">
+        <a href="/">Status</a>
+        <a href="/live.html">Live</a>
+        <a href="/sessions.html" class="active">Sessions</a>
+        <a href="/llm.html">Gemini</a>
+        <a href="/health.html">Health</a>
+      </nav>
+      <div class="ls-header-right">
+        <div id="authControls"></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="ls-container" style="padding-top:28px;padding-bottom:48px;">
+
+      <div id="logsiteAuthBanner" class="hidden"></div>
+
+      <div style="margin-bottom:24px;">
+        <h1 class="ls-page-title">Session Explorer</h1>
+        <p class="ls-page-subtitle">Inspect user sessions, execution traces, and AI reasoning decisions.</p>
+      </div>
+
+      <!-- Split Pane -->
+      <div style="display:grid;grid-template-columns:340px 1fr;gap:20px;min-height:calc(100vh - 200px);">
+
+        <!-- LEFT: Sessions List -->
+        <div class="ls-card" style="padding:0;display:flex;flex-direction:column;overflow:hidden;max-height:calc(100vh - 180px);">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--ss-border);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:13px;font-weight:600;color:var(--ss-text);">Sessions</span>
+            <span id="sessionsCount" style="font-size:11px;color:var(--ss-text-muted);">0</span>
+          </div>
+          <div style="padding:8px 12px;border-bottom:1px solid var(--ss-border);">
+            <input id="sessionSearchInput" type="text" placeholder="Filter by email or ID…" class="ls-input" style="font-size:12px;padding:6px 10px;">
+          </div>
+          <div id="sessionsList" style="flex:1;overflow-y:auto;padding:8px;">
+            <div style="padding:32px 16px;text-align:center;font-size:13px;color:var(--ss-text-muted);">
+              <span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Loading sessions…
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Timeline -->
+        <div class="ls-card" style="padding:0;display:flex;flex-direction:column;overflow:hidden;max-height:calc(100vh - 180px);">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--ss-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div id="activeSessionTitle" style="font-size:14px;font-weight:600;color:var(--ss-text);">Select a session</div>
+              <div id="activeSessionSubtitle" style="font-size:12px;color:var(--ss-text-muted);margin-top:2px;">Choose a user visit from the left pane to inspect its timeline.</div>
+            </div>
+            <button id="btnCopyTimeline" class="ls-btn-secondary hidden" style="font-size:12px;padding:5px 12px;">📋 Copy Timeline</button>
+          </div>
+          <div id="timelineContainer" style="flex:1;overflow-y:auto;padding:16px;">
+            <div class="ls-empty">
+              <div class="ls-empty-icon">🔍</div>
+              <div class="ls-empty-title">No session selected</div>
+              <div class="ls-empty-desc">Select a session from the list to view its execution trace and AI decisions.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/sessions.js"></script>
+</body>
+</html>

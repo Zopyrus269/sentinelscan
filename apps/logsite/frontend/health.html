@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SentinelScan system health, worker diagnostics, and error fingerprinting.">
+  <title>System Health — SentinelScan</title>
+  <link rel="stylesheet" href="/static/css/logsite.css">
+</head>
+<body>
+
+  <header class="ls-header">
+    <div class="ls-header-inner">
+      <a href="/" class="ls-brand">SentinelScan <span class="ls-brand-sub">/ Observability</span></a>
+      <button class="ls-mobile-toggle" onclick="window.toggleMobileNav()" aria-label="Toggle navigation">☰</button>
+      <nav id="mainNav" class="ls-nav">
+        <a href="/">Status</a>
+        <a href="/live.html">Live</a>
+        <a href="/sessions.html">Sessions</a>
+        <a href="/llm.html">Gemini</a>
+        <a href="/health.html" class="active">Health</a>
+      </nav>
+      <div class="ls-header-right">
+        <div id="authControls"></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="ls-container" style="padding-top:28px;padding-bottom:48px;">
+
+      <div id="logsiteAuthBanner" class="hidden"></div>
+
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+        <div>
+          <h1 class="ls-page-title">System Health</h1>
+          <p class="ls-page-subtitle">Worker diagnostics, error rates, and crash fingerprinting.</p>
+        </div>
+        <div id="healthLastRefreshed" style="font-size:13px;color:var(--ss-text-muted);padding-top:6px;">—</div>
+      </div>
+
+      <!-- KPI Grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px;">
+        <div class="ls-card">
+          <div class="kpi-label">Error Rate (1h)</div>
+          <div class="kpi-value" id="kpiErrorRate">—</div>
+          <div class="kpi-sub" id="kpiErrorSub"></div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">P50 / P95 Latency</div>
+          <div class="kpi-value" id="kpiLatency">—</div>
+          <div class="kpi-sub" id="kpiRequests"></div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Worker Success</div>
+          <div class="kpi-value" id="kpiWorkerSuccess">—</div>
+          <div class="kpi-sub" id="kpiWorkerSub"></div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Gemini Retry Rate</div>
+          <div class="kpi-value" id="kpiRetry">—</div>
+          <div class="kpi-sub" id="kpiFailure"></div>
+        </div>
+      </div>
+
+      <!-- Worker Health Table -->
+      <div class="ls-card" style="padding:0;overflow:hidden;margin-bottom:32px;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--ss-border);">
+          <h2 class="ls-section-title">Worker Health</h2>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="ls-table">
+            <thead>
+              <tr>
+                <th>Worker</th>
+                <th style="text-align:right;">Completed</th>
+                <th style="text-align:right;">Failed</th>
+                <th style="text-align:right;width:160px;">Success Rate</th>
+                <th style="text-align:right;width:110px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="workersTbody">
+              <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--ss-text-muted);font-size:13px;">
+                <span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Loading worker health…
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Error Fingerprints -->
+      <div class="ls-card" style="padding:0;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--ss-border);">
+          <h2 class="ls-section-title">Error Fingerprints</h2>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="ls-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Fingerprint</th>
+                <th>Error</th>
+                <th style="text-align:right;width:100px;">Count</th>
+                <th style="text-align:right;width:120px;">Session</th>
+              </tr>
+            </thead>
+            <tbody id="fingerprintsTbody">
+              <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--ss-text-muted);font-size:13px;">No error fingerprints recorded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/health.js"></script>
+</body>
+</html>

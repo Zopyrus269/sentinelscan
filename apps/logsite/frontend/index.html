@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SentinelScan system status, uptime, and service health.">
+  <title>System Status — SentinelScan</title>
+  <link rel="stylesheet" href="/static/css/logsite.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="ls-header">
+    <div class="ls-header-inner">
+      <a href="/" class="ls-brand">SentinelScan <span class="ls-brand-sub">/ Observability</span></a>
+
+      <button class="ls-mobile-toggle" onclick="window.toggleMobileNav()" aria-label="Toggle navigation">☰</button>
+
+      <nav id="mainNav" class="ls-nav">
+        <a href="/" class="active">Status</a>
+        <a href="/live.html">Live</a>
+        <a href="/sessions.html">Sessions</a>
+        <a href="/llm.html">Gemini</a>
+        <a href="/health.html">Health</a>
+      </nav>
+
+      <div class="ls-header-right">
+        <div id="authControls"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <div class="ls-container" style="padding-top:28px;padding-bottom:48px;">
+
+      <!-- Auth Banner (in flow, below header) -->
+      <div id="logsiteAuthBanner" class="hidden"></div>
+
+      <!-- Page Header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+        <div>
+          <h1 class="ls-page-title">System Status</h1>
+          <p class="ls-page-subtitle">Real-time SentinelScan service health and activity.</p>
+        </div>
+        <div id="lastRefreshed" style="font-size:13px;color:var(--ss-text-muted);padding-top:6px;">
+          <span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Checking status…
+        </div>
+      </div>
+
+      <!-- Overall Status Card -->
+      <div id="overallStatusCard" class="ls-card" style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="ls-spinner"></span>
+          <div>
+            <div style="font-size:16px;font-weight:600;color:var(--ss-text);">Checking system status…</div>
+            <div style="font-size:13px;color:var(--ss-text-muted);margin-top:2px;">Fetching latest telemetry.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Grid -->
+      <div id="kpiGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px;">
+        <div class="ls-card">
+          <div class="kpi-label">Active Users</div>
+          <div class="kpi-value" id="kpiActiveUsers">—</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Error Rate</div>
+          <div class="kpi-value" id="kpiErrorRate">—</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">P95 Latency</div>
+          <div class="kpi-value" id="kpiLatency">—</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Gemini</div>
+          <div class="kpi-value" id="kpiGemini">—</div>
+        </div>
+      </div>
+
+      <!-- Core Services -->
+      <div style="margin-bottom:32px;">
+        <h2 class="ls-section-title" style="margin-bottom:16px;">Core Services</h2>
+        <div id="servicesList">
+          <div class="ls-card ls-empty">
+            <div class="ls-empty-icon">📡</div>
+            <div class="ls-empty-title">Loading service status…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 90-Day Uptime -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h2 class="ls-section-title">90-Day Uptime</h2>
+          <span id="uptimePct" style="font-size:13px;font-weight:600;color:var(--ss-text-muted);">—</span>
+        </div>
+        <div class="ls-card" style="padding:16px;">
+          <div id="uptimeStrip" class="uptime-strip" style="height:28px;">
+            <div style="width:100%;text-align:center;font-size:13px;color:var(--ss-text-muted);align-self:center;">Loading uptime data…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/status.js"></script>
+</body>
+</html>

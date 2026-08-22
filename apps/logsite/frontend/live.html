@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SentinelScan live activity feed and real-time telemetry.">
+  <title>Live Activity — SentinelScan</title>
+  <link rel="stylesheet" href="/static/css/logsite.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="ls-header">
+    <div class="ls-header-inner">
+      <a href="/" class="ls-brand">SentinelScan <span class="ls-brand-sub">/ Observability</span></a>
+      <button class="ls-mobile-toggle" onclick="window.toggleMobileNav()" aria-label="Toggle navigation">☰</button>
+      <nav id="mainNav" class="ls-nav">
+        <a href="/">Status</a>
+        <a href="/live.html" class="active">Live</a>
+        <a href="/sessions.html">Sessions</a>
+        <a href="/llm.html">Gemini</a>
+        <a href="/health.html">Health</a>
+      </nav>
+      <div class="ls-header-right">
+        <div id="authControls"></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="ls-container" style="padding-top:28px;padding-bottom:48px;">
+
+      <div id="logsiteAuthBanner" class="hidden"></div>
+
+      <!-- Page Header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+        <div>
+          <h1 class="ls-page-title">Live Activity</h1>
+          <p class="ls-page-subtitle">Real-time user and application telemetry.</p>
+        </div>
+      </div>
+
+      <!-- Active Users KPI -->
+      <div class="ls-card" style="margin-bottom:24px;display:flex;align-items:center;gap:16px;">
+        <span class="dot dot-green" style="width:10px;height:10px;"></span>
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--ss-text-muted);">Active Users</div>
+          <div id="liveActiveUsers" style="font-size:28px;font-weight:700;color:var(--ss-text);">—</div>
+          <div style="font-size:12px;color:var(--ss-text-muted);">Active in the last 5 minutes</div>
+        </div>
+      </div>
+
+      <!-- Filter Toolbar -->
+      <div class="ls-card" style="padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+        <label style="font-size:12px;font-weight:600;color:var(--ss-text-muted);">Filters</label>
+        <select id="filterLevel" class="ls-select">
+          <option value="">All Levels</option>
+          <option value="debug">Debug</option>
+          <option value="info">Info</option>
+          <option value="warn">Warn</option>
+          <option value="error">Error</option>
+        </select>
+        <select id="filterSource" class="ls-select">
+          <option value="">All Sources</option>
+          <option value="frontend">Frontend</option>
+          <option value="backend">Backend</option>
+          <option value="worker">Worker</option>
+        </select>
+        <select id="filterCategory" class="ls-select">
+          <option value="">All Categories</option>
+          <option value="ui">UI</option>
+          <option value="http">HTTP</option>
+          <option value="scan">Scan</option>
+          <option value="llm">LLM</option>
+          <option value="agent">Agent</option>
+          <option value="worker">Worker</option>
+          <option value="auth">Auth</option>
+          <option value="error">Error</option>
+        </select>
+        <button id="btnResetFilters" class="ls-btn-secondary" style="font-size:12px;padding:5px 12px;">Reset</button>
+        <div style="flex:1;"></div>
+        <div id="livePollingStatus" style="font-size:11px;color:var(--ss-text-muted);">
+          <span class="ls-spinner" style="width:12px;height:12px;margin-right:4px;vertical-align:middle;"></span> Connecting…
+        </div>
+      </div>
+
+      <!-- Events Table -->
+      <div class="ls-card" style="padding:0;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="ls-table">
+            <thead>
+              <tr>
+                <th style="width:90px;">Time</th>
+                <th style="width:60px;">Level</th>
+                <th style="width:80px;">Source</th>
+                <th style="width:80px;">Category</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody">
+              <tr>
+                <td colspan="5" style="text-align:center;padding:32px;color:var(--ss-text-muted);font-size:13px;">
+                  <span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Loading live events…
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/live.js"></script>
+</body>
+</html>

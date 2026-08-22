@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SentinelScan Gemini AI token usage and analytics.">
+  <title>Gemini Usage — SentinelScan</title>
+  <link rel="stylesheet" href="/static/css/logsite.css">
+</head>
+<body>
+
+  <header class="ls-header">
+    <div class="ls-header-inner">
+      <a href="/" class="ls-brand">SentinelScan <span class="ls-brand-sub">/ Observability</span></a>
+      <button class="ls-mobile-toggle" onclick="window.toggleMobileNav()" aria-label="Toggle navigation">☰</button>
+      <nav id="mainNav" class="ls-nav">
+        <a href="/">Status</a>
+        <a href="/live.html">Live</a>
+        <a href="/sessions.html">Sessions</a>
+        <a href="/llm.html" class="active">Gemini</a>
+        <a href="/health.html">Health</a>
+      </nav>
+      <div class="ls-header-right">
+        <div id="authControls"></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="ls-container" style="padding-top:28px;padding-bottom:48px;">
+
+      <div id="logsiteAuthBanner" class="hidden"></div>
+
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+        <div>
+          <h1 class="ls-page-title">Gemini AI Usage</h1>
+          <p class="ls-page-subtitle">Token consumption, cache efficiency, and cost estimates.</p>
+        </div>
+        <div id="llmLastRefreshed" style="font-size:13px;color:var(--ss-text-muted);padding-top:6px;">—</div>
+      </div>
+
+      <!-- KPI Grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:32px;">
+        <div class="ls-card">
+          <div class="kpi-label">Total Tokens</div>
+          <div class="kpi-value" id="kpiTotalTokens">—</div>
+          <div class="kpi-sub" id="kpiTokenSplit"></div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Calls</div>
+          <div class="kpi-value" id="kpiCalls">—</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Cache Hit Rate</div>
+          <div class="kpi-value" id="kpiCacheRate">—</div>
+          <div class="kpi-sub" id="kpiCacheSub"></div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Avg Tokens / Scan</div>
+          <div class="kpi-value" id="kpiAvgTokens">—</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Estimated Cost</div>
+          <div class="kpi-value" id="kpiCost">—</div>
+          <div class="kpi-sub">$0.15 / 1M tokens</div>
+        </div>
+      </div>
+
+      <!-- Token Usage Chart -->
+      <div class="ls-card" style="margin-bottom:32px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <h2 class="ls-section-title">Token Usage</h2>
+          <select id="groupBySelect" class="ls-select" style="font-size:12px;">
+            <option value="day">Daily</option>
+            <option value="hour">Hourly</option>
+          </select>
+        </div>
+        <div id="usageChart" style="height:200px;display:flex;align-items:flex-end;gap:3px;padding-top:8px;">
+          <div style="width:100%;text-align:center;font-size:13px;color:var(--ss-text-muted);align-self:center;">
+            <span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Loading chart…
+          </div>
+        </div>
+      </div>
+
+      <!-- Expensive Scans Table -->
+      <div class="ls-card" style="padding:0;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--ss-border);">
+          <h2 class="ls-section-title">Most Expensive Scans</h2>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="ls-table">
+            <thead>
+              <tr>
+                <th>Scan ID</th>
+                <th>Target</th>
+                <th style="text-align:right;">Calls</th>
+                <th style="text-align:right;">Prompt</th>
+                <th style="text-align:right;">Response</th>
+                <th style="text-align:right;">Total Tokens</th>
+              </tr>
+            </thead>
+            <tbody id="expensiveScansTbody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--ss-text-muted);font-size:13px;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/llm.js"></script>
+</body>
+</html>
