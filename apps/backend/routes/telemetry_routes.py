@@ -20,6 +20,9 @@ from apps.backend.logstore.event_validation import (
     MAX_REQUEST_BYTES,
     build_frontend_event,
 )
+from apps.backend.logstore.query import get_write_budget_status
+
+_LOW_VALUE_LEVELS = ("debug", "info")
 
 try:
     from firebase_admin import auth as firebase_auth
@@ -81,9 +84,16 @@ def ingest_telemetry():
 
     uid = _derive_uid()
     queue = pipeline.get_queue()
+    near_cap = get_write_budget_status()["near_cap"]
     for raw_event in events:
         event = build_frontend_event(raw_event, uid=uid)
         if event is None:
+            continue
+        if near_cap and event["level"] in _LOW_VALUE_LEVELS:
+            # Circuit breaker: as today's Firestore write budget is approached, drop the
+            # lowest-value events first (debug/info) so warn/error/fatal and requests keep
+            # getting recorded. Still a silent drop, matching every other validation-drop
+            # path here -- the client never learns which events made it in.
             continue
         try:
             queue.put_nowait(event)

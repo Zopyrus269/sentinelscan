@@ -56,6 +56,13 @@ For any new feature request:
    - Testing strategy
    - Deployment considerations
    - Potential risks
+   - **Graphify usage** (new 2026-08-22): state whether Graphify (section 11) was used while
+     researching this plan. If used, say which query/path/explain/affected/god-nodes calls
+     were run and specifically how they helped — e.g. what token-costly grep-and-read sweep
+     they replaced, or what design choice they informed. If not used, say so plainly and name
+     what was used instead (e.g. direct file reads, a specific Grep) and why that fit better
+     for this particular plan. Every plan states one of these two outcomes, with a reason —
+     never omit the section.
 3. **No code is written until the user explicitly approves the plan.**
 
 ## 7. Frontend Delegation Workflow
