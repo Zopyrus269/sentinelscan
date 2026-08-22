@@ -14,6 +14,16 @@ PRESENCE_COLLECTION = "presence"
 STATS_COLLECTION = "stats"
 UPTIME_COLLECTION = "uptime"
 
+# Phase 3 additions -- read layer (query.py) and rollup.py.
+# Hourly aggregate summaries rollup.py writes once a batch's events are older than
+# RAW_RETENTION_DAYS. Purely an internal storage/read-cost optimization: not part of the
+# frozen contract Workstream C codes against, so its existence is invisible to that layer.
+ROLLUP_COLLECTION = "logs_hourly"
+# Where rollup.py records how far it has processed, so a re-run never double-counts a batch
+# it already rolled up. Lives outside LOGS_COLLECTION so it never collides with a batch_id.
+ROLLUP_META_COLLECTION = "logs_meta"
+ROLLUP_CHECKPOINT_DOC = "rollup_checkpoint"
+
 # How many events accumulate into one Firestore document.
 BATCH_SIZE = 100
 
@@ -22,6 +32,11 @@ BATCH_SIZE = 100
 # TOTAL_RETENTION_DAYS, giving rollup.py a window to have already run.
 RAW_RETENTION_DAYS = 7
 TOTAL_RETENTION_DAYS = 30
+
+
+def rollup_doc_id(dt: datetime) -> str:
+    """Doc id for one hourly rollup bucket, e.g. "2026-08-22T14" (UTC, hour-truncated)."""
+    return dt.strftime("%Y-%m-%dT%H")
 
 
 def build_batch_document(events: List[Dict[str, Any]]) -> Dict[str, Any]:

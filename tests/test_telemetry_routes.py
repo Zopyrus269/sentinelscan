@@ -29,6 +29,18 @@ class TestTelemetryRoutes(unittest.TestCase):
         self._ensure_started_patcher.start()
         self.addCleanup(self._ensure_started_patcher.stop)
 
+        # Never let the circuit-breaker check hit a real Firestore client -- this machine
+        # has live credentials configured (see knowledge/NEXT_TASK.md's standing lesson from
+        # the Phase 2 incident), so an unmocked get_write_budget_status() here would read
+        # from production on every test run. Default to "not near cap"; individual tests
+        # override this to exercise the breaker itself.
+        self._budget_patcher = patch(
+            "apps.backend.routes.telemetry_routes.get_write_budget_status",
+            return_value={"date": "2026-08-22", "writes_today": 0, "budget": 15000, "near_cap": False},
+        )
+        self.mock_budget = self._budget_patcher.start()
+        self.addCleanup(self._budget_patcher.stop)
+
         self._enabled_patcher = patch.dict(os.environ, {"SENTINELSCAN_TELEMETRY_ENABLED": "1"})
         self._enabled_patcher.start()
         self.addCleanup(self._enabled_patcher.stop)
@@ -136,6 +148,28 @@ class TestTelemetryRoutes(unittest.TestCase):
 
         events = self._drain_queue()
         self.assertIsNone(events[0]["uid"])
+
+    def test_near_write_cap_drops_debug_and_info_but_keeps_higher_levels(self):
+        self.mock_budget.return_value = {
+            "date": "2026-08-22", "writes_today": 14000, "budget": 15000, "near_cap": True,
+        }
+        resp = self._post({"events": [
+            self._one_event(level="debug", message="noisy"),
+            self._one_event(level="info", message="also noisy"),
+            self._one_event(level="warn", message="keep me"),
+            self._one_event(level="error", message="definitely keep me"),
+        ]})
+        self.assertEqual(resp.status_code, 204)
+
+        events = self._drain_queue()
+        self.assertEqual({e["message"] for e in events}, {"keep me", "definitely keep me"})
+
+    def test_not_near_write_cap_keeps_debug_and_info(self):
+        resp = self._post({"events": [self._one_event(level="debug", message="fine for now")]})
+        self.assertEqual(resp.status_code, 204)
+
+        events = self._drain_queue()
+        self.assertEqual(len(events), 1)
 
     def test_disabled_returns_204_but_nothing_enqueued(self):
         with patch.dict(os.environ, {"SENTINELSCAN_TELEMETRY_ENABLED": "0"}):

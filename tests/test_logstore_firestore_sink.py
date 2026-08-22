@@ -9,10 +9,16 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 
 from apps.backend.logstore.firestore_sink import FirestoreSink
 from apps.backend.logstore.schema import LOGS_COLLECTION, PRESENCE_COLLECTION, STATS_COLLECTION
+
+# _update_stats folds a `firestore_writes` counter into *today's* wall-clock date entry
+# (see firestore_sink.py). Pinning "now" keeps date-keyed assertions below deterministic
+# regardless of what day the suite actually runs on.
+_FIXED_NOW = datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc)
 
 
 def make_event(**overrides):
@@ -72,8 +78,10 @@ class TestFirestoreSink(unittest.TestCase):
         self.assertEqual(sorted(written["session_ids"]), ["s1", "s2"])
         collections[LOGS_COLLECTION].document.assert_called_once_with(written["batch_id"])
 
+    @patch("apps.backend.logstore.firestore_sink.datetime")
     @patch("apps.backend.logstore.firestore_sink.get_db")
-    def test_stats_counters_incremented_per_date(self, mock_get_db):
+    def test_stats_counters_incremented_per_date(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
         db, collections = _mock_db()
         mock_get_db.return_value = db
         events = [
@@ -89,8 +97,10 @@ class TestFirestoreSink(unittest.TestCase):
         payload, kwargs = stats_doc.set.call_args
         self.assertTrue(kwargs.get("merge"))
 
+    @patch("apps.backend.logstore.firestore_sink.datetime")
     @patch("apps.backend.logstore.firestore_sink.get_db")
-    def test_stats_split_across_two_dates_writes_two_documents(self, mock_get_db):
+    def test_stats_split_across_two_dates_writes_two_documents(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
         db, collections = _mock_db()
         mock_get_db.return_value = db
         date_docs = {}
@@ -105,6 +115,41 @@ class TestFirestoreSink(unittest.TestCase):
         self.assertEqual(set(date_docs.keys()), {"2026-08-21", "2026-08-22"})
         for doc in date_docs.values():
             doc.set.assert_called_once()
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_daily_session_ids_unioned_for_unique_sessions(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        events = [
+            make_event(session_id="s1", ts="2026-08-22T10:00:00+00:00"),
+            make_event(session_id="s2", ts="2026-08-22T10:01:00+00:00"),
+            make_event(session_id=None, ts="2026-08-22T10:02:00+00:00"),
+        ]
+
+        FirestoreSink().write_batch(events)
+
+        stats_doc = collections[STATS_COLLECTION].document.return_value
+        payload, kwargs = stats_doc.set.call_args
+        self.assertTrue(kwargs.get("merge"))
+        self.assertIn("session_ids", payload[0])
+        self.assertIn("firestore_writes", payload[0])
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_firestore_writes_counts_batch_stats_and_presence(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        events = [make_event(session_id="s1", ts="2026-08-22T10:00:00+00:00")]
+
+        FirestoreSink().write_batch(events)
+
+        stats_doc = collections[STATS_COLLECTION].document.return_value
+        payload, _ = stats_doc.set.call_args
+        # 1 batch doc + 1 stats doc (this one) + 1 presence upsert for "s1" = 3.
+        self.assertEqual(payload[0]["firestore_writes"].value, 3)
 
     @patch("apps.backend.logstore.firestore_sink.get_db")
     def test_presence_upserted_per_session_using_latest_event(self, mock_get_db):
