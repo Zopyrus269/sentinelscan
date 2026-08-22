@@ -15,6 +15,8 @@ from apps.backend.routes.scan_routes import scan_bp
 from apps.backend.routes.auth_routes import auth_bp
 from apps.backend.routes.history_routes import history_bp
 from apps.backend.routes.dev_routes import dev_bp
+from apps.backend.routes.telemetry_routes import telemetry_bp
+from apps.backend.logstore import pipeline
 
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
@@ -28,12 +30,14 @@ def create_app() -> Flask:
     CORS(app, origins=allowed_origins)
     
     limiter.init_app(app)
-    
+    pipeline.ensure_started()
+
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
     app.register_blueprint(scan_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(history_bp)
     app.register_blueprint(dev_bp)
+    app.register_blueprint(telemetry_bp)
 
     @app.after_request
     def add_security_headers(response):
