@@ -29,6 +29,9 @@ def create_app() -> Flask:
     
     limiter.init_app(app)
     
+    from apps.backend.observability import init_app as init_observability
+    init_observability(app)
+    
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
     app.register_blueprint(scan_bp)
     app.register_blueprint(auth_bp)
