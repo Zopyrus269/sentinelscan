@@ -43,6 +43,22 @@ logger = logging.getLogger(__name__)
 DEFAULT_QUERY_LIMIT = 200
 MAX_QUERY_LIMIT = 500
 
+# Ceiling on how many batch documents a single read may pull back. Without one, a call with
+# no time filter reads every batch ever written and discards most of them in Python -- on an
+# auto-refreshing screen that exhausts Firestore's 50k reads/day free tier, which
+# docs/workstreams/WORKSTREAM_C.md section 10 already names as the trap to avoid. At
+# BATCH_SIZE events per document this still covers far more events than any one page needs.
+_MAX_BATCH_SCAN = 50
+
+# Applied by query_events when the caller gives neither a time bound nor a cursor -- i.e. a
+# screen's very first load. Bounds the cold-start read without needing the caller to know to
+# ask for it.
+_DEFAULT_QUERY_WINDOW = timedelta(hours=24)
+
+# Ceiling on the presence documents count_active_users will read. One document per session,
+# so this is "how many concurrent sessions we are willing to count", not a data limit.
+_MAX_ACTIVE_SESSIONS = 500
+
 # How much a batch's `created_at` (when it was flushed) can lag its events' own `ts`
 # (when they happened). Generous relative to the sink's 5s/100-event flush threshold, to
 # absorb clock skew and retry backoff without ever missing an event at a range boundary.
@@ -61,6 +77,27 @@ _WRITE_BUDGET_WARN_RATIO = 0.9
 _WRITE_BUDGET_CACHE_SECONDS = 30.0
 _write_budget_cache: Optional[Dict[str, Any]] = None
 _write_budget_cache_at: float = 0.0
+
+
+def _read_documents(db: Any, collection: str, doc_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Reads several documents of one collection, keyed by id, skipping ones that do not exist.
+
+    Uses the client's `get_all` so this costs one round trip rather than one per document.
+    The billed read count is the same either way -- what this removes is the latency of
+    fetching, say, 90 uptime days or 550 rollup hours strictly one after another. Falls back
+    to individual `get()` calls for any client that does not expose `get_all`.
+    """
+    refs = [db.collection(collection).document(doc_id) for doc_id in doc_ids]
+    get_all = getattr(db, "get_all", None)
+    if callable(get_all):
+        return {snap.id: (snap.to_dict() or {}) for snap in get_all(refs) if snap.exists}
+
+    documents = {}
+    for doc_id, ref in zip(doc_ids, refs):
+        snap = ref.get()
+        if snap.exists:
+            documents[doc_id] = snap.to_dict() or {}
+    return documents
 
 
 def _empty_events_result() -> Dict[str, Any]:
@@ -98,10 +135,18 @@ def _fetch_batches(
     until: Optional[str] = None,
     id_field: Optional[str] = None,
     id_value: Optional[str] = None,
+    limit: int = _MAX_BATCH_SCAN,
+    newest_first: bool = False,
 ) -> List[Dict[str, Any]]:
     """Reads `logs` batch documents, filtered by a widened `created_at` range and,
     optionally, one `array_contains` id filter. Returns raw batch dicts (still containing
     every event, unfiltered) for the caller to flatten/filter further in Python.
+
+    Always bounded by `limit` on the Firestore side, never by filtering a full collection
+    scan in Python. `newest_first` picks which end of the range that limit keeps: a screen's
+    first load wants the newest batches, while a cursor-driven poll walks forward from where
+    it left off. Either way the returned list is in ascending `created_at` order, since
+    everything downstream assumes that.
     """
     query = db.collection(LOGS_COLLECTION)
     if id_field and id_value:
@@ -114,8 +159,15 @@ def _fetch_batches(
     if until_dt:
         query = query.where("created_at", "<=", _iso(until_dt + _CREATED_AT_SKEW))
 
-    query = query.order_by("created_at")
-    return [doc.to_dict() for doc in query.stream()]
+    if newest_first and firestore:
+        query = query.order_by("created_at", direction=firestore.Query.DESCENDING)
+    else:
+        query = query.order_by("created_at")
+
+    batches = [doc.to_dict() for doc in query.limit(limit).stream()]
+    if newest_first:
+        batches.reverse()
+    return batches
 
 
 def _flatten_events(
@@ -178,6 +230,10 @@ def _paginate(
     The cursor is `"{ts}|{event_id}"` of the last event previously returned. ISO-8601 UTC
     timestamps sort lexicographically, so simple string comparison gives correct ordering;
     `event_id` breaks ties between same-timestamp events.
+
+    With a cursor this walks forward from it. Without one it takes the *newest* `limit`
+    events rather than the oldest, so a first load opens on current activity; the page is
+    still in ascending order, so the cursor taken from its last event keeps polling forward.
     """
     if cursor:
         try:
@@ -185,12 +241,16 @@ def _paginate(
         except ValueError:
             cursor_ts, cursor_id = cursor, ""
         events = [e for e in events if (e["ts"], e["event_id"]) > (cursor_ts, cursor_id)]
+        page = events[:limit]
+    else:
+        page = events[-limit:]
 
-    page = events[:limit]
-    next_cursor = None
-    if len(events) > limit:
+    if page:
         last = page[-1]
         next_cursor = f"{last['ts']}|{last['event_id']}"
+    else:
+        # Nothing new this poll: hand the caller's own place back so it can poll again.
+        next_cursor = cursor
     return {"events": page, "next_cursor": next_cursor}
 
 
@@ -208,9 +268,21 @@ def query_events(
     cursor: Optional[str] = None,
     limit: int = DEFAULT_QUERY_LIMIT,
 ) -> Dict[str, Any]:
-    """Returns `{"events": [...], "next_cursor": str | None}` matching every given filter,
-    newest-filterable-first via cursor pagination (ascending `ts` order; a `next_cursor` is
-    given whenever more events exist past `limit`).
+    """Returns `{"events": [...], "next_cursor": str | None}` matching every given filter.
+
+    Events within a page are ordered oldest-first by `ts`. Which events make up the page
+    depends on whether a `cursor` was given:
+
+    - **no cursor** (a screen's first load) -- the *newest* `limit` matching events. A live
+      log view opening on the oldest events in the database is never what anyone wants.
+    - **with a cursor** -- only what has arrived since that cursor, walking forward. This is
+      the polling path described in `docs/workstreams/WORKSTREAM_C.md` section 10, and the
+      ascending order within the page is what makes it work.
+
+    `next_cursor` is returned whenever the page is non-empty, and echoes the caller's own
+    cursor back when nothing new has arrived -- so a caller can always poll forward, even
+    from a page shorter than `limit`. Without that a quiet minute would leave a screen with
+    no cursor to poll from.
     """
     db = get_db()
     if not db:
@@ -225,12 +297,36 @@ def query_events(
     elif scan_id:
         id_field, id_value = "scan_ids", scan_id
 
-    batches = _fetch_batches(db, since=since, until=until, id_field=id_field, id_value=id_value)
+    since = _window_start(since, cursor)
+    batches = _fetch_batches(
+        db, since=since, until=until, id_field=id_field, id_value=id_value,
+        newest_first=cursor is None,
+    )
     events = _flatten_events(
         batches, since=since, until=until, level=level, source=source, category=category,
         session_id=session_id, uid=uid, trace_id=trace_id, scan_id=scan_id,
     )
     return _paginate(events, cursor, limit)
+
+
+def _window_start(since: Optional[str], cursor: Optional[str]) -> Optional[str]:
+    """The `since` bound query_events should actually read with.
+
+    An explicit `since` always wins. Failing that, a cursor implies one: a poll only wants
+    what arrived after it, so reading from the cursor's own timestamp (widened by the
+    flush-lag skew) turns each poll into the "zero to three documents" read
+    `WORKSTREAM_C.md` section 10 assumes, instead of re-reading the whole window every time.
+    With neither, fall back to a default window so a first load is bounded.
+    """
+    if since:
+        return since
+
+    if cursor:
+        cursor_ts = _parse_ts(cursor.split("|", 1)[0])
+        if cursor_ts:
+            return _iso(cursor_ts - _CREATED_AT_SKEW)
+
+    return _iso(datetime.now(timezone.utc) - _DEFAULT_QUERY_WINDOW)
 
 
 def get_trace(trace_id: str) -> Dict[str, Any]:
@@ -310,7 +406,12 @@ def count_active_users(window_minutes: int = 5) -> Dict[str, Any]:
         return {"count": 0, "sessions": []}
 
     cutoff = _iso(datetime.now(timezone.utc) - timedelta(minutes=window_minutes))
-    query = db.collection(PRESENCE_COLLECTION).where("last_seen", ">=", cutoff)
+    query = (
+        db.collection(PRESENCE_COLLECTION)
+        .where("last_seen", ">=", cutoff)
+        .order_by("last_seen", direction=firestore.Query.DESCENDING)
+        .limit(_MAX_ACTIVE_SESSIONS)
+    )
 
     sessions = [
         {
@@ -397,14 +498,6 @@ def get_write_budget_status(date: Optional[str] = None) -> Dict[str, Any]:
     return result
 
 
-def _daterange(since_dt: datetime, until_dt: datetime):
-    day = since_dt.date()
-    end = until_dt.date()
-    while day <= end:
-        yield day.isoformat()
-        day += timedelta(days=1)
-
-
 def get_llm_usage(
     *,
     since: Optional[str] = None,
@@ -478,11 +571,9 @@ def get_llm_usage(
             )
 
     # Each rollup document covers one hour, so `group_by="day"` sums 24 of them into a day.
-    for hour_key in _hour_keys(rollup_start, rollup_end):
-        doc = db.collection(ROLLUP_COLLECTION).document(hour_key).get()
-        if not doc.exists:
-            continue
-        llm = (doc.to_dict() or {}).get("llm", {})
+    hour_keys = list(_hour_keys(rollup_start, rollup_end))
+    for hour_key, data in _read_documents(db, ROLLUP_COLLECTION, hour_keys).items():
+        llm = data.get("llm", {})
         _accumulate(
             hour_key[:10] if group_by == "day" else hour_key,
             prompt=llm.get("prompt_tokens", 0),
@@ -676,20 +767,22 @@ def record_uptime_probe(result: Dict[str, Any]) -> None:
 
 def get_uptime_history(days: int = 90) -> List[Dict[str, Any]]:
     """Returns `[{"date", "uptime_pct", "checks", "failures"}, ...]` for the last `days`
-    days, newest last, reading one small `uptime/{date}` document per day.
+    days, newest last. Days with no document are still present, with zeroed counts and a
+    null percentage, so the caller always gets exactly `days` entries.
     """
     db = get_db()
     if not db:
         return []
 
     today = datetime.now(timezone.utc).date()
+    dates = [(today - timedelta(days=offset)).isoformat() for offset in range(days - 1, -1, -1)]
+    documents = _read_documents(db, UPTIME_COLLECTION, dates)
+
     history = []
-    for offset in range(days - 1, -1, -1):
-        date = (today - timedelta(days=offset)).isoformat()
-        doc = db.collection(UPTIME_COLLECTION).document(date).get()
-        data = doc.to_dict() if doc.exists else None
-        checks = (data or {}).get("checks", 0)
-        failures = (data or {}).get("failures", 0)
+    for date in dates:
+        data = documents.get(date, {})
+        checks = data.get("checks", 0)
+        failures = data.get("failures", 0)
         uptime_pct = ((checks - failures) / checks * 100) if checks else None
         history.append({
             "date": date, "uptime_pct": uptime_pct, "checks": checks, "failures": failures,

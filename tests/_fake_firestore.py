@@ -147,6 +147,14 @@ class FakeFirestoreClient:
     def collection(self, name: str) -> _FakeCollection:
         return self._collections.setdefault(name, _FakeCollection())
 
+    def get_all(self, references):
+        """Batched multi-document read, as query.py's _read_documents uses.
+
+        Real Firestore does not promise the results come back in the order asked for, so
+        this deliberately does not either -- callers have to key off each snapshot's id.
+        """
+        return [ref.get() for ref in reversed(list(references))]
+
     def seed(self, collection: str, doc_id: str, data: Dict[str, Any]) -> None:
         """Test convenience: pre-populates a document directly, bypassing set()'s merge
         logic -- use this to set up fixture state, not to exercise the merge path itself."""
