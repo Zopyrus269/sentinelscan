@@ -9,7 +9,7 @@ immediately -- this must never wait on a write.
 """
 import logging
 from queue import Full
-from typing import Tuple
+from typing import Optional, Tuple, Union
 
 from flask import Blueprint, Response, jsonify, request
 
@@ -35,6 +35,9 @@ telemetry_bp = Blueprint("telemetry_routes", __name__, url_prefix="/api/v1")
 
 _STATUS_TEXT = {400: "Bad Request", 413: "Payload Too Large"}
 
+# Either the 204 empty-body tuple or one of _error()'s JSON responses.
+IngestResponse = Union[Tuple[str, int], Tuple[Response, int]]
+
 
 def _error(message: str, code: int) -> Tuple[Response, int]:
     """Builds the project-standard error response shape per docs/API.md."""
@@ -45,7 +48,7 @@ def _error(message: str, code: int) -> Tuple[Response, int]:
     }), code
 
 
-def _derive_uid() -> None:
+def _derive_uid() -> Optional[str]:
     """Optionally verifies a Firebase ID token; never fails the request.
 
     Returns the verified uid, or None if the header is absent, malformed, or the token is
@@ -65,10 +68,17 @@ def _derive_uid() -> None:
 
 @telemetry_bp.route("/telemetry", methods=["POST"])
 @limiter.limit("60 per minute")
-def ingest_telemetry():
+def ingest_telemetry() -> IngestResponse:
     """POST /api/v1/telemetry -- accepts a batch of browser-originated events."""
     if not pipeline.is_enabled():
         return "", 204
+
+    # Rejected on the declared length first, so an oversized body from this unauthenticated
+    # endpoint is never buffered into memory just to be measured and thrown away. A request
+    # that declares no length (chunked transfer-encoding) still falls through to the check
+    # below, which is why both exist.
+    if request.content_length is not None and request.content_length > MAX_REQUEST_BYTES:
+        return _error("Request body exceeds the maximum allowed size.", 413)
 
     raw_body = request.get_data()
     if len(raw_body) > MAX_REQUEST_BYTES:

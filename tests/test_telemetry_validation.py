@@ -112,6 +112,37 @@ class TestBuildFrontendEvent(unittest.TestCase):
         event = build_frontend_event(self._valid_raw(trace_id=123), uid=None)
         self.assertIsNone(event["trace_id"])
 
+    def test_ids_containing_a_slash_are_dropped(self):
+        # A "/" makes an unwritable Firestore document name, and the sink discards the whole
+        # ~100-event batch when the presence write fails -- other sessions' events included.
+        event = build_frontend_event(self._valid_raw(session_id="abc/../def"), uid=None)
+        self.assertIsNone(event["session_id"])
+
+    def test_overlong_ids_are_dropped(self):
+        event = build_frontend_event(self._valid_raw(trace_id="a" * 65), uid=None)
+        self.assertIsNone(event["trace_id"])
+
+    def test_reserved_shaped_ids_are_dropped(self):
+        event = build_frontend_event(self._valid_raw(scan_id="__name__"), uid=None)
+        self.assertIsNone(event["scan_id"])
+
+    def test_empty_id_is_dropped(self):
+        event = build_frontend_event(self._valid_raw(session_id=""), uid=None)
+        self.assertIsNone(event["session_id"])
+
+    def test_uuid_shaped_ids_are_kept(self):
+        # What the only two producers actually emit: telemetry.js's crypto.randomUUID()
+        # (and its non-HTTPS fallback), and seed_fake_logs.py's uuid.uuid4().
+        raw = self._valid_raw(
+            session_id="6f1c9a2e-7b3d-4c1a-9f2e-0d8b5a4c3e21",
+            trace_id="1755950400000-9f2e0d8b5a4c",
+            scan_id="scan_ABC-123",
+        )
+        event = build_frontend_event(raw, uid=None)
+        self.assertEqual(event["session_id"], "6f1c9a2e-7b3d-4c1a-9f2e-0d8b5a4c3e21")
+        self.assertEqual(event["trace_id"], "1755950400000-9f2e0d8b5a4c")
+        self.assertEqual(event["scan_id"], "scan_ABC-123")
+
     def test_data_is_json_serializable(self):
         raw = self._valid_raw(data={"a": 1, "b": [1, 2, 3]})
         event = build_frontend_event(raw, uid=None)

@@ -9,6 +9,7 @@ shaped the same way.
 """
 import json
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import uuid4
@@ -16,6 +17,20 @@ from uuid import uuid4
 LEVELS = ("debug", "info", "warn", "error", "fatal")
 SOURCES = ("frontend",)  # this endpoint only ever receives browser-originated events
 CATEGORIES = ("http", "auth", "scan", "agent", "worker", "llm", "ui", "error", "health")
+
+# The three correlation ids (session_id/trace_id/scan_id) are used verbatim as Firestore
+# document names downstream (`firestore_sink.py` writes `presence/{session_id}`), so they
+# have to satisfy Firestore's document-id rules before they get anywhere near a write: no
+# "/", at most 1500 bytes, no reserved `__like_this__` shape. This pattern is deliberately
+# far stricter than those rules -- it matches what the only two producers actually emit
+# (`crypto.randomUUID()` and its `${Date.now()}-${hex}` fallback in telemetry.js, and
+# `uuid.uuid4()` in scripts/seed_fake_logs.py) and rejects everything else. Getting this
+# wrong is not a dropped event: an unwritable presence document fails the whole batch, and
+# the sink drops all ~100 events in it, other sessions' included.
+_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+# Underscores are otherwise fine, but Firestore reserves the `__like_this__` shape for its
+# own internal document ids and refuses to create one.
+_RESERVED_ID_PATTERN = re.compile(r"^__.*__$")
 
 MAX_DATA_BYTES = 8192
 MAX_STRING_CHARS = 2000
@@ -66,10 +81,10 @@ def build_frontend_event(raw: Dict[str, Any], *, uid: Optional[str]) -> Optional
         "source": "frontend",
         "category": category,
         "message": message,
-        "trace_id": _clean_optional_str(raw.get("trace_id")),
-        "session_id": _clean_optional_str(raw.get("session_id")),
+        "trace_id": _clean_id(raw.get("trace_id")),
+        "session_id": _clean_id(raw.get("session_id")),
         "uid": uid,
-        "scan_id": _clean_optional_str(raw.get("scan_id")),
+        "scan_id": _clean_id(raw.get("scan_id")),
         "duration_ms": duration_ms,
         "data": data,
         "release": os.environ.get("SENTINELSCAN_RELEASE", "dev"),
@@ -77,11 +92,18 @@ def build_frontend_event(raw: Dict[str, Any], *, uid: Optional[str]) -> Optional
     }
 
 
-def _clean_optional_str(value: Any) -> Optional[str]:
-    """Returns `value` if it's a non-empty string, else None -- never trusts other types."""
-    if isinstance(value, str) and value:
-        return value
-    return None
+def _clean_id(value: Any) -> Optional[str]:
+    """Returns `value` if it is a usable correlation id, else None.
+
+    Nulling a malformed id out (rather than rejecting the whole event) keeps a client with a
+    broken id generator from losing its telemetry entirely -- the event is still recorded,
+    just uncorrelated.
+    """
+    if not isinstance(value, str):
+        return None
+    if not _ID_PATTERN.match(value) or _RESERVED_ID_PATTERN.match(value):
+        return None
+    return value
 
 
 def _cap_data_size(data: Dict[str, Any]) -> Dict[str, Any]:

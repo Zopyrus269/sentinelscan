@@ -18,7 +18,7 @@ can lag an event's own ``ts`` by up to the sink's flush interval -- range querie
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from firebase_admin import firestore
@@ -29,7 +29,10 @@ from apps.backend.auth.firebase_client import get_db
 from apps.backend.logstore.schema import (
     LOGS_COLLECTION,
     PRESENCE_COLLECTION,
+    RAW_RETENTION_DAYS,
+    ROLLUP_CHECKPOINT_DOC,
     ROLLUP_COLLECTION,
+    ROLLUP_META_COLLECTION,
     STATS_COLLECTION,
     UPTIME_COLLECTION,
     rollup_doc_id,
@@ -78,6 +81,16 @@ def _parse_ts(value: Optional[str]) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _normalize_bound(value: Optional[str]) -> Optional[str]:
+    """Canonicalises one caller-supplied timestamp for string comparison against `ts`.
+
+    Returns None for an absent or unparseable value, which disables that bound rather than
+    silently comparing garbage lexicographically.
+    """
+    parsed = _parse_ts(value)
+    return _iso(parsed) if parsed else None
+
+
 def _fetch_batches(
     db: Any,
     *,
@@ -121,7 +134,16 @@ def _flatten_events(
     """Flattens every batch's `events` array into one list, keeping only events that pass
     every given filter. `since`/`until` are precise here (unlike `_fetch_batches`'s coarse
     `created_at` range) since they compare directly against each event's own `ts`.
+
+    Both are normalised to canonical UTC first, exactly as `_fetch_batches` already does.
+    Without that step the comparison is a raw string compare, so `...T10:00:00Z` and
+    `...T10:00:00+00:00` -- the same instant, spelled two equally-valid ways -- return
+    different results, and any non-UTC offset returns nonsense. The log site is the caller
+    and codes against this blind, so it has no way to notice.
     """
+    since = _normalize_bound(since)
+    until = _normalize_bound(until)
+
     events: List[Dict[str, Any]] = []
     for batch in batches:
         for event in batch.get("events", []):
@@ -304,8 +326,10 @@ def count_active_users(window_minutes: int = 5) -> Dict[str, Any]:
 def get_daily_stats(date: str) -> Dict[str, Any]:
     """Returns one day's aggregate counters from `stats/{date}` -- a single document read.
 
-    `unique_sessions` comes from that document's `session_ids` array field (unioned at
-    write time by `firestore_sink.py`), not a separate scan.
+    `unique_sessions` comes from that document's counter of the same name, advanced at
+    write time by `firestore_sink.py`, not a separate scan. Documents written before that
+    counter existed instead carry a `session_ids` array; those are still read correctly via
+    the fallback below, so historical days keep reporting a real number.
     """
     empty = {
         "date": date, "events": 0, "errors": 0, "requests": 0, "scans": 0,
@@ -327,7 +351,9 @@ def get_daily_stats(date: str) -> Dict[str, Any]:
         "scans": data.get("scans", 0),
         "llm_calls": data.get("llm_calls", 0),
         "llm_tokens": data.get("llm_tokens", 0),
-        "unique_sessions": len(data.get("session_ids", [])),
+        "unique_sessions": data.get(
+            "unique_sessions", len(data.get("session_ids", [])),
+        ),
     }
 
 
@@ -387,12 +413,19 @@ def get_llm_usage(
 ) -> Dict[str, Any]:
     """Returns Gemini usage totals and per-bucket breakdown over `[since, until]`.
 
-    Reads raw `logs` batches directly (filtered to `category="llm"`) -- correct for the
-    whole 30-day retention window, since raw batches aren't deleted until Firestore's TTL
-    fires. For a range that's mostly older than `RAW_RETENTION_DAYS`, prefer `logs_hourly`
-    rollup buckets where `rollup.py` has already produced them, since they're far cheaper to
-    read than re-scanning every raw batch in that window; falls back to the raw scan for any
-    bucket a rollup doesn't (yet) cover.
+    The range is split at the point where rollup data can actually be trusted, so every
+    part of it is counted exactly once:
+
+    - hours fully covered by `logs_hourly` rollups are read from those (far cheaper than
+      re-scanning every raw batch in the window);
+    - everything else -- the newer end, plus any partial hour at the older end that a
+      whole-hour rollup bucket would over-count -- is read from raw `logs` batches, which
+      remain available for the full `TOTAL_RETENTION_DAYS` TTL window, not just
+      `RAW_RETENTION_DAYS`.
+
+    The split point comes from rollup's own checkpoint, not an assumed cutoff: rollup runs
+    on its own schedule, so the hours between "whenever it last ran" and "now" have no
+    rollup documents at all and must come from the raw scan.
     """
     db = get_db()
     empty = {
@@ -403,60 +436,61 @@ def get_llm_usage(
         return empty
 
     now = datetime.now(timezone.utc)
-    since_dt = _parse_ts(since) or (now - timedelta(days=7))
+    since_dt = _parse_ts(since) or (now - timedelta(days=RAW_RETENTION_DAYS))
     until_dt = _parse_ts(until) or now
-    raw_cutoff = now - timedelta(days=7)
+    if since_dt > until_dt:
+        return empty
 
     buckets: Dict[str, Dict[str, int]] = {}
     totals = {"total_tokens": 0, "prompt_tokens": 0, "response_tokens": 0, "calls": 0, "cache_hits": 0}
 
+    def _accumulate(
+        key: str, *, prompt: int, response: int, total: int, calls: int, cache_hits: int,
+    ) -> None:
+        """The single place bucket and total arithmetic happens, for both branches below."""
+        bucket = buckets.setdefault(key, {"tokens": 0, "calls": 0})
+        bucket["tokens"] += total
+        bucket["calls"] += calls
+        totals["prompt_tokens"] += prompt
+        totals["response_tokens"] += response
+        totals["total_tokens"] += total
+        totals["calls"] += calls
+        totals["cache_hits"] += cache_hits
+
     def _bucket_key(ts: str) -> str:
         return ts[:10] if group_by == "day" else ts[:13]
 
-    def _accumulate(key: str, prompt: int, response: int, cached: bool) -> None:
-        bucket = buckets.setdefault(key, {"tokens": 0, "calls": 0})
-        bucket["tokens"] += prompt + response
-        bucket["calls"] += 1
-        totals["prompt_tokens"] += prompt
-        totals["response_tokens"] += response
-        totals["total_tokens"] += prompt + response
-        totals["calls"] += 1
-        if cached:
-            totals["cache_hits"] += 1
+    rollup_start, rollup_end = _rollup_span(db, now, since_dt, until_dt)
 
-    # Recent window: always scan raw batches (rollup may not have caught up yet).
-    recent_since = max(since_dt, raw_cutoff)
-    if recent_since <= until_dt:
-        batches = _fetch_batches(db, since=_iso(recent_since), until=_iso(until_dt))
+    for segment_since, segment_until in _raw_segments(since_dt, until_dt, rollup_start, rollup_end):
+        segment_since_iso, segment_until_iso = _iso(segment_since), _iso(segment_until)
+        batches = _fetch_batches(db, since=segment_since_iso, until=segment_until_iso)
         for event in _flatten_events(
-            batches, since=_iso(recent_since), until=_iso(until_dt), category="llm",
+            batches, since=segment_since_iso, until=segment_until_iso, category="llm",
         ):
             data = event.get("data") or {}
+            prompt = data.get("prompt_tokens", 0) or 0
+            response = data.get("response_tokens", 0) or 0
             _accumulate(
                 _bucket_key(event["ts"]),
-                data.get("prompt_tokens", 0) or 0,
-                data.get("response_tokens", 0) or 0,
-                bool(data.get("cached")),
+                prompt=prompt, response=response, total=prompt + response,
+                calls=1, cache_hits=1 if data.get("cached") else 0,
             )
 
-    # Older window: prefer rollup docs; each covers one hour, so `group_by="day"` sums 24
-    # of them into that day's bucket.
-    if since_dt < raw_cutoff:
-        for hour_key in _hour_range(since_dt, min(until_dt, raw_cutoff)):
-            doc = db.collection(ROLLUP_COLLECTION).document(hour_key).get()
-            if not doc.exists:
-                continue
-            data = doc.to_dict() or {}
-            llm = data.get("llm", {})
-            key = hour_key[:10] if group_by == "day" else hour_key
-            bucket = buckets.setdefault(key, {"tokens": 0, "calls": 0})
-            bucket["tokens"] += llm.get("total_tokens", 0)
-            bucket["calls"] += llm.get("calls", 0)
-            totals["prompt_tokens"] += llm.get("prompt_tokens", 0)
-            totals["response_tokens"] += llm.get("response_tokens", 0)
-            totals["total_tokens"] += llm.get("total_tokens", 0)
-            totals["calls"] += llm.get("calls", 0)
-            totals["cache_hits"] += llm.get("cache_hits", 0)
+    # Each rollup document covers one hour, so `group_by="day"` sums 24 of them into a day.
+    for hour_key in _hour_keys(rollup_start, rollup_end):
+        doc = db.collection(ROLLUP_COLLECTION).document(hour_key).get()
+        if not doc.exists:
+            continue
+        llm = (doc.to_dict() or {}).get("llm", {})
+        _accumulate(
+            hour_key[:10] if group_by == "day" else hour_key,
+            prompt=llm.get("prompt_tokens", 0),
+            response=llm.get("response_tokens", 0),
+            total=llm.get("total_tokens", 0),
+            calls=llm.get("calls", 0),
+            cache_hits=llm.get("cache_hits", 0),
+        )
 
     return {
         **totals,
@@ -467,9 +501,83 @@ def get_llm_usage(
     }
 
 
-def _hour_range(start: datetime, end: datetime):
-    current = start.replace(minute=0, second=0, microsecond=0)
-    while current <= end:
+def _floor_hour(dt: datetime) -> datetime:
+    return dt.replace(minute=0, second=0, microsecond=0)
+
+
+def _ceil_hour(dt: datetime) -> datetime:
+    floored = _floor_hour(dt)
+    return floored if floored == dt else floored + timedelta(hours=1)
+
+
+def _read_rollup_checkpoint(db: Any) -> Optional[datetime]:
+    """How far `rollup.py` has actually processed, or None if it has never run."""
+    doc = db.collection(ROLLUP_META_COLLECTION).document(ROLLUP_CHECKPOINT_DOC).get()
+    if not doc.exists:
+        return None
+    return _parse_ts((doc.to_dict() or {}).get("last_processed_created_at"))
+
+
+def _rollup_span(
+    db: Any, now: datetime, since_dt: datetime, until_dt: datetime,
+) -> Tuple[Optional[datetime], Optional[datetime]]:
+    """The `[start, end)` hour-aligned window that should be served from rollup documents.
+
+    Both ends are hour boundaries so a whole-hour bucket is never used to answer a
+    part-hour question: `since` at 14:30 must not pull in 14:00-14:30 as well. Returns
+    `(None, None)` when there is no usable rollup window, which is the common case -- any
+    range inside the raw-retention window, or a deployment where rollup has never run.
+    """
+    checkpoint = _read_rollup_checkpoint(db)
+    if checkpoint is None:
+        return None, None
+
+    # Rollup only guarantees an hour once it has processed every batch up to it, and only
+    # writes hours older than RAW_RETENTION_DAYS at all -- so trust it strictly before the
+    # earlier of the two.
+    trusted_until = _floor_hour(min(checkpoint, now - timedelta(days=RAW_RETENTION_DAYS)))
+
+    # Leading edge rounds up, so a mid-hour `since` never drags in the earlier part of its
+    # hour -- the raw scan covers that remainder exactly. Trailing edge rounds up too, so
+    # the hour `until` falls inside is served rather than dropped; the cost is at most the
+    # sliver between `until` and the top of that hour, which is far better than silently
+    # losing the last hour of every historical range.
+    start = _ceil_hour(since_dt)
+    end = min(trusted_until, _ceil_hour(until_dt))
+    if end <= start:
+        return None, None
+    return start, end
+
+
+def _raw_segments(
+    since_dt: datetime,
+    until_dt: datetime,
+    rollup_start: Optional[datetime],
+    rollup_end: Optional[datetime],
+) -> List[Tuple[datetime, datetime]]:
+    """The inclusive `[since, until]` ranges that must be read from raw batches.
+
+    One segment covering the whole range when no rollup window applies; otherwise the
+    partial hour before the rollup window (if `since` fell mid-hour) and everything from
+    the rollup window's end onwards.
+    """
+    if rollup_start is None or rollup_end is None:
+        return [(since_dt, until_dt)]
+
+    segments: List[Tuple[datetime, datetime]] = []
+    if since_dt < rollup_start:
+        segments.append((since_dt, rollup_start - timedelta(microseconds=1)))
+    if rollup_end <= until_dt:
+        segments.append((rollup_end, until_dt))
+    return segments
+
+
+def _hour_keys(start: Optional[datetime], end: Optional[datetime]):
+    """Rollup document ids for every whole hour in `[start, end)`."""
+    if start is None or end is None:
+        return
+    current = start
+    while current < end:
         yield rollup_doc_id(current)
         current += timedelta(hours=1)
 

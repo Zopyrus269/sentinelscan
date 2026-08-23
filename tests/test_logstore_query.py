@@ -29,6 +29,16 @@ def make_event(**overrides):
     return event
 
 
+def seed_rollup_checkpoint(db: FakeFirestoreClient, created_at: str = "2026-08-17T00:00:00+00:00"):
+    """Marks rollup.py as having processed up to `created_at`.
+
+    query.get_llm_usage only trusts `logs_hourly` documents for hours rollup has actually
+    reached, so a test exercising the rollup branch has to establish that state the same way
+    a real rollup run would.
+    """
+    db.seed("logs_meta", "rollup_checkpoint", {"last_processed_created_at": created_at})
+
+
 def seed_batch(db: FakeFirestoreClient, events, created_at: str = None):
     doc = build_batch_document(events)
     if created_at:
@@ -83,6 +93,26 @@ class TestQueryEvents(QueryTestCase):
             since="2026-08-22T09:30:00+00:00", until="2026-08-22T10:30:00+00:00",
         )
         self.assertEqual([e["event_id"] for e in result["events"]], ["e2"])
+
+    def test_equivalent_timestamp_spellings_return_the_same_events(self):
+        # "Z" and "+00:00" are the same instant spelled two equally-valid ways, and an
+        # offset like +05:30 is a third. Comparing the caller's raw string against each
+        # event's `ts` made all three disagree; the log site codes against this blind.
+        seed_batch(self.db, [
+            make_event(event_id="e1", ts="2026-08-22T10:00:00+00:00"),
+            make_event(event_id="e2", ts="2026-08-22T12:00:00+00:00"),
+        ], created_at="2026-08-22T12:00:00+00:00")
+
+        spellings = [
+            ("2026-08-22T11:00:00+00:00", "2026-08-22T13:00:00+00:00"),
+            ("2026-08-22T11:00:00Z", "2026-08-22T13:00:00Z"),
+            ("2026-08-22T16:30:00+05:30", "2026-08-22T18:30:00+05:30"),
+        ]
+        results = [
+            [e["event_id"] for e in query.query_events(since=since, until=until)["events"]]
+            for since, until in spellings
+        ]
+        self.assertEqual(results, [["e2"], ["e2"], ["e2"]])
 
     def test_pagination_returns_cursor_when_more_remain(self):
         events = [make_event(event_id=f"e{i}", ts=f"2026-08-22T10:00:{i:02d}+00:00") for i in range(5)]
@@ -194,6 +224,15 @@ class TestGetDailyStats(QueryTestCase):
         self.assertEqual(result["events"], 10)
         self.assertEqual(result["unique_sessions"], 3)
 
+    def test_unique_sessions_falls_back_to_the_legacy_session_ids_array(self):
+        # Documents written before `unique_sessions` became a counter carry the old
+        # unbounded array instead. Those days still have to report a real number.
+        self.db.seed("stats", "2026-08-01", {
+            "events": 4, "session_ids": ["s1", "s2", "s3"],
+        })
+        result = query.get_daily_stats("2026-08-01")
+        self.assertEqual(result["unique_sessions"], 3)
+
     def test_missing_date_returns_zeroed_shape(self):
         result = query.get_daily_stats("2026-01-01")
         self.assertEqual(result["events"], 0)
@@ -254,6 +293,7 @@ class TestGetLlmUsage(QueryTestCase):
         self.assertEqual(result["buckets"], [{"bucket": "2026-08-22", "tokens": 180, "calls": 2}])
 
     def test_blends_in_rollup_for_older_range(self):
+        seed_rollup_checkpoint(self.db)
         self.db.seed("logs_hourly", "2026-08-01T14", {
             "llm": {"calls": 5, "prompt_tokens": 500, "response_tokens": 250, "total_tokens": 750, "cache_hits": 2},
         })
@@ -263,6 +303,47 @@ class TestGetLlmUsage(QueryTestCase):
         self.assertEqual(result["calls"], 5)
         self.assertEqual(result["total_tokens"], 750)
         self.assertEqual(result["buckets"], [{"bucket": "2026-08-01T14", "tokens": 750, "calls": 5}])
+
+    def test_rollup_is_ignored_when_rollup_has_never_run(self):
+        # No checkpoint document means rollup.py has never written anything, so any
+        # `logs_hourly` document present is not trustworthy as a complete hour.
+        self.db.seed("logs_hourly", "2026-08-01T14", {
+            "llm": {"calls": 5, "prompt_tokens": 500, "response_tokens": 250, "total_tokens": 750, "cache_hits": 2},
+        })
+        result = query.get_llm_usage(
+            since="2026-08-01T14:00:00+00:00", until="2026-08-01T14:59:00+00:00", group_by="hour",
+        )
+        self.assertEqual(result["calls"], 0)
+
+    def test_mid_hour_since_does_not_pull_in_the_earlier_part_of_that_hour(self):
+        seed_rollup_checkpoint(self.db)
+        self.db.seed("logs_hourly", "2026-08-01T14", {
+            "llm": {"calls": 5, "prompt_tokens": 500, "response_tokens": 250, "total_tokens": 750, "cache_hits": 2},
+        })
+        # 14:00-14:30 belongs to that rollup bucket but not to the caller's range. Serving
+        # the whole bucket would over-count it; the raw scan covers the remainder exactly.
+        result = query.get_llm_usage(
+            since="2026-08-01T14:30:00+00:00", until="2026-08-01T15:59:00+00:00", group_by="hour",
+        )
+        self.assertEqual(result["calls"], 0)
+
+    def test_hours_after_the_rollup_checkpoint_are_read_from_raw(self):
+        # The window between "whenever rollup last ran" and now has no rollup documents at
+        # all -- it has to come from the raw batches, or it is silently missing.
+        seed_rollup_checkpoint(self.db, "2026-08-01T00:00:00+00:00")
+        recent = datetime.now(timezone.utc).replace(microsecond=0)
+        seed_batch(self.db, [
+            make_event(
+                event_id="llm1", category="llm", ts=recent.isoformat(),
+                data={"prompt_tokens": 7, "response_tokens": 3, "total_tokens": 10},
+            ),
+        ], created_at=recent.isoformat())
+
+        result = query.get_llm_usage(
+            since="2026-08-01T00:00:00+00:00", until=recent.isoformat(),
+        )
+        self.assertEqual(result["calls"], 1)
+        self.assertEqual(result["total_tokens"], 10)
 
     def test_no_db_returns_empty_shape(self):
         with patch("apps.backend.logstore.query.get_db", return_value=None):

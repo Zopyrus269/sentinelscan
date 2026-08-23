@@ -9,9 +9,11 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import queue
+import signal
 import time
 import unittest
 
+from apps.backend.logstore import sink as sink_module
 from apps.backend.logstore.sink import SinkThread
 
 
@@ -137,6 +139,41 @@ class TestSinkThread(unittest.TestCase):
 
         self.assertEqual(len(backend.batches), 1)
         self.assertEqual(len(backend.batches[0]), 1)
+
+
+class TestSigtermHandler(unittest.TestCase):
+    """The drain handler replaces whatever owned SIGTERM before it, so it has to hand the
+    signal back. In production that previous owner is gunicorn's own shutdown handler,
+    installed in `init_signals()` before it ever imports the app -- without the hand-back the
+    process flushes telemetry and then simply keeps running until Render force-kills it.
+    """
+
+    def setUp(self):
+        self._original = signal.getsignal(signal.SIGTERM)
+        self.addCleanup(signal.signal, signal.SIGTERM, self._original)
+        self.addCleanup(self._reset_module_state)
+        self._reset_module_state()
+
+    def _reset_module_state(self):
+        sink_module._sink_thread = None
+        sink_module._sigterm_installed = False
+        sink_module._previous_sigterm = None
+
+    def test_drains_then_calls_the_handler_it_replaced(self):
+        received = []
+        signal.signal(signal.SIGTERM, lambda signum, frame: received.append(signum))
+
+        source = queue.Queue()
+        source.put({"event_id": "e1"})
+        backend = FakeBackend()
+
+        sink_module.start(source, backend, flush_interval_seconds=0.05, poll_timeout_seconds=0.01)
+        self.assertIs(signal.getsignal(signal.SIGTERM), sink_module._handle_sigterm)
+
+        sink_module._handle_sigterm(signal.SIGTERM, None)
+
+        self.assertEqual(received, [signal.SIGTERM])
+        self.assertEqual([e["event_id"] for batch in backend.batches for e in batch], ["e1"])
 
 
 if __name__ == "__main__":
