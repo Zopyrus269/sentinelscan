@@ -8,7 +8,7 @@ a no-op when Firestore isn't configured -- the same graceful-fallback pattern
 """
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 try:
     from firebase_admin import firestore
@@ -29,12 +29,18 @@ logger = logging.getLogger(__name__)
 class FirestoreSink:
     """Sink backend that persists batched events to Firestore."""
 
-    def write_batch(self, events: List[Dict[str, Any]]) -> None:
+    def write_batch(
+        self, events: List[Dict[str, Any]], *, now: Optional[datetime] = None,
+    ) -> None:
         """Writes one batch document and updates its derived stats/presence records.
 
         A no-op, not an error, when there are no events or Firestore isn't configured --
         callers (the sink thread) treat any exception as retryable, so this only ever
         raises for a genuine write failure.
+
+        ``now`` is passed straight through to ``build_batch_document`` -- the live sink
+        thread never sets it (real current time), while a historical-data producer like
+        ``scripts/seed_fake_logs.py`` can backdate a batch's ``created_at``/``expires_at``.
         """
         if not events:
             return
@@ -42,7 +48,7 @@ class FirestoreSink:
         if not db:
             return
 
-        batch_doc = build_batch_document(events)
+        batch_doc = build_batch_document(events, now=now)
         db.collection(LOGS_COLLECTION).document(batch_doc["batch_id"]).set(batch_doc)
 
         presence_writes = self._update_presence(db, events)
