@@ -400,6 +400,13 @@ def list_sessions(*, since: Optional[str] = None, limit: int = 50) -> List[Dict[
 def count_active_users(window_minutes: int = 5) -> Dict[str, Any]:
     """Returns `{"count": int, "sessions": [{"session_id", "uid", "last_seen"}, ...]}` for
     sessions seen within the last `window_minutes`, read from `presence/`.
+
+    Bounded at `_MAX_ACTIVE_SESSIONS` most-recent sessions, so an unbounded collection scan
+    cannot run on a screen that auto-refreshes. `count` therefore saturates rather than
+    growing without limit -- a warning is logged if that ever happens, since at that point
+    the number shown is a floor, not the truth. The cap sits far above any plausible
+    concurrent load for this app; if it is ever reached in earnest, this wants a Firestore
+    `count()` aggregation for the number and the limit kept only for the listed sessions.
     """
     db = get_db()
     if not db:
@@ -421,6 +428,11 @@ def count_active_users(window_minutes: int = 5) -> Dict[str, Any]:
         }
         for data in (doc.to_dict() for doc in query.stream())
     ]
+    if len(sessions) >= _MAX_ACTIVE_SESSIONS:
+        logger.warning(
+            "count_active_users hit the %d-session cap; the reported count is a floor",
+            _MAX_ACTIVE_SESSIONS,
+        )
     return {"count": len(sessions), "sessions": sessions}
 
 

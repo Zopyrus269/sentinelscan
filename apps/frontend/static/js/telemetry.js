@@ -12,6 +12,20 @@
  * events and roughly REQUEST_BYTE_BUDGET bytes per request. An oversized request isn't
  * partially accepted -- the server 400s it and the whole payload is lost -- so a burst of
  * events is split across several requests rather than sent as one it will refuse.
+ *
+ * Two correlation ids make the product's "what did this click actually do" view possible
+ * (docs/workstreams/WORKSTREAM_C.md section 4):
+ *
+ * - session_id -- one per browser tab session, held in sessionStorage.
+ * - trace_id   -- one per user action. `newTraceId()` starts a trace and returns its id;
+ *                 every event captured afterwards carries it, and the caller sends the same
+ *                 id to the backend as the X-SentinelScan-Trace header (app.js already does
+ *                 this when starting a scan) so the browser's click and the server-side work
+ *                 it caused end up sharing one id.
+ *
+ * Identity is never asserted by this file. It sends the signed-in user's Firebase ID token
+ * when there is one, and the server derives `uid` from it -- a client claim about who it is
+ * is ignored server-side (see telemetry_routes.py).
  */
 (function () {
     const ENDPOINT = "/api/v1/telemetry";
@@ -33,6 +47,11 @@
 
     let buffer = [];
     let flushTimer = null;
+    let currentTraceId = null;
+    // Refreshed in the background so flush() never has to await anything -- it runs on
+    // pagehide, where a promise may simply never settle. A token that arrives a moment late
+    // costs at most one batch its `uid`, which the server then records as anonymous.
+    let cachedIdToken = null;
 
     function safeRandomId() {
         try {
@@ -56,8 +75,42 @@
         }
     }
 
+    /**
+     * Starts a new trace and returns its id.
+     *
+     * Deliberately stateful: the returned id is also attached to every event captured from
+     * here on, so the caller can put it in the X-SentinelScan-Trace header and have the
+     * click and the server-side work it triggers share one id. Returning a fresh id without
+     * remembering it -- the previous behaviour -- meant the header and the recorded events
+     * never matched, and the correlation this exists for silently produced nothing.
+     */
     function newTraceId() {
-        return safeRandomId();
+        currentTraceId = safeRandomId();
+        return currentTraceId;
+    }
+
+    function getTraceId() {
+        return currentTraceId;
+    }
+
+    /** The correlation headers a caller should attach to its own API requests. */
+    function correlationHeaders() {
+        const headers = {};
+        const sessionId = getSessionId();
+        if (sessionId) headers["X-SentinelScan-Session"] = sessionId;
+        if (currentTraceId) headers["X-SentinelScan-Trace"] = currentTraceId;
+        return headers;
+    }
+
+    function refreshIdToken() {
+        try {
+            if (typeof window.getCurrentUserIdToken !== "function") return;
+            Promise.resolve(window.getCurrentUserIdToken())
+                .then((token) => { cachedIdToken = token || null; })
+                .catch(() => { cachedIdToken = null; });
+        } catch {
+            cachedIdToken = null;
+        }
     }
 
     /**
@@ -73,7 +126,7 @@
                 category,
                 message: String(message || "").slice(0, MAX_MESSAGE_CHARS),
                 data: data && typeof data === "object" ? data : {},
-                trace_id: null,
+                trace_id: currentTraceId,
                 session_id: getSessionId(),
                 duration_ms: 0,
             });
@@ -102,6 +155,7 @@
 
     function scheduleFlush() {
         if (flushTimer) return;
+        refreshIdToken();
         flushTimer = setTimeout(() => {
             flushTimer = null;
             flush();
@@ -137,13 +191,20 @@
         const payload = JSON.stringify({ events });
 
         if (useBeacon && navigator.sendBeacon) {
+            // sendBeacon cannot carry headers, so events sent on page unload are recorded
+            // without a uid. That is the trade for not losing them at all.
             navigator.sendBeacon(ENDPOINT, new Blob([payload], { type: "application/json" }));
             return;
         }
 
+        const headers = { "Content-Type": "application/json" };
+        if (cachedIdToken) {
+            headers.Authorization = `Bearer ${cachedIdToken}`;
+        }
+
         fetch(ENDPOINT, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: payload,
             keepalive: true,
         }).catch(() => {
@@ -166,6 +227,8 @@
     }
 
     try {
+        refreshIdToken();
+
         window.addEventListener("error", (event) => {
             captureError("error", event.message, {
                 filename: event.filename,
@@ -197,6 +260,8 @@
     window.SentinelTelemetry = {
         getSessionId,
         newTraceId,
+        getTraceId,
+        correlationHeaders,
         capture,
     };
 })();
