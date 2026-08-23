@@ -29,6 +29,18 @@ def make_event(**overrides):
     return event
 
 
+# query_events applies a default 24-hour window when given neither a time bound nor a cursor.
+# Tests below that are about filtering or pagination pass this explicitly, so they exercise
+# the thing they are named for rather than the window.
+ALL_TIME = "2026-01-01T00:00:00+00:00"
+
+
+def recent_ts(seconds_ago: int = 0) -> str:
+    """An event timestamp inside the default query window, for tests that exercise it."""
+    from datetime import timedelta
+    return (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat()
+
+
 def seed_rollup_checkpoint(db: FakeFirestoreClient, created_at: str = "2026-08-17T00:00:00+00:00"):
     """Marks rollup.py as having processed up to `created_at`.
 
@@ -72,7 +84,7 @@ class TestQueryEvents(QueryTestCase):
             make_event(event_id="e2", level="info", category="http"),
             make_event(event_id="e3", level="error", category="worker"),
         ])
-        result = query.query_events(level="error", category="http")
+        result = query.query_events(level="error", category="http", since=ALL_TIME)
         self.assertEqual([e["event_id"] for e in result["events"]], ["e1"])
 
     def test_filters_by_session_id_uses_array_contains(self):
@@ -80,7 +92,7 @@ class TestQueryEvents(QueryTestCase):
             make_event(event_id="e1", session_id="s1"),
             make_event(event_id="e2", session_id="s2"),
         ])
-        result = query.query_events(session_id="s1")
+        result = query.query_events(session_id="s1", since=ALL_TIME)
         self.assertEqual([e["event_id"] for e in result["events"]], ["e1"])
 
     def test_since_until_filter_on_event_ts(self):
@@ -114,25 +126,83 @@ class TestQueryEvents(QueryTestCase):
         ]
         self.assertEqual(results, [["e2"], ["e2"], ["e2"]])
 
-    def test_pagination_returns_cursor_when_more_remain(self):
+    def _seed_five(self):
         events = [make_event(event_id=f"e{i}", ts=f"2026-08-22T10:00:{i:02d}+00:00") for i in range(5)]
         seed_batch(self.db, events)
+        return events
 
-        page1 = query.query_events(limit=2)
-        self.assertEqual([e["event_id"] for e in page1["events"]], ["e0", "e1"])
-        self.assertIsNotNone(page1["next_cursor"])
+    def test_first_page_returns_the_newest_events_not_the_oldest(self):
+        # The log site's live stream opens with no cursor. Handing it the oldest events in
+        # the database (which is what taking the head of an ascending sort did) means the
+        # first thing anyone sees is ancient history.
+        self._seed_five()
+        page = query.query_events(limit=2, since=ALL_TIME)
+        self.assertEqual([e["event_id"] for e in page["events"]], ["e3", "e4"])
+        self.assertEqual(page["next_cursor"], "2026-08-22T10:00:04+00:00|e4")
 
-        page2 = query.query_events(limit=2, cursor=page1["next_cursor"])
-        self.assertEqual([e["event_id"] for e in page2["events"]], ["e2", "e3"])
+    def test_cursor_walks_forward_from_where_it_left_off(self):
+        self._seed_five()
+        page = query.query_events(limit=2, cursor="2026-08-22T10:00:00+00:00|e0", since=ALL_TIME)
+        self.assertEqual([e["event_id"] for e in page["events"]], ["e1", "e2"])
 
-        page3 = query.query_events(limit=2, cursor=page2["next_cursor"])
-        self.assertEqual([e["event_id"] for e in page3["events"]], ["e4"])
-        self.assertIsNone(page3["next_cursor"])
+        page = query.query_events(limit=2, cursor=page["next_cursor"], since=ALL_TIME)
+        self.assertEqual([e["event_id"] for e in page["events"]], ["e3", "e4"])
+
+    def test_empty_poll_hands_the_callers_cursor_back(self):
+        # A poll that finds nothing new must still leave the caller with a place to poll
+        # from next time, or a quiet minute would strand the screen.
+        self._seed_five()
+        cursor = "2026-08-22T10:00:04+00:00|e4"
+        page = query.query_events(limit=2, cursor=cursor, since=ALL_TIME)
+        self.assertEqual(page["events"], [])
+        self.assertEqual(page["next_cursor"], cursor)
+
+    def test_default_window_applies_only_without_a_time_bound_or_cursor(self):
+        seed_batch(
+            self.db, [make_event(event_id="old", ts="2026-08-22T10:00:00+00:00")],
+            created_at="2026-08-22T10:00:00+00:00",
+        )
+        fresh = recent_ts(30)
+        seed_batch(self.db, [make_event(event_id="new", ts=fresh)], created_at=fresh)
+
+        self.assertEqual(
+            [e["event_id"] for e in query.query_events()["events"]], ["new"],
+        )
+        self.assertEqual(
+            [e["event_id"] for e in query.query_events(since=ALL_TIME)["events"]],
+            ["old", "new"],
+        )
+
+    def test_cursor_poll_narrows_the_firestore_range(self):
+        # The whole point of cursor polling: read what is new, not the window again.
+        captured = {}
+        real_fetch = query._fetch_batches
+
+        def spy(db, **kwargs):
+            captured.update(kwargs)
+            return real_fetch(db, **kwargs)
+
+        with patch("apps.backend.logstore.query._fetch_batches", side_effect=spy):
+            query.query_events(cursor="2026-08-22T10:00:00+00:00|e1")
+
+        self.assertEqual(captured["since"], "2026-08-22T09:58:00+00:00")
+
+    def test_batch_scan_is_bounded_on_the_firestore_side(self):
+        # Without a limit this reads every batch ever written and throws most away in
+        # Python -- the read-quota trap WORKSTREAM_C.md section 10 calls out.
+        for i in range(query._MAX_BATCH_SCAN + 10):
+            ts = recent_ts(3600 - i)
+            seed_batch(self.db, [make_event(event_id=f"e{i}", ts=ts)], created_at=ts)
+
+        result = query.query_events(limit=query.MAX_QUERY_LIMIT)
+        self.assertEqual(len(result["events"]), query._MAX_BATCH_SCAN)
+        # ...and it keeps the newest ones, not whichever the collection happened to yield.
+        self.assertEqual(result["events"][-1]["event_id"], f"e{query._MAX_BATCH_SCAN + 9}")
 
     def test_limit_is_clamped_to_max(self):
         events = [make_event(event_id=f"e{i}", ts=f"2026-08-22T10:00:{i:02d}+00:00") for i in range(3)]
         seed_batch(self.db, events)
-        result = query.query_events(limit=query.MAX_QUERY_LIMIT + 100)
+        result = query.query_events(limit=query.MAX_QUERY_LIMIT + 100, since=ALL_TIME)
         self.assertEqual(len(result["events"]), 3)
 
     def test_empty_collection_returns_empty_result(self):
@@ -210,6 +280,17 @@ class TestListSessionsAndActiveUsers(QueryTestCase):
         result = query.count_active_users(window_minutes=5)
         self.assertEqual(result["count"], 1)
         self.assertEqual(result["sessions"][0]["session_id"], "recent")
+
+
+    def test_count_active_users_is_bounded(self):
+        now = datetime.now(timezone.utc)
+        for i in range(query._MAX_ACTIVE_SESSIONS + 25):
+            self.db.seed("presence", f"s{i}", {
+                "session_id": f"s{i}", "uid": None, "last_seen": now.isoformat(),
+            })
+        self.assertEqual(
+            query.count_active_users()["count"], query._MAX_ACTIVE_SESSIONS,
+        )
 
 
 class TestGetDailyStats(QueryTestCase):

@@ -75,6 +75,23 @@ class TestPipeline(unittest.TestCase):
             with patch.dict(os.environ, {"SENTINELSCAN_TELEMETRY_ENABLED": value}):
                 self.assertFalse(pipeline.is_enabled(), value)
 
+    def test_app_does_not_start_the_sink_when_telemetry_is_off(self):
+        # Off is the production default (render.yaml). Starting the thread anyway leaves a
+        # polling background thread and a hijacked SIGTERM handler serving a feature nobody
+        # switched on.
+        with patch("apps.backend.logstore.pipeline.ensure_started") as mock_ensure:
+            with patch.dict(os.environ, {"SENTINELSCAN_TELEMETRY_ENABLED": "0"}):
+                from apps.backend.app import create_app
+                create_app()
+        mock_ensure.assert_not_called()
+
+    def test_app_starts_the_sink_when_telemetry_is_on(self):
+        with patch("apps.backend.logstore.pipeline.ensure_started") as mock_ensure:
+            with patch.dict(os.environ, {"SENTINELSCAN_TELEMETRY_ENABLED": "1"}):
+                from apps.backend.app import create_app
+                create_app()
+        mock_ensure.assert_called_once()
+
     def test_is_enabled_defaults_to_false_when_unset(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("SENTINELSCAN_TELEMETRY_ENABLED", None)

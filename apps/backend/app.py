@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 from apps.backend.extensions import limiter
 
 load_dotenv()
@@ -29,8 +30,18 @@ def create_app() -> Flask:
     allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
     CORS(app, origins=allowed_origins)
     
+    # Render terminates TLS at its own proxy, so without this every request looks like it
+    # came from that proxy's address -- and flask-limiter's per-IP buckets collapse into a
+    # single shared one for the entire internet. Telemetry is the first high-frequency
+    # endpoint here, so it is the first that would notice.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
     limiter.init_app(app)
-    pipeline.ensure_started()
+    # Only stand up the sink thread when telemetry is actually switched on. Otherwise this
+    # is a polling background thread and a hijacked SIGTERM handler serving a feature that
+    # is off -- and off is the production default (see render.yaml).
+    if pipeline.is_enabled():
+        pipeline.ensure_started()
 
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
     app.register_blueprint(scan_bp)

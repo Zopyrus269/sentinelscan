@@ -19,3 +19,8 @@ services:
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_PATH
         sync: false
+      # Off by design until Workstreams A, B and C are integrated and verified together.
+      # Declared here rather than left to the code default so the switch is visible in the
+      # Render dashboard, and flipping it on is a deliberate act rather than a discovery.
+      - key: SENTINELSCAN_TELEMETRY_ENABLED
+        value: "0"

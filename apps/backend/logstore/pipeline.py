@@ -7,9 +7,8 @@ a producer. ``telemetry_routes.py`` (Phase 2) is that first producer. Workstream
 reconciling the two into a single shared queue is integration work, once her branch exists.
 """
 import os
-from typing import Optional
 from queue import Queue
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from apps.backend.auth.firebase_client import get_db
 from apps.backend.logstore import sink
