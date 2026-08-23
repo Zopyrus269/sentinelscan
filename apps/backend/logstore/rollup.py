@@ -34,6 +34,13 @@ logger = logging.getLogger(__name__)
 _EPOCH_ISO = "1970-01-01T00:00:00+00:00"
 _CHECKPOINT_FIELD = "last_processed_created_at"
 
+# How many batches are rolled up before the checkpoint is advanced. Writing it once at the
+# very end (the original design) meant a crash anywhere in the loop left the checkpoint
+# untouched, so the next run reprocessed -- and re-`Increment`ed -- every hour that had
+# already succeeded. Advancing per chunk bounds that blast radius to one chunk, at a cost of
+# one extra Firestore write per chunk rather than one per run.
+_CHECKPOINT_CHUNK_BATCHES = 50
+
 
 def _empty_summary() -> Dict[str, Any]:
     return {"batches_processed": 0, "hours_written": 0, "checkpoint": None}
@@ -45,6 +52,10 @@ def run_rollup(now: Optional[datetime] = None) -> Dict[str, Any]:
     Returns `{"batches_processed", "hours_written", "checkpoint"}` describing what this run
     did, for a caller or test to assert on. A no-op (zeroed summary) when Firestore isn't
     configured, or when there is nothing new to process.
+
+    Batches are processed in `created_at` order, in chunks of `_CHECKPOINT_CHUNK_BATCHES`,
+    with the checkpoint advanced after each chunk's hours are written. A crash therefore
+    costs at most one chunk of double-counting on the next run, not the whole run's worth.
     """
     db = get_db()
     if not db or not firestore:
@@ -67,16 +78,24 @@ def run_rollup(now: Optional[datetime] = None) -> Dict[str, Any]:
     if not batches:
         return _empty_summary()
 
-    hourly = _aggregate(batches)
-    for hour_key, bucket in hourly.items():
-        _write_hour(db, hour_key, bucket)
+    processed = 0
+    hours_written = set()
+    latest_created_at = None
 
-    latest_created_at = max(batch["created_at"] for batch in batches)
-    _write_checkpoint(db, latest_created_at)
+    for start in range(0, len(batches), _CHECKPOINT_CHUNK_BATCHES):
+        chunk = batches[start:start + _CHECKPOINT_CHUNK_BATCHES]
+        hourly = _aggregate(chunk)
+        for hour_key, bucket in hourly.items():
+            _write_hour(db, hour_key, bucket)
+
+        latest_created_at = max(batch["created_at"] for batch in chunk)
+        _write_checkpoint(db, latest_created_at)
+        processed += len(chunk)
+        hours_written.update(hourly)
 
     return {
-        "batches_processed": len(batches),
-        "hours_written": len(hourly),
+        "batches_processed": processed,
+        "hours_written": len(hours_written),
         "checkpoint": latest_created_at,
     }
 
@@ -139,10 +158,15 @@ def _aggregate(batches: list) -> Dict[str, Dict[str, Any]]:
 
 
 def _write_hour(db: Any, hour_key: str, bucket: Dict[str, Any]) -> None:
-    """Merges `bucket`'s counts into `logs_hourly/{hour_key}` via Increment, so re-running
-    this rollup for an hour it already partially wrote (e.g. after a crash) only adds the
-    delta rather than double-counting from scratch -- each event is only ever aggregated
-    once per run, and the checkpoint ensures a run never revisits an hour's source batches.
+    """Merges `bucket`'s counts into `logs_hourly/{hour_key}` via Increment.
+
+    Increment is additive, not idempotent: writing the same hour's bucket twice doubles it.
+    What keeps that from happening is the checkpoint, which `run_rollup` advances after
+    every chunk of batches -- so a re-run skips the source batches of any hour already
+    written. The residual risk is one chunk wide: a crash *between* two `_write_hour` calls
+    inside a chunk leaves that chunk's checkpoint unwritten, and the next run re-adds the
+    hours that had already landed. Sized at `_CHECKPOINT_CHUNK_BATCHES` batches, against
+    data that is an internal read-cost optimisation rather than a source of truth.
 
     Uses nested maps (not dotted field-path strings) so Firestore's `set(..., merge=True)`
     deep-merges each leaf independently -- writing `by_level.debug` here never clobbers an

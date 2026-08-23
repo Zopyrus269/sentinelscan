@@ -8,7 +8,7 @@ a no-op when Firestore isn't configured -- the same graceful-fallback pattern
 """
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 try:
     from firebase_admin import firestore
@@ -25,9 +25,23 @@ from apps.backend.logstore.schema import (
 
 logger = logging.getLogger(__name__)
 
+# Upper bound on the distinct session ids one instance remembers per date, so the
+# de-duplication below can never grow without limit in memory. Past this the day's
+# `unique_sessions` counter simply stops advancing -- an undercount on an absurd day is a
+# far better failure than the unbounded growth this replaced (see _new_session_count).
+_MAX_TRACKED_SESSIONS = 50_000
+
+# How many dates' session sets to keep at once. Two covers the only case that matters: a
+# batch straddling the UTC midnight boundary, where today's and yesterday's are both live.
+_MAX_TRACKED_DATES = 2
+
 
 class FirestoreSink:
     """Sink backend that persists batched events to Firestore."""
+
+    def __init__(self) -> None:
+        # date -> session ids already counted towards that date's `unique_sessions`.
+        self._counted_sessions: Dict[str, Set[str]] = {}
 
     def write_batch(
         self, events: List[Dict[str, Any]], *, now: Optional[datetime] = None,
@@ -61,9 +75,9 @@ class FirestoreSink:
     ) -> None:
         """Increments additive daily counters, grouped by each event's UTC date.
 
-        Also unions each date's distinct session ids into a `session_ids` array field
-        (source for query.py's `get_daily_stats().unique_sessions`, read as `len(field)`),
-        and folds a `firestore_writes` counter into **today's** date entry -- the running
+        Also advances each date's `unique_sessions` counter (source for query.py's
+        `get_daily_stats().unique_sessions`) by however many session ids this batch is the
+        first to see for that date, and folds a `firestore_writes` counter into **today's** date entry -- the running
         total of every Firestore write this flush performed (batch doc + presence upserts +
         this method's own per-date writes), used by the ingest endpoint's circuit breaker to
         gauge how close today is to the free-tier write cap. Folded into the same `.set()`
@@ -102,9 +116,9 @@ class FirestoreSink:
             fields: Dict[str, Any] = {
                 key: firestore.Increment(value) for key, value in counters.items() if value
             }
-            session_ids = sessions_by_date.get(date)
-            if session_ids:
-                fields["session_ids"] = firestore.ArrayUnion(sorted(session_ids))
+            new_sessions = self._new_session_count(date, sessions_by_date.get(date))
+            if new_sessions:
+                fields["unique_sessions"] = firestore.Increment(new_sessions)
             if date == today:
                 fields["firestore_writes"] = firestore.Increment(total_writes)
             if fields:
@@ -117,6 +131,48 @@ class FirestoreSink:
             db.collection(STATS_COLLECTION).document(today).set(
                 {"firestore_writes": firestore.Increment(total_writes + 1)}, merge=True,
             )
+
+    def _new_session_count(self, date: str, session_ids: Optional[Set[str]]) -> int:
+        """How many of `session_ids` this instance has not already counted for `date`.
+
+        Replaces an earlier design that unioned every session id of the day into a
+        `session_ids` array on the stats document: that array had no upper bound, and once
+        it pushed the document past Firestore's 1 MB ceiling *every* stats write for that
+        date failed, which made the sink drop every batch until the next UTC midnight.
+
+        De-duplication is per process, not global, so a restart can double-count a session
+        that spans it. That is acceptable here: Render runs a single gunicorn worker
+        (`render.yaml`, `--workers 1`), the number is a rough activity gauge rather than
+        billing data, and the alternative -- an unbounded, self-destructing array -- was
+        strictly worse.
+        """
+        if not session_ids:
+            return 0
+
+        counted = self._counted_sessions.setdefault(date, set())
+        if len(counted) >= _MAX_TRACKED_SESSIONS:
+            return 0
+
+        new = session_ids - counted
+        if not new:
+            return 0
+
+        room = _MAX_TRACKED_SESSIONS - len(counted)
+        if len(new) > room:
+            logger.warning(
+                "logstore sink: %s reached the %d tracked-session cap; unique_sessions "
+                "will undercount for the rest of the day", date, _MAX_TRACKED_SESSIONS,
+            )
+            new = set(sorted(new)[:room])
+
+        counted.update(new)
+        self._forget_stale_dates()
+        return len(new)
+
+    def _forget_stale_dates(self) -> None:
+        """Keeps only the most recent `_MAX_TRACKED_DATES` dates' session sets in memory."""
+        while len(self._counted_sessions) > _MAX_TRACKED_DATES:
+            del self._counted_sessions[min(self._counted_sessions)]
 
     def _update_presence(self, db: Any, events: List[Dict[str, Any]]) -> int:
         """Upserts one presence document per session, keeping only its latest event.

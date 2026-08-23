@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import json
 import queue
 import unittest
+
+import flask
 from unittest.mock import patch, MagicMock
 
 from apps.backend.logstore import pipeline
@@ -81,6 +83,19 @@ class TestTelemetryRoutes(unittest.TestCase):
             "events": [self._one_event(data={"blob": "x" * (MAX_REQUEST_BYTES + 1000)})]
         })
         resp = self._post(oversized)
+        self.assertEqual(resp.status_code, 413)
+
+    def test_oversized_body_is_rejected_without_being_buffered(self):
+        # This endpoint is unauthenticated, so measuring the body by reading all of it into
+        # memory first is the wrong order: the declared Content-Length has to decide.
+        oversized = json.dumps({
+            "events": [self._one_event(data={"blob": "x" * (MAX_REQUEST_BYTES + 1000)})]
+        })
+        with patch.object(
+            flask.Request, "get_data", autospec=True,
+            side_effect=AssertionError("request body was buffered before the size check"),
+        ):
+            resp = self._post(oversized)
         self.assertEqual(resp.status_code, 413)
 
     def test_batch_over_cap_returns_400(self):

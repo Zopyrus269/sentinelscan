@@ -6,6 +6,7 @@ can be slow -- Firestore writes, retries, backoff -- happens here, on this threa
 a request thread.
 """
 import logging
+import os
 import queue
 import signal
 import threading
@@ -148,6 +149,11 @@ class SinkThread(threading.Thread):
 
 _sink_thread: Optional[SinkThread] = None
 _sigterm_installed = False
+# Whatever SIGTERM handler was already installed when we took the signal over. gunicorn
+# installs its own in `init_signals()` *before* it imports the app, so in production this is
+# gunicorn's shutdown handler -- not calling it back would mean the process flushes telemetry
+# and then never exits, leaving Render to force-kill it after the grace period.
+_previous_sigterm: Any = None
 
 
 def start(source_queue: "queue.Queue[Dict[str, Any]]", backend: SinkBackend, **kwargs: Any) -> SinkThread:
@@ -155,15 +161,17 @@ def start(source_queue: "queue.Queue[Dict[str, Any]]", backend: SinkBackend, **k
 
     Must be called from the main thread the first time, since signal handler
     registration requires it; a second call replaces the running thread reference
-    without re-registering the handler.
+    without re-registering the handler. The handler we install chains to whatever was
+    there before (see `_handle_sigterm`), so taking it over never stops the process from
+    actually shutting down.
     """
-    global _sink_thread, _sigterm_installed
+    global _sink_thread, _sigterm_installed, _previous_sigterm
     _sink_thread = SinkThread(source_queue, backend, **kwargs)
     _sink_thread.start()
 
     if not _sigterm_installed:
         try:
-            signal.signal(signal.SIGTERM, _handle_sigterm)
+            _previous_sigterm = signal.signal(signal.SIGTERM, _handle_sigterm)
             _sigterm_installed = True
         except (ValueError, OSError):
             # Not the main thread, or the platform doesn't support it -- best effort.
@@ -178,4 +186,28 @@ def stop(drain: bool = True) -> None:
 
 
 def _handle_sigterm(signum: int, frame: Any) -> None:
+    """Drains the sink, then hands SIGTERM back to whoever owned it before us.
+
+    Draining is only half the job: this handler *replaced* the process's real shutdown
+    handler, so if it returned here the process would carry on running and never exit.
+    Three cases, matching what `signal.signal()` can hand back:
+
+    - a callable (gunicorn's own handler in production) -- call it, and let it shut down;
+    - `SIG_DFL` -- restore the default disposition and re-raise, so the default
+      terminate-the-process behaviour happens;
+    - `SIG_IGN` (or nothing recorded) -- the previous owner deliberately ignored SIGTERM,
+      so there is nothing to hand back to.
+    """
     stop(drain=True)
+
+    previous = _previous_sigterm
+    if callable(previous):
+        previous(signum, frame)
+        return
+    if previous == signal.SIG_DFL:
+        try:
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            os.kill(os.getpid(), signal.SIGTERM)
+        except (ValueError, OSError):
+            # Best effort -- never let shutdown bookkeeping raise out of a signal handler.
+            pass

@@ -265,11 +265,64 @@ def _generate_session(
     return [_finalize(raw) for raw in raw_events]
 
 
-def _write_events(sink: FirestoreSink, events: List[Dict[str, Any]], *, now: Optional[datetime]) -> int:
+# How far after its newest event a backdated batch's `created_at` is stamped. Stands in for
+# the sink's real flush latency.
+_SEED_FLUSH_LAG = timedelta(seconds=2)
+
+# The widest span of event time one backdated batch may cover. query.py finds a batch by its
+# `created_at` and allows only `_CREATED_AT_SKEW` (2 minutes) of drift from the events inside
+# it, so a batch wider than that has events no time-range query can reach. Kept well under
+# the 2 minutes, and close to what the live sink produces anyway (it flushes every 5 seconds
+# or 100 events, whichever comes first).
+_SEED_BATCH_SPAN = timedelta(seconds=60)
+
+
+def _backdated_batches(events: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+    """Splits time-sorted `events` into batches bounded by both BATCH_SIZE and the span one
+    `created_at` can honestly stand for."""
+    batches: List[List[Dict[str, Any]]] = []
+    current: List[Dict[str, Any]] = []
+    current_start = None
+
+    for event in events:
+        ts = datetime.fromisoformat(event["ts"])
+        if current and (len(current) >= BATCH_SIZE or ts - current_start > _SEED_BATCH_SPAN):
+            batches.append(current)
+            current = []
+            current_start = None
+        if not current:
+            current_start = ts
+        current.append(event)
+
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _write_events(sink: FirestoreSink, events: List[Dict[str, Any]], *, backdate: bool) -> int:
+    """Writes `events` as batch documents, oldest first.
+
+    With `backdate`, batches are split by event time as well as size and each is stamped
+    just after its own newest event, rather than a whole day's events sharing one fixed
+    `created_at`. That matters because query.py filters on `created_at` first and only
+    tolerates `_CREATED_AT_SKEW` of drift from an event's own `ts`: a day's batches stamped
+    at, say, noon make that day's morning and evening events unreachable by any time-range
+    query -- which is most of what the log site does.
+
+    Without `backdate` the real current time is used, which is what the live sink does.
+    """
     events.sort(key=lambda e: e["ts"])
+
+    if not backdate:
+        batches = 0
+        for start in range(0, len(events), BATCH_SIZE):
+            sink.write_batch(events[start:start + BATCH_SIZE], now=None)
+            batches += 1
+        return batches
+
     batches = 0
-    for start in range(0, len(events), BATCH_SIZE):
-        sink.write_batch(events[start:start + BATCH_SIZE], now=now)
+    for chunk in _backdated_batches(events):
+        sink.write_batch(chunk, now=datetime.fromisoformat(chunk[-1]["ts"]) + _SEED_FLUSH_LAG)
         batches += 1
     return batches
 
@@ -279,8 +332,8 @@ def _seed_day(
 ) -> Dict[str, int]:
     """Seeds one day's sessions, writing "today"'s near-now sessions in their own
     batch with a real (unbackdated) `now`, so they fall inside get_health_snapshot()'s
-    and count_active_users()'s narrow recent-time windows -- and everything else in a
-    day-scoped batch stamped at noon that day.
+    and count_active_users()'s narrow recent-time windows -- and everything else in
+    backdated batches each stamped just after its own newest event (see _write_events).
     """
     day_end = datetime.now(timezone.utc) if is_today else datetime(
         day.year, day.month, day.day, 23, 59, 59, tzinfo=timezone.utc,
@@ -294,10 +347,9 @@ def _seed_day(
         session_events = _generate_session(rng, day, day_end, near_now=near_now)
         (near_now_events if near_now else regular_events).extend(session_events)
 
-    day_noon = datetime(day.year, day.month, day.day, 12, 0, tzinfo=timezone.utc)
-    batches = _write_events(sink, regular_events, now=day_noon)
+    batches = _write_events(sink, regular_events, backdate=True)
     if near_now_events:
-        batches += _write_events(sink, near_now_events, now=None)
+        batches += _write_events(sink, near_now_events, backdate=False)
 
     return {
         "sessions": sessions_per_day,

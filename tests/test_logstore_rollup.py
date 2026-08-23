@@ -137,5 +137,67 @@ class TestRunRollup(RollupTestCase):
         self.assertEqual(bucket["event_count"], 2)
 
 
+class TestCheckpointIsAdvancedIncrementally(RollupTestCase):
+    """A crash mid-run must not cost the whole run's progress.
+
+    `_write_hour` uses Increment, which is additive rather than idempotent, so any hour
+    reprocessed by a later run is double-counted. The checkpoint is what prevents that --
+    and writing it only once, after every hour had been written, meant a crash anywhere in
+    the loop threw away the record of everything that had already succeeded.
+    """
+
+    def _seed_batches(self, count):
+        for i in range(count):
+            seed_batch(
+                self.db,
+                [make_event(event_id=f"e{i}", ts="2026-08-10T14:00:00+00:00")],
+                created_at=f"2026-08-10T14:{i:02d}:00+00:00",
+            )
+
+    def test_crash_mid_run_keeps_the_completed_chunks_checkpoint(self):
+        self._seed_batches(rollup._CHECKPOINT_CHUNK_BATCHES + 5)
+
+        real_write_hour = rollup._write_hour
+        calls = {"n": 0}
+
+        def failing_write_hour(db, hour_key, bucket):
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise RuntimeError("simulated crash partway through the run")
+            return real_write_hour(db, hour_key, bucket)
+
+        with patch("apps.backend.logstore.rollup._write_hour", side_effect=failing_write_hour):
+            with self.assertRaises(RuntimeError):
+                rollup.run_rollup(now=_NOW)
+
+        checkpoint = self.db.collection("logs_meta").document("rollup_checkpoint").get().to_dict()
+        self.assertIsNotNone(checkpoint)
+        self.assertEqual(
+            checkpoint["last_processed_created_at"],
+            f"2026-08-10T14:{rollup._CHECKPOINT_CHUNK_BATCHES - 1:02d}:00+00:00",
+        )
+
+    def test_rerun_after_a_crash_does_not_double_count_the_completed_chunk(self):
+        self._seed_batches(rollup._CHECKPOINT_CHUNK_BATCHES + 5)
+
+        real_write_hour = rollup._write_hour
+        calls = {"n": 0}
+
+        def failing_write_hour(db, hour_key, bucket):
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise RuntimeError("simulated crash partway through the run")
+            return real_write_hour(db, hour_key, bucket)
+
+        with patch("apps.backend.logstore.rollup._write_hour", side_effect=failing_write_hour):
+            with self.assertRaises(RuntimeError):
+                rollup.run_rollup(now=_NOW)
+
+        rollup.run_rollup(now=_NOW)
+
+        bucket = self.db.collection("logs_hourly").document("2026-08-10T14").get().to_dict()
+        self.assertEqual(bucket["event_count"], rollup._CHECKPOINT_CHUNK_BATCHES + 5)
+
+
 if __name__ == "__main__":
     unittest.main()
