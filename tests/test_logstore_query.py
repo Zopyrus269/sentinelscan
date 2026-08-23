@@ -10,6 +10,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from apps.backend.logstore import query
@@ -245,7 +246,7 @@ class TestGetLlmUsage(QueryTestCase):
                 data={"prompt_tokens": 20, "response_tokens": 10, "total_tokens": 30, "cached": True},
             ),
             make_event(event_id="e3", category="http", ts="2026-08-22T10:00:00+00:00"),
-        ])
+        ], created_at="2026-08-22T09:00:00+00:00")
         result = query.get_llm_usage(since="2026-08-22T00:00:00+00:00", until="2026-08-22T23:59:59+00:00")
         self.assertEqual(result["calls"], 2)
         self.assertEqual(result["total_tokens"], 180)
@@ -336,11 +337,12 @@ class TestUptime(QueryTestCase):
             query.record_uptime_probe({"ok": True})  # must not raise
 
     def test_get_uptime_history_computes_percentage_and_handles_missing_days(self):
-        self.db.seed("uptime", "2026-08-22", {"checks": 100, "failures": 5})
+        today = datetime.now(timezone.utc).date().isoformat()
+        self.db.seed("uptime", today, {"checks": 100, "failures": 5})
         history = query.get_uptime_history(days=2)
         self.assertEqual(len(history), 2)
         today_entry = history[-1]
-        self.assertEqual(today_entry["date"], "2026-08-22")
+        self.assertEqual(today_entry["date"], today)
         self.assertEqual(today_entry["uptime_pct"], 95.0)
         missing_entry = history[0]
         self.assertIsNone(missing_entry["uptime_pct"])

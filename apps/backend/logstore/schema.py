@@ -6,7 +6,7 @@ Batching ~100 events into one document is what keeps Firestore's free-tier write
 not two hundred.
 """
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 LOGS_COLLECTION = "logs"
@@ -39,7 +39,9 @@ def rollup_doc_id(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H")
 
 
-def build_batch_document(events: List[Dict[str, Any]]) -> Dict[str, Any]:
+def build_batch_document(
+    events: List[Dict[str, Any]], *, now: Optional[datetime] = None,
+) -> Dict[str, Any]:
     """Builds the document Workstream B writes to ``logs/{batch_id}``.
 
     Denormalizes the session_id/trace_id/scan_id present in this batch onto top-level
@@ -48,8 +50,14 @@ def build_batch_document(events: List[Dict[str, Any]]) -> Dict[str, Any]:
     three ids are the correlation keys the whole product is built around (see
     ``docs/workstreams/WORKSTREAM_C.md`` section 4: "the two id fields are the heart
     of the product").
+
+    ``now`` defaults to the real current time -- the live sink's normal case. An
+    explicit ``now`` lets a caller backdate ``created_at``/``expires_at`` for a batch
+    of historical events (e.g. ``scripts/seed_fake_logs.py``), which matters because
+    ``query.py`` filters primarily on ``created_at`` before ever inspecting an event's
+    own ``ts``.
     """
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
     return {
         "batch_id": str(uuid4()),
         "created_at": now.isoformat(),
