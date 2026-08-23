@@ -28,6 +28,12 @@ Before any architectural or structural change, read:
 - PEP8-compliant Python, type hints (`typing`) on function signatures and non-trivial variables.
 - Small, modular functions; concise docstrings for classes and functions.
 - Small, atomic, conventional-style commits (e.g. `feat(worker): implement WHOIS parsing logic`).
+- **Two test suites, and they are separate.** `pytest tests/` covers the Python backend.
+  `npm run test:js` covers `apps/frontend/static/js/telemetry.js` (the only JavaScript in the
+  repo with real logic) via Node's built-in `node:test` runner -- **no test framework is
+  installed and none should be added**; `node:test`/`node:assert` ship with Node 20+. Run both
+  before opening a PR that touches either side. `pytest` does not collect `tests/js/`, and the
+  JS runner needs the glob rather than the directory (see that file's header).
 
 ## 5. Knowledge Vault Protocol
 
