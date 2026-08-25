@@ -76,8 +76,8 @@
 
       let html = `<div style="font-size:13px;font-weight:600;color:var(--ss-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.email || "anonymous")}</div>`;
       html += `<div style="font-size:12px;color:var(--ss-text-muted);margin-top:3px;">Started ${fmtTime(s.started_at)}`;
-      html += ` · ${s.event_count || 0} events`;
-      if (s.error_count && s.error_count > 0) {
+      html += ` · ${s.event_count == null ? "—" : esc(s.event_count)} events`;
+      if (s.error_count != null && s.error_count > 0) {
         html += ` · <span style="color:var(--red);font-weight:600;">${s.error_count} errors</span>`;
       }
       html += `</div>`;

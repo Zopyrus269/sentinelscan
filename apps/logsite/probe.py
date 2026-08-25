@@ -1,116 +1,268 @@
-"""
-Uptime probe ingest and history reader for the SentinelScan Log Site.
+"""Authenticated uptime-probe ingest for the SentinelScan Log Site."""
 
-Provides the POST /api/probe endpoint for receiving scheduled uptime check
-payloads from the GitHub Actions workflow using HMAC timing-safe secret
-comparison.
-"""
+from __future__ import annotations
+
+from datetime import datetime
 import hmac
+import importlib
+import logging
 import os
-import sys
-from typing import Any, Dict, List, Optional
-from flask import Blueprint, request, jsonify
+from typing import Any, Callable
 
-probe_bp = Blueprint("probe_routes", __name__, url_prefix="/api")
+from flask import Blueprint, jsonify, request
 
 
-def _get_query_fn(name: str):
-    """Dynamically resolves a query function from apps.backend.logstore.query."""
-    mod = sys.modules.get("apps.backend.logstore.query")
-    if mod and hasattr(mod, name):
-        return getattr(mod, name)
+probe_bp = Blueprint(
+    "probe_routes",
+    __name__,
+    url_prefix="/api",
+)
+
+logger = logging.getLogger(
+    __name__
+)
+
+ALLOWED_COMPONENTS = {
+    "web",
+}
+
+
+def _get_query_fn(
+    name: str,
+) -> Callable[..., Any]:
+    """Resolve one required Workstream B query function.
+
+    This intentionally provides a small unit-test seam so
+    Workstream C can be tested independently before B is merged.
+    """
+
     try:
-        from apps.backend.logstore import query as logstore_query
-        return getattr(logstore_query, name)
-    except (ImportError, AttributeError):
-        return None
+        logstore_query = importlib.import_module(
+            "apps.backend.logstore.query"
+        )
+
+    except (
+        ImportError,
+        ModuleNotFoundError,
+    ) as exc:
+
+        raise RuntimeError(
+            "Workstream B logstore query layer is unavailable."
+        ) from exc
+
+    fn = getattr(
+        logstore_query,
+        name,
+        None,
+    )
+
+    if not callable(fn):
+        raise RuntimeError(
+            f"Required logstore query function is unavailable: {name}"
+        )
+
+    return fn
 
 
-def get_uptime_history_data(days: int = 90) -> List[Dict[str, Any]]:
-    """
-    Fetches daily uptime history for the specified number of days.
-    
-    Returns an empty list if logstore.query is not configured.
-    """
-    fn = _get_query_fn("get_uptime_history")
-    if callable(fn):
-        res = fn(days=days)
-        if isinstance(res, list):
-            return res
-    return []
+def _query_function(
+    name: str,
+) -> Callable[..., Any]:
+    """Backward-compatible alias for Workstream B query resolution."""
+
+    return _get_query_fn(
+        name
+    )
 
 
-@probe_bp.route("/probe", methods=["POST"])
+def _error(
+    message: str,
+    code: int,
+    kind: str,
+):
+    """Return the standard Log Site JSON error response."""
+
+    return (
+        jsonify(
+            {
+                "error": kind,
+                "message": message,
+                "code": code,
+            }
+        ),
+        code,
+    )
+
+
+def _valid_timestamp(
+    value: Any,
+) -> bool:
+    """Return True only for a timezone-aware ISO-8601 timestamp."""
+
+    if not isinstance(
+        value,
+        str,
+    ):
+        return False
+
+    try:
+        parsed = datetime.fromisoformat(
+            value.replace(
+                "Z",
+                "+00:00",
+            )
+        )
+
+        return (
+            parsed.tzinfo
+            is not None
+        )
+
+    except ValueError:
+        return False
+
+
+@probe_bp.route(
+    "/probe",
+    methods=["POST"],
+)
 def record_probe():
-    """
-    POST /api/probe -- Ingests external uptime probe results.
-    
-    Gated by X-Probe-Token header matching LOGSITE_PROBE_TOKEN env variable
-    using constant-time hmac.compare_digest.
-    """
-    token_header = request.headers.get("X-Probe-Token", "")
-    expected_token = os.environ.get("LOGSITE_PROBE_TOKEN", "")
+    """Validate and persist one scheduled external uptime probe."""
 
-    if not token_header or not expected_token:
-        return jsonify({
-            "error": "Unauthorized",
-            "message": "Invalid or missing probe token.",
-            "code": 401,
-        }), 401
+    supplied = request.headers.get(
+        "X-Probe-Token",
+        "",
+    )
 
-    if not hmac.compare_digest(token_header.encode("utf-8"), expected_token.encode("utf-8")):
-        return jsonify({
-            "error": "Unauthorized",
-            "message": "Invalid or missing probe token.",
-            "code": 401,
-        }), 401
+    expected = os.environ.get(
+        "LOGSITE_PROBE_TOKEN",
+        "",
+    )
 
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({
-            "error": "Bad Request",
-            "message": "Payload must be a JSON object.",
-            "code": 400,
-        }), 400
+    if (
+        not supplied
+        or not expected
+        or not hmac.compare_digest(
+            supplied.encode(),
+            expected.encode(),
+        )
+    ):
+        return _error(
+            "Invalid or missing probe token.",
+            401,
+            "Unauthorized",
+        )
 
-    required_keys = {"component", "ok", "status", "latency_ms", "checked_at"}
-    if not required_keys.issubset(data.keys()):
-        return jsonify({
-            "error": "Bad Request",
-            "message": f"Missing required probe fields: {required_keys - data.keys()}",
-            "code": 400,
-        }), 400
+    data = request.get_json(
+        silent=True
+    )
 
-    if not isinstance(data["ok"], bool):
-        return jsonify({
-            "error": "Bad Request",
-            "message": "'ok' field must be a boolean.",
-            "code": 400,
-        }), 400
+    if not isinstance(
+        data,
+        dict,
+    ):
+        return _error(
+            "Payload must be a JSON object.",
+            400,
+            "Bad Request",
+        )
 
-    if not isinstance(data["status"], int):
-        return jsonify({
-            "error": "Bad Request",
-            "message": "'status' field must be an integer.",
-            "code": 400,
-        }), 400
+    required = {
+        "component",
+        "ok",
+        "status",
+        "latency_ms",
+        "checked_at",
+    }
 
-    if not isinstance(data["latency_ms"], (int, float)):
-        return jsonify({
-            "error": "Bad Request",
-            "message": "'latency_ms' field must be numeric.",
-            "code": 400,
-        }), 400
+    if set(data) != required:
+        return _error(
+            "Probe payload must contain exactly the required fields.",
+            400,
+            "Bad Request",
+        )
 
-    if not isinstance(data["checked_at"], str):
-        return jsonify({
-            "error": "Bad Request",
-            "message": "'checked_at' field must be a string timestamp.",
-            "code": 400,
-        }), 400
+    if (
+        data["component"]
+        not in ALLOWED_COMPONENTS
+    ):
+        return _error(
+            "Unsupported probe component.",
+            400,
+            "Bad Request",
+        )
 
-    fn = _get_query_fn("record_uptime_probe")
-    if callable(fn):
-        fn(data)
+    if type(
+        data["ok"]
+    ) is not bool:
+        return _error(
+            "'ok' must be boolean.",
+            400,
+            "Bad Request",
+        )
+
+    if (
+        type(
+            data["status"]
+        )
+        is not int
+        or not 0
+        <= data["status"]
+        <= 599
+    ):
+        return _error(
+            "'status' must be an integer from 0 to 599.",
+            400,
+            "Bad Request",
+        )
+
+    latency = data[
+        "latency_ms"
+    ]
+
+    if (
+        isinstance(
+            latency,
+            bool,
+        )
+        or not isinstance(
+            latency,
+            (int, float),
+        )
+        or latency < 0
+    ):
+        return _error(
+            "'latency_ms' must be a non-negative number.",
+            400,
+            "Bad Request",
+        )
+
+    if not _valid_timestamp(
+        data["checked_at"]
+    ):
+        return _error(
+            "'checked_at' must be a timezone-aware ISO timestamp.",
+            400,
+            "Bad Request",
+        )
+
+    try:
+        record_fn = _get_query_fn(
+            "record_uptime_probe"
+        )
+
+        record_fn(
+            data
+        )
+
+    except Exception:
+        logger.exception(
+            "Unable to record uptime probe"
+        )
+
+        return _error(
+            "Telemetry service is temporarily unavailable.",
+            503,
+            "Service Unavailable",
+        )
 
     return "", 204

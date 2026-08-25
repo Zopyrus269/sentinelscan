@@ -1,175 +1,96 @@
-/**
- * SentinelScan Log Site — Screen 1: System Status
- */
+/** SentinelScan Log Site — System Status (Workstream B contract aligned). */
 (function () {
-  const SERVICES = [
-    { key: "web",      label: "Web Application", type: "http" },
-    { key: "scan_api", label: "Scan API",         type: "api" },
-    { key: "gemini",   label: "Gemini Agent",     type: "llm" },
-    { key: "firestore",label: "Firestore",        type: "db" },
-    { key: "workers",  label: "Workers",          type: "worker" },
-  ];
+  const byId = id => document.getElementById(id);
+  const text = (id, value) => { const e = byId(id); if (e) e.textContent = value; };
+
+  function validUptime(history) {
+    return (Array.isArray(history) ? history : []).filter(d => typeof d?.uptime_pct === "number");
+  }
+  function overallPct(history) {
+    const rows = validUptime(history);
+    return rows.length ? rows.reduce((n, d) => n + d.uptime_pct, 0) / rows.length : null;
+  }
 
   async function loadStatus() {
     try {
-      const [statusData, uptimeData, activeData] = await Promise.all([
-        window.apiFetch("/api/status"),
-        window.apiFetch("/api/uptime"),
-        window.apiFetch("/api/active-users"),
+      const [status, uptime, active, health] = await Promise.all([
+        window.apiFetch("/api/status"), window.apiFetch("/api/uptime"),
+        window.apiFetch("/api/active-users"), window.apiFetch("/api/health")
       ]);
-
-      renderOverallStatus(statusData, uptimeData);
-      renderKPIs(statusData, activeData);
-      renderServices(statusData, uptimeData);
-      renderUptimeStrip(uptimeData);
-      updateRefreshed();
+      renderOverall(status, uptime);
+      renderKPIs(active, health);
+      renderServices(status);
+      renderUptime(uptime);
+      text("lastRefreshed", "Last refreshed " + new Date().toLocaleTimeString());
     } catch (err) {
-      console.error("Status load error:", err);
-      renderOverallLoading("Unable to load system status. " + err.message);
+      const card = byId("overallStatusCard");
+      if (card) {
+        card.replaceChildren();
+        const title = document.createElement("strong"); title.textContent = "Status unavailable";
+        const detail = document.createElement("div"); detail.textContent = err.message || "Telemetry could not be loaded.";
+        card.append(title, detail);
+      }
     }
   }
 
-  function renderOverallStatus(status, uptime) {
-    const el = document.getElementById("overallStatusCard");
-    if (!el) return;
-
-    const isOk = !status.has_incidents;
-    const pct = uptime.overall_pct !== undefined ? uptime.overall_pct.toFixed(2) : "100.00";
-
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <span class="dot ${isOk ? 'dot-green' : 'dot-amber'}" style="width:12px;height:12px;"></span>
-          <div>
-            <div style="font-size:16px;font-weight:700;color:${isOk ? 'var(--green)' : 'var(--amber)'};">
-              ${isOk ? 'All systems operational' : 'Some services degraded'}
-            </div>
-            <div style="font-size:13px;color:var(--ss-text-secondary);margin-top:2px;">
-              ${isOk ? 'SentinelScan services are operating normally.' : 'One or more services are experiencing issues.'}
-            </div>
-          </div>
-        </div>
-        <div style="font-size:13px;font-weight:600;color:var(--ss-text-muted);">
-          90-day uptime <span class="mono" style="color:var(--ss-text);font-weight:700;">${esc(pct)}%</span>
-        </div>
-      </div>
-    `;
+  function renderOverall(status, uptime) {
+    const card = byId("overallStatusCard"); if (!card) return;
+    const state = status?.overall || "degraded";
+    const labels = { operational: "All systems operational", degraded: "Some services degraded", down: "Service disruption detected" };
+    const pct = overallPct(uptime);
+    card.replaceChildren();
+    const wrap = document.createElement("div"); wrap.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap";
+    const left = document.createElement("div");
+    const title = document.createElement("div"); title.style.cssText = "font-size:16px;font-weight:700"; title.textContent = labels[state] || labels.degraded;
+    const desc = document.createElement("div"); desc.style.cssText = "font-size:13px;color:var(--ss-text-secondary);margin-top:3px"; desc.textContent = state === "operational" ? "No degradation is currently indicated by available telemetry." : "Review component health below.";
+    left.append(title, desc);
+    const right = document.createElement("div"); right.style.cssText = "font-size:13px;color:var(--ss-text-muted)"; right.textContent = pct === null ? "90-day uptime: No data yet" : `90-day uptime: ${pct.toFixed(2)}%`;
+    wrap.append(left, right); card.appendChild(wrap);
   }
 
-  function renderOverallLoading(msg) {
-    const el = document.getElementById("overallStatusCard");
-    if (!el) return;
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:20px;">⚠️</span>
-        <div>
-          <div style="font-size:15px;font-weight:600;color:var(--ss-text);">Status unavailable</div>
-          <div style="font-size:13px;color:var(--ss-text-muted);margin-top:2px;">${esc(msg)}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderKPIs(status, active) {
-    setText("kpiActiveUsers", String(active.count || 0));
-    setText("kpiErrorRate", ((status.error_rate || 0) * 100).toFixed(1) + "%");
-    setText("kpiLatency", (status.p95_ms || 0) + " ms");
-
-    const geminiEl = document.getElementById("kpiGemini");
-    if (geminiEl) {
-      const gs = status.gemini_status || "healthy";
-      geminiEl.textContent = gs.charAt(0).toUpperCase() + gs.slice(1);
-      geminiEl.style.color = gs === "healthy" ? "var(--green)" : "var(--amber)";
+  function renderKPIs(active, health) {
+    text("kpiActiveUsers", String(active?.count ?? 0));
+    text("kpiErrorRate", typeof health?.error_rate === "number" ? (health.error_rate * 100).toFixed(1) + "%" : "N/A");
+    text("kpiLatency", typeof health?.p95_ms === "number" ? health.p95_ms + " ms" : "N/A");
+    const gemini = byId("kpiGemini");
+    if (gemini) {
+      if (typeof health?.llm_failure_rate !== "number") gemini.textContent = "N/A";
+      else gemini.textContent = health.llm_failure_rate > 0.05 ? "Degraded" : "Healthy";
     }
   }
 
-  function renderServices(status, uptime) {
-    const container = document.getElementById("servicesList");
-    if (!container) return;
-
-    const components = status.components || uptime.components || [];
-    if (components.length === 0 && !status.web_status) {
-      container.innerHTML = `
-        <div class="ls-card ls-empty">
-          <div class="ls-empty-icon">📡</div>
-          <div class="ls-empty-title">No component telemetry recorded yet.</div>
-          <div class="ls-empty-desc">Service health data will appear after SentinelScan processes requests.</div>
-        </div>
-      `;
-      return;
-    }
-
-    // Build from status object fields if components array is empty
-    const rows = components.length > 0 ? components : SERVICES.map(s => ({
-      name: s.label,
-      status: "operational",
-      detail: "",
-    }));
-
-    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  function renderServices(status) {
+    const root = byId("servicesList"); if (!root) return;
+    root.replaceChildren();
+    const rows = Array.isArray(status?.components) ? status.components : [];
+    if (!rows.length) { const e=document.createElement("div"); e.className="ls-card ls-empty"; e.textContent="No component telemetry recorded yet."; root.appendChild(e); return; }
+    const list=document.createElement("div"); list.style.cssText="display:flex;flex-direction:column;gap:8px";
     rows.forEach(c => {
-      const isOk = (c.status || "operational") === "operational";
-      const dotClass = isOk ? "dot-green" : (c.status === "degraded" ? "dot-amber" : "dot-red");
-      const statusLabel = isOk ? "Operational" : (c.status === "degraded" ? "Degraded" : "Down");
+      const row=document.createElement("div"); row.className="ls-card"; row.style.cssText="padding:14px 20px;display:flex;justify-content:space-between;gap:12px";
+      const left=document.createElement("div"); const name=document.createElement("div"); name.style.fontWeight="600"; name.textContent=c.name || "Component";
+      const detail=document.createElement("div"); detail.style.cssText="font-size:12px;color:var(--ss-text-muted);margin-top:2px"; detail.textContent=c.detail || "No detail available"; left.append(name,detail);
+      const state=document.createElement("span"); state.style.cssText="font-size:12px;font-weight:600;text-transform:capitalize"; state.textContent=c.state || "unknown";
+      row.append(left,state); list.appendChild(row);
+    }); root.appendChild(list);
+  }
 
-      html += `
-        <div class="ls-card" style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span class="dot ${dotClass}"></span>
-            <div>
-              <div style="font-size:14px;font-weight:600;color:var(--ss-text);">${esc(c.name || c.label)}</div>
-              ${c.detail ? `<div style="font-size:12px;color:var(--ss-text-muted);margin-top:1px;" class="mono">${esc(c.detail)}</div>` : ''}
-            </div>
-          </div>
-          <span style="font-size:12px;font-weight:500;color:${isOk ? 'var(--green)' : 'var(--amber)'};">${statusLabel}</span>
-        </div>
-      `;
+  function renderUptime(history) {
+    const strip=byId("uptimeStrip"); if (!strip) return;
+    const rows=Array.isArray(history) ? history : []; const pct=overallPct(rows);
+    text("uptimePct", pct === null ? "No uptime data yet" : `Overall uptime ${pct.toFixed(2)}%`);
+    strip.replaceChildren();
+    const display = rows.length ? rows : Array.from({length:90}, () => null);
+    display.forEach(d => {
+      const bar=document.createElement("div"); bar.className="uptime-bar grey";
+      if (d && typeof d.uptime_pct === "number") bar.className="uptime-bar " + (d.uptime_pct >= 99.9 ? "green" : d.uptime_pct >= 95 ? "amber" : "red");
+      bar.title = d ? `${d.date || ""}${typeof d.uptime_pct === "number" ? ` — ${d.uptime_pct.toFixed(2)}%` : " — no data"}` : "No data";
+      strip.appendChild(bar);
     });
-    html += '</div>';
-    container.innerHTML = html;
   }
 
-  function renderUptimeStrip(uptime) {
-    const strip = document.getElementById("uptimeStrip");
-    const pctEl = document.getElementById("uptimePct");
-    if (!strip) return;
-
-    const days = uptime.days || [];
-    if (pctEl) pctEl.textContent = "Overall uptime " + (uptime.overall_pct !== undefined ? uptime.overall_pct.toFixed(2) : "100.00") + "%";
-
-    if (days.length === 0) {
-      // Generate 90 grey placeholders
-      strip.innerHTML = Array(90).fill('<div class="uptime-bar grey"></div>').join('');
-      return;
-    }
-
-    strip.innerHTML = days.map(d => {
-      let cls = "grey";
-      if (d.status === "up" || d.status === "operational") cls = "green";
-      else if (d.status === "degraded") cls = "amber";
-      else if (d.status === "down") cls = "red";
-      return `<div class="uptime-bar ${cls}" title="${esc(d.date || '')}"></div>`;
-    }).join('');
-  }
-
-  function updateRefreshed() {
-    const el = document.getElementById("lastRefreshed");
-    if (el) el.textContent = "Last refreshed " + new Date().toLocaleTimeString() + " UTC";
-  }
-
-  function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-  }
-
-  function esc(s) {
-    if (!s) return "";
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
-
-  if (window.onLogsiteAuthStateChanged) {
-    window.onLogsiteAuthStateChanged(() => loadStatus());
-  } else {
-    loadStatus();
-  }
+  let timer;
+  function schedule(){ clearTimeout(timer); if(document.visibilityState!=="hidden") timer=setTimeout(async()=>{await loadStatus();schedule();},60000); }
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") clearTimeout(timer); else {loadStatus();schedule();} });
+  const start=async user=>{ if(!user) return; await loadStatus(); schedule(); };
+  window.onLogsiteAuthStateChanged ? window.onLogsiteAuthStateChanged(start) : start(true);
 })();

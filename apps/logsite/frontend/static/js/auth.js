@@ -15,6 +15,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 let currentUser = null;
+let authResolved = false;
 let authListeners = [];
 
 /* ----------------------------------------------------------------
@@ -72,8 +73,8 @@ window.logout = async function () {
 
 window.onLogsiteAuthStateChanged = function (callback) {
   authListeners.push(callback);
-  // If auth already resolved, fire immediately
-  if (currentUser !== undefined) callback(currentUser);
+  // Do not report a synthetic logged-out state before Firebase resolves.
+  if (authResolved) callback(currentUser);
 };
 
 /* ----------------------------------------------------------------
@@ -123,6 +124,7 @@ function escapeHtml(str) {
    ---------------------------------------------------------------- */
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
+  authResolved = true;
   updateAuthUI(user);
   authListeners.forEach((cb) => {
     try { cb(user); } catch (e) { console.error("Auth listener error:", e); }

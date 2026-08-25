@@ -1,86 +1,51 @@
 # Workstream C Integration Instructions
 
-> **Owner:** Danny (Workstream C)  
-> **Target Integrator:** Shreyas  
+**Owner:** Workstream C  
+**Target:** SentinelScan integrator
 
-This document details all deployment and integration steps required to deploy the developer-only **SentinelScan Log Site** alongside the main application.
+## Render service
 
----
-
-## 1. Render Deployment (`render.yaml`)
-
-Add the following second service definition to `render.yaml` alongside the existing `sentinelscan` service:
+Add a second Render web service after integration (Workstream C does not edit `render.yaml`):
 
 ```yaml
-  - type: web
-    name: sentinelscan-logs
-    env: python
-    region: oregon
-    plan: free
-    branch: main
-    autoDeploy: true
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --workers 1 --bind 0.0.0.0:$PORT apps.logsite.app:app
-    healthCheckPath: /healthz
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: FLASK_SECRET_KEY
-        generateValue: true
-      - key: FIREBASE_SERVICE_ACCOUNT_PATH
-        sync: false
-      - key: LOGSITE_PROBE_TOKEN
-        sync: false
-      - key: MAIN_SITE_URL
-        value: https://sentinelscan-yd2u.onrender.com
+name: sentinelscan-logs
+branch: main
+autoDeploy: true
+buildCommand: pip install -r requirements.txt
+startCommand: gunicorn --workers 1 --bind 0.0.0.0:$PORT apps.logsite.app:app
+healthCheckPath: /healthz
 ```
 
-### Environment Variables Matrix
+Required environment variables:
 
-| Variable | Description | Where to Set |
-|---|---|---|
-| `FIREBASE_SERVICE_ACCOUNT_PATH` | Path to Firebase Service Account JSON (same as main app) | Render Environment Variables |
-| `LOGSITE_PROBE_TOKEN` | Shared secret string for uptime probe authentication | Render Environment Variables & GitHub Secrets |
-| `MAIN_SITE_URL` | Base URL of the main SentinelScan deployment | Render Environment Variables |
+- `FIREBASE_SERVICE_ACCOUNT_PATH` — same Firebase Admin project used by the main application.
+- `LOGSITE_PROBE_TOKEN` — strong shared secret used only by the scheduled uptime probe.
+- `MAIN_SITE_URL` — deployed main SentinelScan URL.
 
----
+## Firebase
 
-## 2. Firebase Authorized Domains
+Add the final Log Site Render hostname to **Firebase Authentication → Authorized Domains**. The Log Site reuses SentinelScan's existing Firebase project and Google sign-in flow.
 
-To permit Google Sign-In on the Log Site:
+## Firestore — use Workstream B as the authority
 
-1. Open the [Firebase Console](https://console.firebase.google.com/).
-2. Navigate to **Authentication** > **Settings** > **Authorized Domains**.
-3. Click **Add Domain** and enter the final Render hostname for `sentinelscan-logs` (e.g. `sentinelscan-logs.onrender.com`).
-4. `localhost` is already present and covers local development on `http://localhost:5000` or `http://localhost:5001`.
+Workstream C does not define or duplicate Firestore schema/index configuration. Deploy Workstream B's `apps/backend/logstore/firestore.indexes.json`.
 
----
+Its current composite indexes on the batched `logs` collection are:
 
-## 3. Firestore Indexes and TTL Configuration
+- `session_ids` (`array-contains`) + `created_at` ascending
+- `trace_ids` (`array-contains`) + `created_at` ascending
+- `scan_ids` (`array-contains`) + `created_at` ascending
 
-Workstream C relies on Workstream B's Firestore schema and query layer (`apps.backend.logstore.query`).
+Raw log documents are batched documents. Configure Firestore TTL using Workstream B's `expires_at` field. Do **not** create C-side indexes on event-level `session_id`, `trace_id`, `level`, `category`, or `ts`; those are not the persisted top-level batch query contract.
 
-Ensure the following Firestore composite indexes and TTL rules configured by Workstream B are applied:
-- `logs` collection: Composite index on `(session_id ASC, ts ASC)`.
-- `logs` collection: Composite index on `(trace_id ASC, ts ASC)`.
-- `logs` collection: Composite index on `(level ASC, ts DESC)`.
-- `logs` collection: Composite index on `(category ASC, ts DESC)`.
-- `uptime` collection: Index on `(checked_at DESC)`.
-- TTL policy: 30-day retention on `logs` collection documents using `ts`.
+## GitHub Actions probe secret
 
----
+Create repository Actions secret `LOGSITE_PROBE_TOKEN` with the exact same value as the Render environment variable. `.github/workflows/uptime-probe.yml` sends it in `X-Probe-Token` when posting probe results.
 
-## 4. GitHub Secret for Uptime Probe
+## Query-contract limitations intentionally reflected in the UI
 
-1. Open the GitHub repository settings.
-2. Navigate to **Secrets and variables** > **Actions**.
-3. Create a repository secret named `LOGSITE_PROBE_TOKEN`.
-4. Set its value to match the `LOGSITE_PROBE_TOKEN` set in Render for `sentinelscan-logs`.
+The current Workstream B contract does not expose per-scan Gemini cost/ranking, LLM retry rate, or frequent-error fingerprint aggregation. Workstream C displays these as unavailable rather than fabricating values. Extend B only through a separately agreed contract change.
 
-The scheduled workflow in `.github/workflows/uptime-probe.yml` will automatically pass this secret in the `X-Probe-Token` header when posting uptime probe telemetry to `/api/probe`.
+## Dependencies
 
----
-
-## 5. Dependencies
-
-Workstream C adds **zero new dependencies**. All Python requirements (`flask`, `firebase-admin`, etc.) and frontend packages (Tailwind CSS via CDN, Firebase Web SDK via CDN) are already present in the repository.
+Workstream C adds **zero new dependencies** and must not change `requirements.txt`.
