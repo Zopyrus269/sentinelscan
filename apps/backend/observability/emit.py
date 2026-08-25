@@ -1,11 +1,13 @@
 import os
 import queue
 import json
+import threading
 from apps.backend.observability.events import build_event
 
 DEFAULT_QUEUE_SIZE: int = 10_000
 
 _queue: "queue.Queue[dict] | None" = None
+_stats_lock = threading.Lock()
 _stats = {
     "emitted": 0,
     "dropped": 0,
@@ -38,8 +40,9 @@ def emit_event(event: dict) -> None:
     try:
         q = get_queue()
         q.put_nowait(event)
-        _stats["emitted"] += 1
-        _stats["queued"] = q.qsize()
+        with _stats_lock:
+            _stats["emitted"] += 1
+            _stats["queued"] = q.qsize()
         
         # Standalone mode printing
         if os.environ.get("SENTINELSCAN_TELEMETRY_STDOUT", "0").lower() in ("1", "true", "yes", "on"):
@@ -49,9 +52,11 @@ def emit_event(event: dict) -> None:
                 pass
                 
     except queue.Full:
-        _stats["dropped"] += 1
+        with _stats_lock:
+            _stats["dropped"] += 1
     except Exception:
-        _stats["errors"] += 1
+        with _stats_lock:
+            _stats["errors"] += 1
 
 def emit(*, level: str, source: str, category: str, message: str, **kwargs) -> None:
     """Convenience: build_event(...) then emit_event(...)."""
@@ -62,13 +67,15 @@ def emit(*, level: str, source: str, category: str, message: str, **kwargs) -> N
         event = build_event(level=level, source=source, category=category, message=message, **kwargs)
         emit_event(event)
     except Exception:
-        _stats["errors"] += 1
+        with _stats_lock:
+            _stats["errors"] += 1
 
 def get_stats() -> dict:
     """{'emitted': int, 'dropped': int, 'queued': int, 'errors': int}"""
-    if _queue is not None:
-        _stats["queued"] = _queue.qsize()
-    return dict(_stats)
+    with _stats_lock:
+        if _queue is not None:
+            _stats["queued"] = _queue.qsize()
+        return dict(_stats)
 
 def drain_for_test(max_items: int = 1000) -> list[dict]:
     """Test helper. Empties the queue and returns its contents."""
@@ -82,5 +89,6 @@ def drain_for_test(max_items: int = 1000) -> list[dict]:
     except queue.Empty:
         pass
     
-    _stats["queued"] = _queue.qsize()
+    with _stats_lock:
+        _stats["queued"] = _queue.qsize()
     return items
