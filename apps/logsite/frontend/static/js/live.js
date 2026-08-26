@@ -25,7 +25,7 @@
 
   async function poll() {
     clearTimeout(pollTimer);
-    updatePollingStatus("Fetching…");
+    updatePollingStatus("Polling…", true);
 
     try {
       await loadActiveUsers();
@@ -51,10 +51,10 @@
         renderEmptyEvents();
       }
 
-      updatePollingStatus("Live · polling every 30s");
+      updatePollingStatus("Live · Polling 30s", false);
     } catch (err) {
       console.error("Poll error:", err);
-      updatePollingStatus("Error: " + err.message);
+      updatePollingStatus("Error: " + err.message, false);
     }
 
     pollTimer = setTimeout(poll, POLL_INTERVAL);
@@ -78,19 +78,21 @@
       // Time (mono)
       const tdTime = document.createElement("td");
       tdTime.className = "mono";
-      tdTime.style.fontSize = "12px";
-      tdTime.style.color = "var(--ss-text-muted)";
+      tdTime.style.fontSize = "11.5px";
+      tdTime.style.color = "var(--text-muted)";
       tdTime.textContent = fmtTime(evt.ts);
 
       // Level (pill)
       const tdLevel = document.createElement("td");
-      const pillClass = "pill pill-" + (evt.level || "info");
-      tdLevel.innerHTML = `<span class="${pillClass}">${esc(evt.level || "info")}</span>`;
+      const levelStr = (evt.level || "info").toLowerCase();
+      const pillClass = "pill pill-" + levelStr;
+      tdLevel.innerHTML = `<span class="${pillClass}">${esc(levelStr)}</span>`;
 
       // Source
       const tdSource = document.createElement("td");
-      tdSource.style.fontSize = "13px";
-      tdSource.style.color = "var(--ss-text-secondary)";
+      tdSource.style.fontSize = "12px";
+      tdSource.style.color = "var(--text-secondary)";
+      tdSource.style.fontWeight = "500";
       tdSource.textContent = evt.source || "—";
 
       // Category (badge)
@@ -99,7 +101,8 @@
 
       // Message
       const tdMsg = document.createElement("td");
-      tdMsg.style.fontSize = "13px";
+      tdMsg.style.fontSize = "12.5px";
+      tdMsg.style.color = isError ? "var(--danger)" : "var(--text)";
       tdMsg.textContent = evt.message || "";
 
       tr.appendChild(tdTime);
@@ -117,9 +120,8 @@
     tbody.innerHTML = `
       <tr>
         <td colspan="5" class="ls-empty" style="border:none;">
-          <div class="ls-empty-icon">📭</div>
-          <div class="ls-empty-title">No events recorded yet</div>
-          <div class="ls-empty-desc">Telemetry events will appear here as users interact with SentinelScan.</div>
+          <div class="ls-empty-title">No events recorded in this window</div>
+          <div class="ls-empty-desc">Telemetry events will appear here as users and automated workers interact with SentinelScan.</div>
         </td>
       </tr>
     `;
@@ -154,9 +156,14 @@
     });
   }
 
-  function updatePollingStatus(msg) {
+  function updatePollingStatus(msg, isPolling) {
     const el = document.getElementById("livePollingStatus");
-    if (el) el.textContent = msg;
+    if (!el) return;
+    if (isPolling) {
+      el.innerHTML = `<span class="ls-spinner"></span> ${esc(msg)}`;
+    } else {
+      el.innerHTML = `<span class="beacon beacon-green beacon-pulse"></span> ${esc(msg)}`;
+    }
   }
 
   function fmtTime(ts) {

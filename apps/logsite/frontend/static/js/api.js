@@ -1,8 +1,8 @@
 /**
  * SentinelScan Log Site — API Fetch Client
  *
- * Attaches Firebase ID token. Renders auth banners BELOW the navbar
- * inside #logsiteAuthBanner (normal document flow, never fixed/overlay).
+ * Attaches Firebase ID token. Renders slim translucent auth notices BELOW
+ * the navbar inside #logsiteAuthBanner (normal document flow, never fixed/overlay).
  */
 window.apiFetch = async function (path, params = {}) {
   const url = new URL(path, window.location.origin);
@@ -26,7 +26,7 @@ window.apiFetch = async function (path, params = {}) {
   }
 
   if (res.status === 401) {
-    showAuthBanner("Sign in with Google to view SentinelScan developer telemetry.", "warning");
+    showAuthBanner("Sign in with Google to view developer telemetry.", "warning");
     throw new Error("Unauthorized");
   }
   if (res.status === 403) {
@@ -59,7 +59,7 @@ function showAuthBanner(message, type) {
     <div class="banner-left">
       <span class="banner-icon">${isWarn ? '🔒' : '⚠️'}</span>
       <div>
-        <div class="banner-title">${isWarn ? 'Authentication Required' : 'Access Restricted'}</div>
+        <div class="banner-title">${isWarn ? 'Authentication required' : 'Access restricted'}</div>
         <div class="banner-desc">${esc(message)}</div>
       </div>
     </div>

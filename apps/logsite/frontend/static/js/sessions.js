@@ -40,7 +40,7 @@
     } catch (err) {
       console.error("Sessions load error:", err);
       const el = document.getElementById("sessionsList");
-      if (el) el.innerHTML = `<div style="padding:20px;text-align:center;font-size:13px;color:var(--red);">Failed to load sessions: ${esc(err.message)}</div>`;
+      if (el) el.innerHTML = `<div style="padding:20px;text-align:center;font-size:12px;color:var(--danger);">Failed to load sessions: ${esc(err.message)}</div>`;
     }
   }
 
@@ -64,7 +64,7 @@
     if (cnt) cnt.textContent = filteredSessions.length + " sessions";
 
     if (filteredSessions.length === 0) {
-      el.innerHTML = `<div class="ls-empty"><div class="ls-empty-icon">📭</div><div class="ls-empty-title">No sessions found</div></div>`;
+      el.innerHTML = `<div class="ls-empty"><div class="ls-empty-title">No sessions found</div></div>`;
       return;
     }
 
@@ -74,12 +74,15 @@
       const isSel = currentSession && currentSession.session_id === s.session_id;
       item.className = "session-item" + (isSel ? " selected" : "");
 
-      let html = `<div style="font-size:13px;font-weight:600;color:var(--ss-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.email || "anonymous")}</div>`;
-      html += `<div style="font-size:12px;color:var(--ss-text-muted);margin-top:3px;">Started ${fmtTime(s.started_at)}`;
-      html += ` · ${s.event_count == null ? "—" : esc(s.event_count)} events`;
-      if (s.error_count != null && s.error_count > 0) {
-        html += ` · <span style="color:var(--red);font-weight:600;">${s.error_count} errors</span>`;
-      }
+      const hasErrors = s.error_count != null && s.error_count > 0;
+      let html = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.email || "anonymous")}</span>
+        ${hasErrors ? `<span class="pill pill-error" style="font-size:10px;padding:1px 5px;">${s.error_count} ERR</span>` : ''}
+      </div>`;
+      html += `<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);margin-top:3px;font-family:var(--font-mono);">`;
+      html += `<span>${fmtTime(s.started_at)}</span>`;
+      html += `<span>·</span>`;
+      html += `<span>${s.event_count == null ? "—" : esc(s.event_count)} evts</span>`;
       html += `</div>`;
       item.innerHTML = html;
       item.addEventListener("click", () => selectSession(s.session_id));
@@ -92,21 +95,21 @@
     currentSession = obj;
     renderList();
 
-    setText("activeSessionTitle", "Session " + sid.substring(0, 12));
-    setText("activeSessionSubtitle", (obj.email || "anonymous") + " · Started " + fmtTime(obj.started_at) + " · " + calcDuration(obj.started_at, obj.last_seen));
+    setText("activeSessionTitle", "Session " + sid.substring(0, 16));
+    setText("activeSessionSubtitle", (obj.email || "anonymous") + " · Started " + fmtTime(obj.started_at) + (calcDuration(obj.started_at, obj.last_seen) ? " · Duration " + calcDuration(obj.started_at, obj.last_seen) : ""));
 
     const copyBtn = document.getElementById("btnCopyTimeline");
     if (copyBtn) copyBtn.classList.remove("hidden");
 
     const container = document.getElementById("timelineContainer");
-    if (container) container.innerHTML = `<div style="padding:32px;text-align:center;font-size:13px;color:var(--ss-text-muted);"><span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Loading timeline…</div>`;
+    if (container) container.innerHTML = `<div style="padding:36px;text-align:center;font-size:12px;color:var(--text-muted);"><span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Loading execution trace…</div>`;
 
     try {
       const res = await window.apiFetch("/api/sessions/" + encodeURIComponent(sid));
       currentTimelineEvents = res.events || [];
       renderTimeline(currentTimelineEvents, tid);
     } catch (err) {
-      if (container) container.innerHTML = `<div class="ls-empty"><div class="ls-empty-icon">⚠️</div><div class="ls-empty-title">Failed to load timeline</div><div class="ls-empty-desc">${esc(err.message)}</div></div>`;
+      if (container) container.innerHTML = `<div class="ls-empty"><div class="ls-empty-title">Failed to load timeline</div><div class="ls-empty-desc">${esc(err.message)}</div></div>`;
     }
   }
 
@@ -115,7 +118,7 @@
     if (!container) return;
 
     if (!events || events.length === 0) {
-      container.innerHTML = `<div class="ls-empty"><div class="ls-empty-icon">📭</div><div class="ls-empty-title">No timeline events</div><div class="ls-empty-desc">No events recorded for this session.</div></div>`;
+      container.innerHTML = `<div class="ls-empty"><div class="ls-empty-title">No timeline events</div><div class="ls-empty-desc">No telemetry events recorded for this session.</div></div>`;
       return;
     }
 
@@ -161,27 +164,26 @@
     const wrapper = document.createElement("div");
     wrapper.id = "trace-" + group.trace_id;
     wrapper.className = "trace-group";
-    wrapper.style.marginBottom = "10px";
 
     // Header
     const header = document.createElement("div");
     header.className = "trace-group-header";
-    if (hasErr) header.style.borderLeft = "3px solid var(--red)";
+    if (hasErr) header.style.borderLeft = "2px solid var(--danger)";
 
     const arrow = document.createElement("span");
-    arrow.style.cssText = "font-size:12px;color:var(--ss-text-muted);transition:transform 150ms;flex-shrink:0;";
-    arrow.textContent = isOpen ? "▾" : "▸";
+    arrow.style.cssText = "font-size:10px;color:var(--text-muted);transition:transform 150ms;flex-shrink:0;";
+    arrow.textContent = isOpen ? "▼" : "▶";
 
     const label = document.createElement("div");
     label.style.cssText = "flex:1;min-width:0;";
     label.innerHTML = `
-      <div style="font-size:14px;font-weight:600;color:var(--ss-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(getTraceLabel(first))}</div>
-      <div style="font-size:12px;color:var(--ss-text-muted);margin-top:2px;">${events.length} events · ${calcTraceDuration(events)}</div>
+      <div style="font-size:12.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(getTraceLabel(first))}</div>
+      <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:2px;">${events.length} events · ${calcTraceDuration(events)}</div>
     `;
 
     const ts = document.createElement("span");
     ts.className = "mono";
-    ts.style.cssText = "font-size:12px;color:var(--ss-text-muted);flex-shrink:0;";
+    ts.style.cssText = "font-size:11px;color:var(--text-muted);flex-shrink:0;";
     ts.textContent = fmtTime(first.ts);
 
     header.appendChild(arrow);
@@ -202,7 +204,7 @@
     header.addEventListener("click", () => {
       const open = body.style.display !== "none";
       body.style.display = open ? "none" : "block";
-      arrow.textContent = open ? "▸" : "▾";
+      arrow.textContent = open ? "▶" : "▼";
       if (open) expandedTraces.delete(group.trace_id);
       else expandedTraces.add(group.trace_id);
     });
@@ -221,19 +223,20 @@
 
     const ts = document.createElement("span");
     ts.className = "mono";
-    ts.style.cssText = "font-size:11px;color:var(--ss-text-muted);flex-shrink:0;";
+    ts.style.cssText = "font-size:11px;color:var(--text-muted);flex-shrink:0;";
     ts.textContent = fmtTime(evt.ts);
 
     const pill = document.createElement("span");
-    pill.className = "pill pill-" + (evt.level || "info");
-    pill.textContent = (evt.level || "info").toUpperCase();
+    const levelStr = (evt.level || "info").toLowerCase();
+    pill.className = "pill pill-" + levelStr;
+    pill.textContent = levelStr.toUpperCase();
 
     const cat = document.createElement("span");
     cat.className = "cat-badge";
     cat.textContent = evt.category || "—";
 
     const msg = document.createElement("span");
-    msg.style.cssText = "font-size:13px;color:var(--ss-text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    msg.style.cssText = "font-size:12px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
     msg.textContent = evt.message || "";
 
     top.appendChild(ts);
@@ -247,7 +250,7 @@
       if (diff > 0) {
         const delta = document.createElement("span");
         delta.className = "mono";
-        delta.style.cssText = "font-size:11px;color:var(--ss-text-muted);font-weight:600;flex-shrink:0;";
+        delta.style.cssText = "font-size:10px;color:var(--text-muted);flex-shrink:0;padding:1px 4px;background:rgba(255,255,255,0.05);border-radius:2px;";
         delta.textContent = "+" + diff + "ms";
         top.appendChild(delta);
       }
@@ -259,12 +262,12 @@
       const card = document.createElement("div");
       card.className = "ai-card";
 
-      let html = `<div class="ai-card-header">🤖 AI Decision</div>`;
+      let html = `<div class="ai-card-header">AI DECISION REASONING</div>`;
       if (evt.data.tool_name || evt.data.action) {
-        html += `<div class="ai-card-field">Selected Worker</div><div class="ai-card-value" style="font-weight:600;">${esc(evt.data.tool_name || evt.data.action)}</div>`;
+        html += `<div class="ai-card-field">SELECTED ACTION:</div><div class="ai-card-value">${esc(evt.data.tool_name || evt.data.action)}</div>`;
       }
       if (evt.data.reasoning) {
-        html += `<div class="ai-card-field">Reasoning</div><div class="ai-card-reasoning">${esc(evt.data.reasoning)}</div>`;
+        html += `<div class="ai-card-field">REASONING:</div><div class="ai-card-reasoning">${esc(evt.data.reasoning)}</div>`;
       }
       card.innerHTML = html;
       row.appendChild(card);
@@ -272,7 +275,7 @@
 
     // Expandable details
     const details = document.createElement("div");
-    details.style.cssText = "margin-top:8px;padding:10px 12px;background:var(--ss-surface-low);border-radius:6px;font-size:12px;color:var(--ss-text-secondary);display:none;";
+    details.style.cssText = "margin-top:8px;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;color:var(--text-secondary);display:none;";
     const isOpen = expandedDetails.has(evt.event_id);
     if (isOpen) details.style.display = "block";
 
@@ -282,17 +285,17 @@
       ["Scan ID", evt.scan_id], ["Duration", evt.duration_ms ? evt.duration_ms + " ms" : null],
     ];
     fields.forEach(([k, v]) => {
-      if (v) dHtml += `<div style="display:flex;gap:8px;margin-bottom:3px;"><span style="color:var(--ss-text-muted);width:80px;flex-shrink:0;">${k}:</span><span class="mono" style="color:var(--ss-text);">${esc(String(v))}</span></div>`;
+      if (v) dHtml += `<div style="display:flex;gap:8px;margin-bottom:3px;"><span style="color:var(--text-muted);width:80px;flex-shrink:0;">${k}:</span><span class="mono" style="color:var(--text);">${esc(String(v))}</span></div>`;
     });
     if (evt.data && Object.keys(evt.data).length > 0) {
-      dHtml += `<div style="margin-top:8px;font-weight:600;color:var(--ss-text-muted);margin-bottom:4px;">Data</div>`;
-      dHtml += `<pre class="mono" style="font-size:11px;color:var(--ss-text-secondary);background:var(--ss-surface);padding:8px;border-radius:4px;overflow-x:auto;border:1px solid var(--ss-border);margin:0;white-space:pre-wrap;">${esc(JSON.stringify(evt.data, null, 2))}</pre>`;
+      dHtml += `<div style="margin-top:8px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;">Payload (JSON)</div>`;
+      dHtml += `<pre class="mono" style="font-size:11px;color:var(--text-secondary);background:rgba(0,0,0,0.4);padding:8px;border-radius:4px;overflow-x:auto;border:1px solid var(--border);margin:0;white-space:pre-wrap;">${esc(JSON.stringify(evt.data, null, 2))}</pre>`;
     }
     details.innerHTML = dHtml;
     row.appendChild(details);
 
     row.addEventListener("click", e => {
-      if (e.target.tagName === "A") return;
+      if (e.target.tagName === "A" || e.target.tagName === "BUTTON") return;
       const open = details.style.display !== "none";
       details.style.display = open ? "none" : "block";
       if (open) expandedDetails.delete(evt.event_id);
@@ -305,7 +308,7 @@
   function getTraceLabel(evt) {
     if (evt.category === "ui") return "User Action: " + (evt.data?.action || evt.message || "click");
     if (evt.category === "http") return (evt.data?.method || "POST") + " " + (evt.data?.path || evt.data?.route || "/api");
-    return evt.message || "Trace";
+    return evt.message || "Execution Trace";
   }
 
   function setupCopy() {
@@ -320,14 +323,18 @@
       });
       navigator.clipboard.writeText(txt).then(() => {
         const btn = document.getElementById("btnCopyTimeline");
-        if (btn) { const o = btn.textContent; btn.textContent = "✓ Copied"; setTimeout(() => btn.textContent = o, 2000); }
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = "✓ Copied";
+          setTimeout(() => btn.textContent = orig, 2000);
+        }
       });
     });
   }
 
   function renderEmptyTimeline() {
     const c = document.getElementById("timelineContainer");
-    if (c) c.innerHTML = `<div class="ls-empty"><div class="ls-empty-icon">📭</div><div class="ls-empty-title">No sessions recorded</div><div class="ls-empty-desc">Sessions will appear after users visit SentinelScan.</div></div>`;
+    if (c) c.innerHTML = `<div class="ls-empty"><div class="ls-empty-title">No sessions recorded</div><div class="ls-empty-desc">Sessions will appear after users visit SentinelScan.</div></div>`;
   }
 
   function fmtTime(ts) {

@@ -3,104 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="SentinelScan Gemini AI token usage and analytics.">
-  <title>Gemini Usage — SentinelScan</title>
+  <meta name="description" content="SentinelScan Gemini AI token consumption, caching efficiency, and inference telemetry.">
+  <title>LLM Usage — SentinelScan</title>
   <link rel="stylesheet" href="/static/css/logsite.css">
 </head>
 <body>
 
+  <!-- Header / Navbar -->
   <header class="ls-header">
     <div class="ls-header-inner">
-      <a href="/" class="ls-brand">SentinelScan <span class="ls-brand-sub">/ Observability</span></a>
+      <div class="ls-brand-group">
+        <a href="/" class="ls-brand">SentinelScan</a>
+        <span class="ls-brand-sub">/ Observability</span>
+      </div>
+
       <button class="ls-mobile-toggle" onclick="window.toggleMobileNav()" aria-label="Toggle navigation">☰</button>
+
       <nav id="mainNav" class="ls-nav">
         <a href="/">Status</a>
-        <a href="/live.html">Live</a>
+        <a href="/live.html">Live Events</a>
         <a href="/sessions.html">Sessions</a>
-        <a href="/llm.html" class="active">Gemini</a>
+        <a href="/llm.html" class="active">LLM Usage</a>
         <a href="/health.html">Health</a>
       </nav>
+
       <div class="ls-header-right">
         <div id="authControls"></div>
       </div>
     </div>
   </header>
 
+  <!-- Main Content -->
   <main>
-    <div class="ls-container" style="padding-top:28px;padding-bottom:48px;">
+    <div class="ls-container" style="padding-top: 36px; padding-bottom: 56px;">
 
+      <!-- Auth Banner in Normal Flow -->
       <div id="logsiteAuthBanner" class="hidden"></div>
 
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+      <!-- Page Header -->
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 28px;">
         <div>
-          <h1 class="ls-page-title">Gemini AI Usage</h1>
-          <p class="ls-page-subtitle">Token consumption, cache efficiency, and cost estimates.</p>
+          <h1 class="ls-page-title">LLM USAGE</h1>
+          <p class="ls-page-subtitle">Gemini model activity and inference telemetry.</p>
         </div>
-        <div id="llmLastRefreshed" style="font-size:13px;color:var(--ss-text-muted);padding-top:6px;">—</div>
+        <div id="llmLastRefreshed" class="mono" style="font-size: 12px; color: var(--text-muted);">—</div>
       </div>
 
-      <!-- KPI Grid -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:32px;">
+      <!-- Metric Panels (KPI Grid) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 32px;">
         <div class="ls-card">
           <div class="kpi-label">Total Tokens</div>
           <div class="kpi-value" id="kpiTotalTokens">—</div>
-          <div class="kpi-sub" id="kpiTokenSplit"></div>
+          <div class="kpi-sub" id="kpiTokenSplit">0 prompt · 0 response</div>
         </div>
         <div class="ls-card">
-          <div class="kpi-label">Calls</div>
+          <div class="kpi-label">Inference Calls</div>
           <div class="kpi-value" id="kpiCalls">—</div>
+          <div class="kpi-sub">Total Gemini API requests</div>
         </div>
         <div class="ls-card">
           <div class="kpi-label">Cache Hit Rate</div>
           <div class="kpi-value" id="kpiCacheRate">—</div>
-          <div class="kpi-sub" id="kpiCacheSub"></div>
+          <div class="kpi-sub" id="kpiCacheSub">0 cached calls</div>
         </div>
         <div class="ls-card">
           <div class="kpi-label">Avg Tokens / Scan</div>
           <div class="kpi-value" id="kpiAvgTokens">—</div>
+          <div class="kpi-sub">Per completed scan trace</div>
         </div>
         <div class="ls-card">
           <div class="kpi-label">Estimated Cost</div>
           <div class="kpi-value" id="kpiCost">—</div>
-          <div class="kpi-sub">$0.15 / 1M tokens</div>
+          <div class="kpi-sub">$0.15 / 1M token estimate</div>
         </div>
       </div>
 
-      <!-- Token Usage Chart -->
-      <div class="ls-card" style="margin-bottom:32px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-          <h2 class="ls-section-title">Token Usage</h2>
-          <select id="groupBySelect" class="ls-select" style="font-size:12px;">
-            <option value="day">Daily</option>
-            <option value="hour">Hourly</option>
-          </select>
+      <!-- Token Usage Chart Card -->
+      <div class="ls-card" style="margin-bottom: 32px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h2 class="ls-section-title">Token Distribution Timeline</h2>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="groupBySelect" class="mono" style="font-size: 11px; color: var(--text-muted);">RESOLUTION:</label>
+            <select id="groupBySelect" class="ls-select" style="font-size: 11.5px; padding: 4px 8px;">
+              <option value="day">Daily</option>
+              <option value="hour">Hourly</option>
+            </select>
+          </div>
         </div>
-        <div id="usageChart" style="height:200px;display:flex;align-items:flex-end;gap:3px;padding-top:8px;">
-          <div style="width:100%;text-align:center;font-size:13px;color:var(--ss-text-muted);align-self:center;">
-            <span class="ls-spinner" style="margin-right:6px;vertical-align:middle;"></span> Loading chart…
+        <div id="usageChart" style="padding: 4px 0;">
+          <div style="width: 100%; text-align: center; font-size: 12px; color: var(--text-muted); padding: 28px;">
+            <span class="ls-spinner" style="margin-right: 6px; vertical-align: middle;"></span> Loading chart telemetry…
           </div>
         </div>
       </div>
 
-      <!-- Expensive Scans Table -->
-      <div class="ls-card" style="padding:0;overflow:hidden;">
-        <div style="padding:14px 20px;border-bottom:1px solid var(--ss-border);">
-          <h2 class="ls-section-title">Most Expensive Scans</h2>
+      <!-- Per-Scan Breakdown Table -->
+      <div class="ls-card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(255, 255, 255, 0.015);">
+          <h2 class="ls-section-title">Per-Scan Token Breakdown</h2>
         </div>
-        <div style="overflow-x:auto;">
+        <div style="overflow-x: auto;">
           <table class="ls-table">
             <thead>
               <tr>
                 <th>Scan ID</th>
-                <th>Target</th>
-                <th style="text-align:right;">Calls</th>
-                <th style="text-align:right;">Prompt</th>
-                <th style="text-align:right;">Response</th>
-                <th style="text-align:right;">Total Tokens</th>
+                <th>Target Domain</th>
+                <th style="text-align: right;">Calls</th>
+                <th style="text-align: right;">Prompt Tokens</th>
+                <th style="text-align: right;">Response Tokens</th>
+                <th style="text-align: right;">Total Tokens</th>
               </tr>
             </thead>
             <tbody id="expensiveScansTbody">
-              <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--ss-text-muted);font-size:13px;">Loading…</td></tr>
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 36px; color: var(--text-muted); font-size: 12.5px;">
+                  Loading…
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

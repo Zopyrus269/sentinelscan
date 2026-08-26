@@ -19,32 +19,6 @@ let authResolved = false;
 let authListeners = [];
 
 /* ----------------------------------------------------------------
-   Theme: light / dark
-   ---------------------------------------------------------------- */
-(function initTheme() {
-  const saved = localStorage.getItem("sentinelscan_logsite_theme");
-  if (saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-    document.documentElement.classList.add("dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-  }
-})();
-
-window.toggleTheme = function () {
-  const isDark = document.documentElement.classList.toggle("dark");
-  localStorage.setItem("sentinelscan_logsite_theme", isDark ? "dark" : "light");
-  updateThemeIcon();
-};
-
-function updateThemeIcon() {
-  const btn = document.getElementById("btnThemeToggle");
-  if (!btn) return;
-  const isDark = document.documentElement.classList.contains("dark");
-  btn.textContent = isDark ? "☀️" : "🌙";
-  btn.title = isDark ? "Switch to light mode" : "Switch to dark mode";
-}
-
-/* ----------------------------------------------------------------
    Mobile nav toggle
    ---------------------------------------------------------------- */
 window.toggleMobileNav = function () {
@@ -73,43 +47,35 @@ window.logout = async function () {
 
 window.onLogsiteAuthStateChanged = function (callback) {
   authListeners.push(callback);
-  // Do not report a synthetic logged-out state before Firebase resolves.
   if (authResolved) callback(currentUser);
 };
 
 /* ----------------------------------------------------------------
-   Auth UI: header account widget
+   Auth UI: Header account widget (Minimal SentinelScan Style)
    ---------------------------------------------------------------- */
 function updateAuthUI(user) {
   const el = document.getElementById("authControls");
   if (!el) return;
 
-  const isDark = document.documentElement.classList.contains("dark");
-  const themeBtn = `<button id="btnThemeToggle" onclick="window.toggleTheme()" class="ls-theme-btn" title="${isDark ? 'Switch to light mode' : 'Switch to dark mode'}">${isDark ? '☀️' : '🌙'}</button>`;
-
   if (user) {
     const email = escapeHtml(user.email || user.uid);
     const photo = user.photoURL;
     const avatar = photo
-      ? `<img src="${escapeHtml(photo)}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" referrerpolicy="no-referrer" />`
-      : `<span style="width:28px;height:28px;border-radius:50%;background:var(--ss-primary-bg);color:var(--ss-primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">DEV</span>`;
+      ? `<img src="${escapeHtml(photo)}" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover;" referrerpolicy="no-referrer" />`
+      : `<span style="width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.1);color:#ffffff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:10px;">DEV</span>`;
 
     el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;">
-        ${themeBtn}
-        <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 4px 6px;background:var(--ss-surface);border:1px solid var(--ss-border);border-radius:999px;font-size:13px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:7px;padding:3px 10px 3px 4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:999px;font-size:12px;">
           ${avatar}
-          <span style="color:var(--ss-text);font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}</span>
-          <button onclick="window.logout()" style="margin-left:4px;font-size:12px;font-weight:600;color:var(--ss-text-muted);background:none;border:none;cursor:pointer;padding:2px 4px;transition:color 150ms;">Sign Out</button>
+          <span style="color:var(--text);font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}</span>
         </div>
+        <button onclick="window.logout()" style="font-size:12px;font-weight:500;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:4px 6px;transition:color 150ms;">Sign Out</button>
       </div>
     `;
   } else {
     el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;">
-        ${themeBtn}
-        <button onclick="window.loginWithGoogle()" class="ls-btn-primary" style="font-size:12px;padding:6px 14px;">Sign in with Google</button>
-      </div>
+      <button onclick="window.loginWithGoogle()" class="ls-btn-primary" style="font-size:12px;padding:5px 14px;">Sign In</button>
     `;
   }
 }
