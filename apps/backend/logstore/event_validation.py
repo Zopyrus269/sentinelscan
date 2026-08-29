@@ -1,11 +1,16 @@
-"""Temporary local stand-in for Workstream A's ``observability.events`` module.
+"""Validates and builds events for the untrusted browser ingest path.
 
-Workstream A (``apps/backend/observability/``, the recorder) has not been merged into this
-branch yet, so ``telemetry_routes.py`` cannot import her ``build_event``/``validate_event``.
-This module mirrors the frozen event schema (``docs/workstreams/WORKSTREAM_A.md`` section 4)
-closely enough that once her branch merges, swapping the import in ``telemetry_routes.py`` for
-the real thing should be close to a one-line change -- the signature here is deliberately
-shaped the same way.
+Originally written as a stand-in for Workstream A's ``observability.events`` before her
+branch existed, on the assumption that swapping to her ``build_event`` would be close to a
+one-line change once it merged. Now that both are in the same tree, that assumption doesn't
+hold: her ``build_event`` is an internal constructor called from already-running, trusted
+backend code, while ``build_frontend_event`` here is the strict validator standing between
+``telemetry_routes.py``'s unauthenticated public endpoint and Firestore -- it parses a raw,
+untrusted client dict, enforces Firestore-document-id-safe correlation-id patterns, and only
+accepts ``source == "frontend"``. This module stays permanently; do not collapse it into
+``observability.events``, or the untrusted-input validation this endpoint depends on goes
+with it. The two do share the same frozen event schema (``docs/workstreams/WORKSTREAM_A.md``
+section 4), which is why their field lists still line up.
 """
 import json
 import os

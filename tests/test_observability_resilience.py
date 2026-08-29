@@ -6,10 +6,11 @@ def test_simulated_total_outage(monkeypatch):
     monkeypatch.setenv("SENTINELSCAN_TELEMETRY_QUEUE_SIZE", "1")
     
     import apps.backend.observability.emit as emit_module
+    import apps.backend.logstore.pipeline as pipeline_module
     from apps.backend.observability.emit import get_stats
-    emit_module._queue = None
+    pipeline_module._queue = None
     emit_module._stats = {"emitted": 0, "dropped": 0, "queued": 0, "errors": 0}
-    
+
     q = get_queue()
     
     # Simulate an outage by completely breaking the queue's put_nowait method

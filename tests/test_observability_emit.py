@@ -7,10 +7,13 @@ def test_emit_never_blocks_or_raises(monkeypatch):
     # Enable telemetry and set a tiny queue size
     monkeypatch.setenv("SENTINELSCAN_TELEMETRY_ENABLED", "1")
     monkeypatch.setenv("SENTINELSCAN_TELEMETRY_QUEUE_SIZE", "2")
-    
-    # We must reset the lazily-created queue in the module so it picks up the new size
+
+    # emit.get_queue() is apps.backend.logstore.pipeline.get_queue() -- the shared queue
+    # sink.py's thread drains. Reset pipeline's module state (not emit's own; it no longer
+    # owns a queue) so this test's queue picks up the new size.
     import apps.backend.observability.emit as emit_mod
-    emit_mod._queue = None
+    import apps.backend.logstore.pipeline as pipeline_mod
+    pipeline_mod._queue = None
     emit_mod._stats = {"emitted": 0, "dropped": 0, "queued": 0, "errors": 0}
     
     # Fill the queue
@@ -33,5 +36,7 @@ def test_emit_never_blocks_or_raises(monkeypatch):
     stats = get_stats()
     assert stats["dropped"] - start_stats["dropped"] == 1
     
-    # Clean up
+    # Clean up -- also reset the queue itself, not just its contents, so the tiny
+    # maxsize=2 from this test doesn't leak into whichever test runs next.
     drain_for_test()
+    pipeline_mod._queue = None

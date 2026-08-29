@@ -57,6 +57,15 @@ class TestTelemetryRoutes(unittest.TestCase):
         pipeline._started = False
 
     def _drain_queue(self):
+        """Everything this endpoint itself enqueued from a POST body -- source is always
+        "frontend" per event_validation.py's SOURCES. Now that this branch also carries
+        Workstream A's observability hooks, every self.client.post() below is itself an
+        HTTP request the merged app instruments too, adding its own backend-sourced "http"
+        event to this same shared queue (see apps/backend/observability/emit.py). Filtering
+        on source keeps these tests scoped to what they're actually testing -- this
+        endpoint's own validation/circuit-breaker logic -- without asserting anything about
+        that separate (and separately tested) instrumentation.
+        """
         events = []
         q = pipeline.get_queue()
         while True:
@@ -64,7 +73,7 @@ class TestTelemetryRoutes(unittest.TestCase):
                 events.append(q.get_nowait())
             except queue.Empty:
                 break
-        return events
+        return [e for e in events if e.get("source") == "frontend"]
 
     def _post(self, body, headers=None):
         return self.client.post(
