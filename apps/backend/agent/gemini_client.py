@@ -279,15 +279,13 @@ class GeminiClient:
                     role="model",
                     parts=[types.Part.from_text(text=cached.get("text", ""))],
                 )
-                import time
-                from apps.backend.observability.gemini_meter import usage_from_response, record_llm_call
+                from apps.backend.observability.gemini_meter import record_llm_call
                 try:
                     record_llm_call(model=self._model_name, usage={}, duration_ms=0, cached=True)
                 except Exception:
                     pass
                 return cached
 
-        import time
         from apps.backend.observability.gemini_meter import usage_from_response, record_llm_call
         start_time = time.monotonic()
         try:
