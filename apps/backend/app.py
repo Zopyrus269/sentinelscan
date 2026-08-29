@@ -37,6 +37,15 @@ def create_app() -> Flask:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
     limiter.init_app(app)
+
+    # Installs the request/error hooks and logging bridge that record backend-originated
+    # events (http, error, agent, worker, llm). Must come before pipeline.ensure_started()
+    # below: observability.emit's queue is the same queue the sink thread drains (see
+    # apps/backend/observability/emit.py), so the sink should be ready to drain by the
+    # time the app starts accepting requests that could emit into it.
+    from apps.backend.observability import init_app as init_observability
+    init_observability(app)
+
     # Only stand up the sink thread when telemetry is actually switched on. Otherwise this
     # is a polling background thread and a hijacked SIGTERM handler serving a feature that
     # is off -- and off is the production default (see render.yaml).

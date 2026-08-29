@@ -64,6 +64,13 @@ const SECTIONS = [
         paragraphs: ['Credentials are stored using password hashing.', 'Scan results and reports live on the server.'],
       },
       {
+        heading: 'Observability & Telemetry',
+        paragraphs: [
+          'We record system events (HTTP requests, agent decisions, worker logs, errors, and LLM usage) for operational health.',
+          'IP addresses are cryptographically hashed and never stored raw. Query string values are dropped. Passwords, API keys, tokens, and session cookies are automatically redacted from all telemetry data.',
+        ],
+      },
+      {
         heading: 'Cookies and Sessions',
         paragraphs: ['A secure session cookie keeps you signed in.'],
       },
