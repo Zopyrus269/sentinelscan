@@ -8,10 +8,14 @@
   let currentTimelineEvents = [];
   let expandedTraces = new Set();
   let expandedDetails = new Set();
+  let initialized = false;
 
   async function init() {
-    setupSearch();
-    setupCopy();
+    if (!initialized) {
+      setupSearch();
+      setupCopy();
+      initialized = true;
+    }
 
     const params = new URLSearchParams(window.location.search);
     const sid = params.get("session_id");

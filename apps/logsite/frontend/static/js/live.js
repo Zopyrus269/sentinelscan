@@ -6,12 +6,16 @@
   let nextCursor = null;
   let events = [];
   let pollTimer = null;
+  let initialized = false;
   const POLL_INTERVAL = 30000;
   const MAX_EVENTS = 200;
 
   async function init() {
-    setupFilters();
-    setupVisibility();
+    if (!initialized) {
+      setupFilters();
+      setupVisibility();
+      initialized = true;
+    }
     await poll();
   }
 

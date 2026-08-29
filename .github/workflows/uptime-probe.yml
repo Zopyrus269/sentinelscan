@@ -21,8 +21,12 @@ jobs:
           START_TIME=$(date +%s%3N)
           CHECKED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          # Execute curl without --fail so failures are captured as data
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${MAIN_SITE_URL}/health" || echo "000")
+          # Execute curl without --fail so failures are captured as data.
+          # The `|| HTTP_STATUS="000"` must stay outside the substitution: this
+          # workflow runs under `set -e`, and curl already prints "000" on a
+          # connection failure -- putting the fallback inside the substitution
+          # concatenates onto that, producing "000000" (invalid as a JSON number).
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${MAIN_SITE_URL}/health") || HTTP_STATUS="000"
           END_TIME=$(date +%s%3N)
           LATENCY_MS=$((END_TIME - START_TIME))
 
