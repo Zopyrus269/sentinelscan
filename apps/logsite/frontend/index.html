@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SentinelScan internal service health, uptime, and telemetry overview.">
+  <title>System Status — SentinelScan</title>
+  <link rel="stylesheet" href="/static/css/logsite.css">
+</head>
+<body>
+
+  <!-- Header / Navbar -->
+  <header class="ls-header">
+    <div class="ls-header-inner">
+      <div class="ls-brand-group">
+        <a href="/" class="ls-brand">SentinelScan</a>
+        <span class="ls-brand-sub">/ Observability</span>
+      </div>
+
+      <button class="ls-mobile-toggle" onclick="window.toggleMobileNav()" aria-label="Toggle navigation">☰</button>
+
+      <nav id="mainNav" class="ls-nav">
+        <a href="/" class="active">Status</a>
+        <a href="/live.html">Live Events</a>
+        <a href="/sessions.html">Sessions</a>
+        <a href="/llm.html">LLM Usage</a>
+        <a href="/health.html">Health</a>
+      </nav>
+
+      <div class="ls-header-right">
+        <div id="authControls"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <div class="ls-container" style="padding-top: 36px; padding-bottom: 56px;">
+
+      <!-- Auth Banner in Normal Flow -->
+      <div id="logsiteAuthBanner" class="hidden"></div>
+
+      <!-- Page Header -->
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 28px;">
+        <div>
+          <h1 class="ls-page-title">SYSTEM STATUS</h1>
+          <p class="ls-page-subtitle">Real-time service health and telemetry overview.</p>
+        </div>
+        <div id="lastRefreshed" class="mono" style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+          <span class="ls-spinner"></span> Checking status…
+        </div>
+      </div>
+
+      <!-- Overall System State Diagnostic Panel -->
+      <div id="overallStatusCard" class="ls-card" style="margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span class="ls-spinner"></span>
+          <div>
+            <div style="font-size: 14px; font-weight: 600; color: #ffffff;">Checking system status…</div>
+            <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">Querying telemetry snapshot and core service probes.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric Panels (KPI Grid) -->
+      <div id="kpiGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px;">
+        <div class="ls-card">
+          <div class="kpi-label">Active Users</div>
+          <div class="kpi-value" id="kpiActiveUsers">—</div>
+          <div class="kpi-sub">Observed in last 5 minutes</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Error Rate (1h)</div>
+          <div class="kpi-value" id="kpiErrorRate">—</div>
+          <div class="kpi-sub">HTTP & worker exceptions</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">P95 Latency</div>
+          <div class="kpi-value" id="kpiLatency">—</div>
+          <div class="kpi-sub">Observed request latency</div>
+        </div>
+        <div class="ls-card">
+          <div class="kpi-label">Gemini AI Pipeline</div>
+          <div class="kpi-value" id="kpiGemini">—</div>
+          <div class="kpi-sub">Model & reasoning inference</div>
+        </div>
+      </div>
+
+      <!-- Core Services Health Section -->
+      <div style="margin-bottom: 32px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+          <h2 class="ls-section-title">Core Services</h2>
+          <span class="mono" style="font-size: 11px; color: var(--text-muted);">AUTO-PROBED</span>
+        </div>
+        <div id="servicesList">
+          <div class="ls-card ls-empty">
+            <div class="ls-empty-title">Loading service telemetry…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 90-Day Uptime Heatmap Section -->
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+          <h2 class="ls-section-title">90-Day System Availability</h2>
+          <span id="uptimePct" class="mono" style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">—</span>
+        </div>
+        <div class="ls-card" style="padding: 20px;">
+          <div id="uptimeStrip" class="uptime-strip">
+            <div style="width: 100%; text-align: center; font-size: 12px; color: var(--text-muted); align-self: center;">
+              Loading uptime records…
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 12px; font-family: var(--font-mono);">
+            <span>90 days ago</span>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <span><span class="dot dot-green"></span> ≥99.9%</span>
+              <span><span class="dot dot-amber"></span> ≥95.0%</span>
+              <span><span class="dot dot-red"></span> &lt;95.0%</span>
+            </div>
+            <span>Today</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/status.js"></script>
+</body>
+</html>
