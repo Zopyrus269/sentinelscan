@@ -88,6 +88,9 @@ class _FakeDocumentRef:
     def get(self) -> _FakeSnapshot:
         return _FakeSnapshot(self.id, self._collection.docs.get(self.id))
 
+    def delete(self) -> None:
+        self._collection.docs.pop(self.id, None)
+
 
 class _FakeQuery:
     def __init__(self, collection: "_FakeCollection", filters=None, order=None, limit_n=None):
