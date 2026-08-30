@@ -11,22 +11,43 @@ Read this first in any new session, before analyzing code.
 
 ## What's next
 
-**The observability project is complete.** `integration/observability` merged into `main` via
-PR [#19](https://github.com/Zopyrus269/sentinelscan/pull/19) (`0cb41be`), closing out the 3-phase
+**The observability project is complete and the repo is fully cleaned up.**
+`integration/observability` merged into `main` via PR
+[#19](https://github.com/Zopyrus269/sentinelscan/pull/19) (`0cb41be`), closing out the 3-phase
 branch-integration plan (Phase 1: per-branch review, session 26; Phase 2: combine + cross-branch
-fix, session 27; Phase 3: live-checklist + final merge, session 28). No open task from this
-project remains. **No active task is queued for the next session** -- start from whatever the
-user asks for, informed by the sections below.
+fix, session 27; Phase 3: live-checklist + final merge, session 28). The wrap-up (docs, Graphify
+regen, vault) followed as PR [#20](https://github.com/Zopyrus269/sentinelscan/pull/20) (`9eb9961`).
+**`main` is now the only branch in the repo** -- `workstream-b-pipeline`,
+`fix/telemetry-concurrency`, `workstream-c-`, `integration/observability`, and
+`chore/observability-integration-wrapup` were all deleted (local + remote) once confirmed merged,
+same session #20 was merged. `render.yaml` declares exactly one Render service, pinned to
+`branch: main` -- confirmed there is no other branch or service that could ever get deployed.
 
-- `main` @ `0cb41be` is the only branch that matters now. `workstream-b-pipeline`,
-  `fix/telemetry-concurrency`, `workstream-c-`, and `integration/observability` are all
-  superseded by it -- none deleted (not asked to); worth cleaning up local/remote refs next time
-  someone's doing branch housekeeping, but not urgent.
+**Next session: the user will manually inspect the live site and the developer log site
+(`apps/logsite/`) against the freshly reseeded production data.** This is the human-verification
+counterpart to everything session 28 checked programmatically -- expect the user to report back
+specific observations, glitches, or questions from that walkthrough rather than a pre-defined
+task. Useful context for whatever they find:
+
+- Log site screens to expect: `apps/logsite/frontend/{index,live,sessions,health,llm}.html`,
+  backed by `apps/logsite/api.py` and `probe.py`, reading through
+  `apps/backend/logstore/query.py`'s frozen contract. Requires `@require_auth` +
+  `@require_developer` (in that order) -- if something 401/403s during the walkthrough, that's
+  the first thing to check, not a query bug.
+- The data being displayed is the fresh reseed from session 28: 280 sessions, 11,927 events
+  across `logs`/`presence`/`logs_hourly`/`logs_meta`, 14 days of `uptime` history, `stats/{date}`
+  counters -- all tagged `env: "dev"`/`release: "dev"` inside each event (not on the batch
+  document itself), so anything that looks wrong is almost certainly demo data behaving as
+  designed, not a real-user issue, unless the user says otherwise.
+- The three Firestore composite indexes and the Render `SENTINELSCAN_TELEMETRY_ENABLED` var were
+  both missing in production until session 28 fixed them -- if the user hits a "missing index"
+  error or something telemetry-flag-shaped during inspection, re-verify those two rather than
+  assuming they're still fine.
 - Full session-28 narrative (what was checked, what was found, what was fixed) is in
   [[2026-08-30]]. The judgment calls made along the way (the `uptime/` data-loss decision, the
   `stats/` scoping decision) are in [[DECISIONS]]. The merge's architectural summary is in
   [[ARCHITECTURE]].
-- **Standing rule 1 (don't push `knowledge/`/`graphify-out/`) is lifted as of this session** --
+- **Standing rule 1 (don't push `knowledge/`/`graphify-out/`) is lifted as of session 28** --
   see the standing-rules section below. This file, and everything else in `knowledge/`, is
   committed and pushed normally again from now on.
 
@@ -183,18 +204,19 @@ against the production project** by default.
 
 ## Project state as of session 28
 
-- `main` @ `0cb41be` -- the observability project fully merged, PR #19. Live at
+- `main` @ `9eb9961` -- the observability project fully merged (PR #19) plus its docs/vault
+  wrap-up (PR #20). **This is the only branch in the repo now**, remote and local. Live at
   `https://sentinelscan-yd2u.onrender.com`.
-- `chore/observability-integration-wrapup` (pushed, PR not yet opened as of this file being
-  written -- opened immediately after, see the daily log) carries `docs/AGENTS.md` and the
-  Graphify regeneration on top of the merged `main`.
 - Production Firestore (`sentinelscan-3f82d`): three composite indexes live and `Enabled`; demo
   data reseeded fresh and confirmed queryable. See [[2026-08-30]] for exact counts.
 - Render (`srv-d9rrj6n40ujc73c4efcg`): `SENTINELSCAN_TELEMETRY_ENABLED="0"` now present and
-  redeployed successfully.
+  redeployed successfully. `render.yaml` declares exactly one service, `branch: main` -- nothing
+  else can be deployed.
 - `pytest tests/` on `main`: 314 passed, 1 skipped. `npm run test:js`: 25 passed.
 - `graphify-out/` regenerated 2026-08-30, covers all three former workstreams.
 - Untracked at repo root, pre-existing, left alone: `.agents/`, `node_modules/`.
+- **Next up (told to this session, not yet done): the user will manually inspect the live site
+  and the log site against this data next session.** See "What's next" above.
 
 ## Links
 
@@ -210,7 +232,9 @@ against the production project** by default.
 - Session 26 plan: `C:\Users\ADMIN\.claude\plans\right-now-in-the-graceful-coral.md`. Session 27
   plan: `C:\Users\ADMIN\.claude\plans\let-s-proceed-with-the-inherited-magpie.md`. Session 28
   plan: `C:\Users\ADMIN\.claude\plans\let-s-implement-the-last-nifty-rabin.md`
-- Merged PRs: [#19](https://github.com/Zopyrus269/sentinelscan/pull/19) (branch integration,
+- Merged PRs: [#20](https://github.com/Zopyrus269/sentinelscan/pull/20) (post-integration
+  wrap-up: `docs/AGENTS.md`, Graphify regen, knowledge vault; `9eb9961`),
+  [#19](https://github.com/Zopyrus269/sentinelscan/pull/19) (branch integration,
   final merge into `main`; `0cb41be`), [#18](https://github.com/Zopyrus269/sentinelscan/pull/18)
   (Workstream C Phase 1 fixes; `cabd841`), [#17](https://github.com/Zopyrus269/sentinelscan/pull/17)
   (Workstream A Phase 1 fix; `dc13821`), [#16](https://github.com/Zopyrus269/sentinelscan/pull/16)
