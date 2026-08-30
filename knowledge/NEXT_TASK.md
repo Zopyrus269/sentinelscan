@@ -1,176 +1,235 @@
 ---
 type: knowledge-vault-core
-last_updated: 2026-08-21
+last_updated: 2026-08-30
 updated_by: claude-code
 ---
 
 # Next Task
 
-This file is always **overwritten**, not appended -- it reflects the current handoff state only. Read this first in any new session, before analyzing code.
+This file is always **overwritten**, not appended -- it reflects the current handoff state only.
+Read this first in any new session, before analyzing code.
 
 ## What's next
 
-**Nothing is pending**, assuming this session's final PR (session 17, Graphify backup-hygiene fix)
-merges cleanly -- same pattern as every prior PR, awaiting user review/merge at time of writing.
-PR #6 (session 16, frontend dead-code cleanup + fixed the 5 pre-existing test failures) is merged
-into `main` as `2b7fe76`. Full test suite on merged `main`: **144 passed, 1 skipped**, zero
-failures (up from 139 passed/1 skipped/5 failed as of session 15). Frontend build (`npm run build`)
-clean.
+**The observability project is complete.** `integration/observability` merged into `main` via
+PR [#19](https://github.com/Zopyrus269/sentinelscan/pull/19) (`0cb41be`), closing out the 3-phase
+branch-integration plan (Phase 1: per-branch review, session 26; Phase 2: combine + cross-branch
+fix, session 27; Phase 3: live-checklist + final merge, session 28). No open task from this
+project remains. **No active task is queued for the next session** -- start from whatever the
+user asks for, informed by the sections below.
 
-`graphify-out/graph.json` regenerated in session 16 (`apps/frontend/` and `tests/` both changed):
-**1030 nodes, 1722 edges, 80 communities** (was 1050/1747/86 as of session 15). Verified clean
-scope (zero nodes from excluded paths, none `.md`). Treat `graphify query <question>`, `graphify
-affected <symbol>`, `graphify path <A> <B>`, `graphify explain <concept>` as the first tool for
-structural questions in this repo -- see `CLAUDE.md` section 11. `graphify affected` (reverse
-traversal, "what depends on X") has proven reliable and precise; `graphify query`'s forward BFS
-("is X referenced anywhere") has been noisy/imprecise in practice -- prefer Grep for that specific
-question shape.
+- `main` @ `0cb41be` is the only branch that matters now. `workstream-b-pipeline`,
+  `fix/telemetry-concurrency`, `workstream-c-`, and `integration/observability` are all
+  superseded by it -- none deleted (not asked to); worth cleaning up local/remote refs next time
+  someone's doing branch housekeeping, but not urgent.
+- Full session-28 narrative (what was checked, what was found, what was fixed) is in
+  [[2026-08-30]]. The judgment calls made along the way (the `uptime/` data-loss decision, the
+  `stats/` scoping decision) are in [[DECISIONS]]. The merge's architectural summary is in
+  [[ARCHITECTURE]].
+- **Standing rule 1 (don't push `knowledge/`/`graphify-out/`) is lifted as of this session** --
+  see the standing-rules section below. This file, and everything else in `knowledge/`, is
+  committed and pushed normally again from now on.
 
-**Important, new as of session 17: always pass `GRAPHIFY_NO_BACKUP=1` when running `graphify
-extract`/`graphify label` in this repo.** Without it, Graphify auto-snapshots the entire graph into
-a dated `graphify-out/YYYY-MM-DD/` folder before every overwrite (triggers because our graph has
-real LLM-assigned labels) -- a ~30K-line duplicate of a file git already versions, and sessions 15
-and 16 both accidentally committed one before this was caught and fixed. See `CLAUDE.md` section 11
-and [[2026-08-21]] session 17 for full detail. If a dated folder ever reappears anyway, delete it
-rather than committing it -- `.gitignore` backstops the pattern but the env var is the real fix.
+### If someone asks about the demo data or the log site
 
-Do not assume anything below is "next up" without the user actually asking.
+Production Firestore (`sentinelscan-3f82d`) now has fresh, correctly-timestamped demo data across
+`logs`/`presence`/`logs_hourly`/`logs_meta`/`uptime`/`stats`, reseeded by
+`scripts/reset_demo_logs.py` (new this session, companion to `scripts/seed_fake_logs.py`) and
+confirmed queryable via the real read API. The three composite indexes
+`apps/backend/logstore/firestore.indexes.json` declares are live and `Enabled` in the Firestore
+console (they never had been before this session, despite being declared in the repo since
+Workstream B's Phase 3). `SENTINELSCAN_TELEMETRY_ENABLED` is `"0"` in both `render.yaml` and the
+actual Render dashboard (it had never synced to the dashboard before this session either).
+Telemetry is still off in production -- turning it on is a separate, deliberate decision nobody
+has made yet.
 
-## Session 17 summary (2026-08-21) -- full detail in [[2026-08-21]]
+### Side task, unrelated to the branch integration: Antigravity PR Review Explainer
 
-User reviewing PR #7 noticed it added 30K+ lines and asked whether graph regeneration was a full
-rebuild or incremental, and whether that was wasteful. Investigated: confirmed `--force` genuinely
-does a full re-scan (by design -- `graphify update` is deliberately never used, no `--code-only`
-flag), but the ~30K-line bulk of the diff was actually `graphify`'s own `backup_if_protected()`
-auto-snapshotting the graph into a dated folder every regen -- a redundant duplicate, disableable
-via `GRAPHIFY_NO_BACKUP=1` (found in the installed package source). Deleted the two already-
-committed dated folders (~67,600 lines net), added a `.gitignore` backstop pattern, documented the
-env var requirement in `CLAUDE.md` section 11. User gave one-time explicit authorization to push
-this directly to `main`; checked first and found `enforce_admins: true` branch protection would
-reject a direct push regardless of authorization -- surfaced that rather than assuming, user opted
-for the normal branch+PR flow instead (protection left untouched). Full test suite unaffected: 144
-passed, 1 skipped.
+`docs/AGENTS.md` gained a "Side Task: PR Review Explainer Mode" section (committed this session,
+session 25's instructions, held uncommitted on purpose until final integration) -- the user runs
+Antigravity CLI (Google AI Pro) in a second terminal alongside this one, says a trigger phrase
+like `"analyze the PR"`, and Antigravity walks them through the PR's diff in plain language before
+they review/merge on GitHub themselves. Read-only against GitHub, explicitly forbidden from
+touching the local working tree. Used for real in session 26 (PRs #17, #18) and again this session
+for PR #19.
 
-## Session 16 summary (2026-08-21) -- full detail in [[2026-08-21]]
+---
 
-User asked what was left unaddressed from the prior session; picked two items off
-`NEXT_TASK.md`'s "Other findings" list to actually resolve. **Frontend cleanup**: deleted
-`button.jsx`, `skiper106.jsx` (+ its now-unused `dialkit` npm dependency), `ShutterText/`,
-`WarpText/`, and the dead `apps/frontend/templates/index.html` -- all confirmed via Grep to have
-zero real imports. **Test fixes, real root causes found (not just "drift")**: `cookie_worker`,
-`headers_worker`, and `sitemap_worker`'s tests only mocked `requests.get`, not the Playwright
-browser fallback (`fetch_with_browser`) those workers gained later -- under real network access
-the un-mocked fallback silently succeeded against the live `https://example.com` target used in
-`setUp()`, masking the error the tests meant to check; fixed by mocking the fallback to fail too.
-`ssl_worker`'s `test_socket_timeout` was simply stale -- the worker already treats a TLS timeout as
-security evidence (a successful result, not a failure), matching the same philosophy already
-applied to cert-verification errors a few lines above; updated the test to match, confirmed with
-user first since it's a semantics change not a pure bug fix. Used `graphify affected
-"fetch_with_browser"` to find all callers, which caught that `ddos_worker.py`/`robots_worker.py`
-also use it (no active bug in either, just flagged for future awareness). Opened as PR #6, user
-reviewed and squash-merged as `2b7fe76`. Post-merge: re-verified tests + build on merged `main`,
-deleted the branch locally and remotely, regenerated `graphify-out/`, wrote this vault update.
+## Known gaps, flagged not fixed
 
-## Session 15 summary (2026-08-20) -- full detail in [[2026-08-20]]
+- The scan-authorization consent modal (removed session 8) has never been replaced -- a
+  product/security gap, not a bug. No UI step confirms scan ownership, and it was never enforced
+  server-side either.
+- If raw per-finding evidence is ever re-surfaced in the React report UI, port `main`'s dropped
+  `finding.evidence || finding.raw_data` preference into that new display logic.
+- A fresh clone's venv may be missing `flask_limiter`/`playwright` despite `requirements.txt` --
+  fix is `pip install -r requirements.txt`.
+- `apps/logsite/api.py` and `probe.py` use an unusual one-argument-per-line formatting style
+  throughout (~1,200 lines). Valid, doesn't affect behavior, deliberately not reformatted in
+  session 26 to avoid burying real fixes in a huge whitespace diff. Worth a dedicated pass if
+  Danny doesn't get to it first.
+- No real code path emits `category="scan"` or `category="worker"` events (found session 28,
+  grepping for both turned up nothing) -- only `http`/`agent`/`llm` are ever actually recorded.
+  The fake seed data and some design docs use all five categories; harmless today, but worth
+  reconciling if anyone extends the recorder or trusts the docs' category list at face value.
 
-Copied the user's already-working Graphify integration from their other project (Clyro) into this
-repo: `.claude/skills/graphify/`, a repo-scoped `.graphifyignore`, and a new `CLAUDE.md` section 11
--- all copied/written by hand, never via `graphify install` (which Clyro's notes document as
-auto-installing an unwanted `PreToolUse` hook + CLAUDE.md text). Built the initial graph, excluded
-a minified Vite bundle that was polluting it, opened as PR #4, fixed a Gitleaks false-positive on
-graphify's own cache directory, squash-merged as `790c000`. User then set a new global rule: no
-`Co-Authored-By: Claude` trailer on any commit, ever.
+## Known CLI/registry-access gotchas (React Bits / Skiper UI)
 
-## Standing rules for this engagement (apply to all future sessions, not just this one)
+- **React Bits (`@react-bits/*`):** `npx shadcn@latest add @react-bits/<name>` fails with
+  `Unexpected token (1:0)` for most items -- fetch `https://reactbits.dev/r/<name>.json`
+  directly and place files manually.
+- **Skiper UI (`@skiper-ui/*`):** works via plain CLI for free items; numbered Pro items 401.
+- **21st.dev registry items are auth-gated** -- try `@aceternity/<slug>` first (same slug,
+  usually zero-auth). **Aceternity (`@aceternity/*`)** works with zero auth via plain CLI.
 
-- **Every merge to `main` requires a GitHub PR to exist (no direct pushes), no exceptions** -- see
-  CLAUDE.md section 10 and DECISIONS.md's two 2026-08-20 entries. Applies to Claude Code, the repo
-  owner, and every other collaborator equally; enforced both as a documented rule and via GitHub
-  branch protection (`enforce_admins` on). Required approving reviews are set to **0**, not 1 --
-  GitHub blocks a PR author from approving their own PR, and these PRs are opened under the repo
-  owner's own account, so requiring an approval would make them permanently unmergeable. The owner
-  opens the PR, reads the diff, and merges it themselves -- that's the actual control. Never
-  `git push` directly to `main` or `git merge` into a locally checked-out `main` and push that --
-  always branch -> commit -> push branch -> open PR -> read the diff -> merge via GitHub (**Squash
-  and merge** recommended). Commits carry no `Co-authored-by:` trailer.
-- **User wants only `main` to exist in this repo, permanently** -- delete every branch (local +
-  remote) as soon as its PR is merged, including short-lived branches created purely for a
-  knowledge-vault/graphify-only update.
-- **Never spawn a subagent without asking the user first and stating the reason.** Codified
-  globally in `C:\Users\ADMIN\.claude\CLAUDE.md`.
-- **No commit in this repo (or any repo on this machine) should carry a `Co-Authored-By: Claude`
-  trailer.** Commits show only the user's own git identity. Codified globally.
-- **`graphify-out/graph.json` exists on `main` -- reach for `graphify query`/`affected`/`path`/
-  `explain` first on any structural question** before a grep-and-read sweep. `graphify affected`
-  (reverse traversal) has proven the most reliable for "what depends on X" questions; `graphify
-  query`'s forward BFS has been noisy for "is X referenced anywhere" dead-code checks -- Grep still
-  wins there in practice (see session 16). Regenerate only at session-end, batched with the
-  knowledge-vault write, using `GRAPHIFY_NO_BACKUP=1 graphify extract . --code-only --force` --
-  never `graphify update .` (no `--code-only` flag, can silently reintroduce excluded paths).
-  **Always include `GRAPHIFY_NO_BACKUP=1`** on both `extract` and `label` (new as of session 17) --
-  without it, Graphify commits a redundant ~30K-line dated backup folder on every regen; see above.
-- **Never call the Claude-in-Chrome skill or any `mcp__claude-in-chrome__*` tool without the
-  user's explicit approval first**, and re-ask for each new need even within the same session.
-- **Never write to `knowledge/` while implementation work is in progress** -- read-only during
-  active work; writes only after everything for that unit of work is implemented,
-  tested/reviewed, and committed *and merged via PR*.
-- **Frontend delegation to Gemini remains suspended** for the (closed) UI redesign workstream --
-  resumes as the default for any *new* frontend work unless the user says otherwise.
-- **Always run the local dev server as `http://localhost:5000`** (Firebase authorized-domains
-  covers `localhost` and the Render domain only). Two-step startup: `npm run build` in
-  `apps/frontend/react-app`, then `python -m apps.backend.app` from repo root.
-- **Never commit `scripts/oauth_client.json`** or any real secret-shaped file.
+---
+
+## Standing rules (apply to all future sessions)
+
+### 1. `knowledge/` and `graphify-out/` are committed and pushed normally again
+
+**Lifted 2026-08-30**, having been in force from 2026-08-21 while the observability project's
+three workstreams lived on separate branches (the risk was divergent copies at merge time, since
+Danny and Sanjana's own branches carried their own vault writes). `main` is now the only branch,
+so that risk no longer applies. Write vault updates as part of the normal commit/PR flow like any
+other change -- no special holding-back.
+
+### 2. The PR-to-`main` rule has an explicit scope
+
+`CLAUDE.md` §10 (every merge to `main` goes through a PR, including knowledge-vault-only commits)
+**applies to everyone who commits to this repo**. The one carve-out: Danny and Sanjana commit and
+push to their own branches freely -- no PR, no review gate, no approval, until whatever they're
+doing needs to reach `main`. The convention that applies to absolutely everyone: no
+`Co-Authored-By: Claude` trailer on any commit.
+
+### 3. Fixes to a teammate's own branch land via PR into that branch, confirmed before moving on
+
+When work on this repo touches **any** branch that isn't `main` -- including Sanjana's and
+Danny's -- fixes go on a short-lived sub-branch, PR'd into that branch (not `main`), and the user
+reviews/merges it themselves (using their Antigravity PR-explainer setup in a second terminal)
+before work on the next branch starts. **Each merge is verified via `gh pr view` / `git log`,
+never assumed from the user's word alone** -- this has caught a stale assumption more than once
+(session 26, and implicitly guarded against again in session 28). Delete the sub-branch local +
+remote once merged, and `git fetch --prune` before starting the next branch's worktree.
+
+### 4. Live Firebase credentials are configured on this machine
+
+This machine's local `.env` has real Firebase credentials, so `get_db()` returns a **live client
+against the production project** by default.
+
+- **Always mock `get_db`** (or the specific function calling it) in any new test touching
+  `apps/backend/logstore/**` or `apps/backend/auth/firebase_client.py`. Every existing test in
+  this suite does.
+- Before any manual verification that could write telemetry/history/scan data, override
+  `FIREBASE_SERVICE_ACCOUNT_PATH` to a nonexistent path for that one process (forces `get_db()`
+  to return `None`, no `.env` file touched) so it falls back to the stdout/local sink. Used
+  successfully this session for the local live-scan verification (checklist item 4).
+- The reverse also applies deliberately: `scripts/seed_fake_logs.py` and
+  `scripts/reset_demo_logs.py` are meant to target the live project, always print which project
+  they're about to touch, and always require `--confirm` (or an interactive y/N) before writing
+  or deleting anything. `reset_demo_logs.py` additionally does a read-only count first, always
+  shown, before any deletion.
+
+### 5. Other standing rules, unchanged
+
+- **Never spawn a subagent without asking first and stating the reason -- including a Skill that
+  itself launches as a forked/background execution**, not just literal `Agent` tool calls.
+- **Never call Claude-in-Chrome tools without explicit approval**, re-asked for each new need --
+  including for each *new kind* of action within an already-approved session, e.g. session 28's
+  original approval covered only looking at two dashboards; creating Firestore indexes and adding
+  a Render env var were each asked for separately once the need became concrete.
+- **Never write to `knowledge/` while implementation is in progress** -- read-only during active
+  work; writes only after everything is implemented, tested and committed.
+- **When presenting a plan or asking the user to choose**, explain it in plain, non-technical
+  language first (what the situation is, what each choice means, the real trade-off). Global
+  rule, all projects.
+- **Every SentinelScan plan states whether Graphify was used and how it helped**, or why not and
+  what was used instead. `CLAUDE.md` §6.
+- **Graphify read side is free** -- reach for `graphify affected` / `query` / `path` / `explain`
+  on structural questions before a grep-and-read sweep. `affected` (reverse traversal) is the
+  most reliable; `query`'s forward BFS is noisy for dead-code checks, where Grep still wins.
+  Regenerate only at session end with
+  `GRAPHIFY_NO_BACKUP=1 graphify extract . --code-only --force` then
+  `GRAPHIFY_NO_BACKUP=1 graphify label . --backend=claude-cli --max-concurrency=1` -- never
+  `graphify update .`. **Always** set `GRAPHIFY_NO_BACKUP=1`, or a redundant dated backup folder
+  gets written. **Regenerated 2026-08-30** -- now covers all three former workstreams (1820
+  nodes, 3344 edges, 121 communities), first time it's reflected anything beyond `main` +
+  `workstream-b-pipeline`.
+- **Always run the local dev server as `http://localhost:5000`** (Firebase authorized domains
+  cover `localhost` and the Render domain only). Two-step startup: `npm run build` in
+  `apps/frontend/react-app`, then `python -m apps.backend.app` from repo root -- though a
+  backend-only check (no UI involved) can skip the frontend build, as session 28 did for the
+  live-scan verification.
 - **Render deploys must run a single gunicorn worker** (`scan_store.py`'s active-scan state is
-  in-memory per-process).
-- **Never hardcode a real token/JWT/secret-shaped literal in a committed file.**
-- **When CSP changes touch auth or third-party embeds, verify live end-to-end (not just headers).**
-- The landing page's scan-authorization consent modal is gone (removed session 8) -- no UI step
-  confirms scan ownership/permission, never enforced server-side either. Still open, not yet
-  prioritized.
-- Real contact address is `sentinelscan@gmail.com` -- old placeholder fully replaced as of
-  session 10.
-- The GitHub MCP server's token does not have PR-creation scope -- use `gh pr create`/`gh pr edit`
-  via Bash instead. No MCP tool exposes branch-protection settings either; use
+  in-memory per-process -- and `firestore_sink.py`'s session de-duplication now assumes it too).
+  Confirmed still true after session 28's env-var-triggered redeploy: `WEB_CONCURRENCY=1`,
+  `--workers 1`.
+- **Never commit `scripts/oauth_client.json`**, any real secret-shaped file, or a hardcoded
+  token/JWT literal.
+- **When CSP changes touch auth or third-party embeds, verify live end-to-end**, not just
+  headers.
+- Real contact address is `sentinelscan@gmail.com`.
+- **The GitHub MCP token lacks PR-creation scope** -- use `gh pr create` / `gh pr edit` via Bash.
+  No MCP tool exposes branch protection either; use
   `gh api -X PUT repos/{owner}/{repo}/branches/{branch}/protection`.
 - **`SplashCursor.jsx` is a hand-modified fork, not vendor-verbatim** -- re-running its own
   `shadcn add` command would silently clobber the modifications.
+- **This repo has no Firebase CLI, no `gcloud`, and no `google-cloud-firestore-admin` client** --
+  confirmed session 28. Firestore index management has to go through the console UI (or Chrome
+  automation with per-use approval) until one of those gets installed; don't assume `firebase
+  deploy --only firestore:indexes` works without checking first.
 
-## Known CLI/registry-access gotchas (React Bits / Skiper UI), reconfirmed across many sessions
+---
 
-- **React Bits registry (`@react-bits/*`):** `npx shadcn@latest add @react-bits/<name>` fails with
-  `Unexpected token (1:0)` for most items -- fetch `https://reactbits.dev/r/<name>.json` directly
-  and place files manually instead.
-- **Skiper UI (`@skiper-ui/*`):** works via plain CLI for free items; numbered Pro items 401 with a
-  license-key error.
-- **21st.dev registry items are auth-gated** -- try `@aceternity/<slug>` first (same slug, usually
-  zero-auth).
-- **Aceternity registry (`@aceternity/*`)** -- works with zero auth via plain CLI.
+## Project state as of session 28
 
-## Other findings (not yet acted on, flagged for awareness)
-
-- `.agents/` and `node_modules/` at the repo root remain untracked -- pre-existing, left alone,
-  revisit only if asked.
-- The scan-authorization consent modal (removed session 8) has never been replaced -- product/
-  security gap, not a bug. No UI step confirms scan ownership/permission; not enforced
-  server-side either.
-- If raw per-finding evidence is ever re-surfaced in the React report UI, port main's dropped
-  `finding.evidence || finding.raw_data` preference into that new display logic.
-- Local dev venv may be missing `flask_limiter`/`playwright` on a fresh clone despite being in
-  `requirements.txt` -- fix is `pip install -r requirements.txt`.
+- `main` @ `0cb41be` -- the observability project fully merged, PR #19. Live at
+  `https://sentinelscan-yd2u.onrender.com`.
+- `chore/observability-integration-wrapup` (pushed, PR not yet opened as of this file being
+  written -- opened immediately after, see the daily log) carries `docs/AGENTS.md` and the
+  Graphify regeneration on top of the merged `main`.
+- Production Firestore (`sentinelscan-3f82d`): three composite indexes live and `Enabled`; demo
+  data reseeded fresh and confirmed queryable. See [[2026-08-30]] for exact counts.
+- Render (`srv-d9rrj6n40ujc73c4efcg`): `SENTINELSCAN_TELEMETRY_ENABLED="0"` now present and
+  redeployed successfully.
+- `pytest tests/` on `main`: 314 passed, 1 skipped. `npm run test:js`: 25 passed.
+- `graphify-out/` regenerated 2026-08-30, covers all three former workstreams.
+- Untracked at repo root, pre-existing, left alone: `.agents/`, `node_modules/`.
 
 ## Links
 
-- Latest daily log: [[2026-08-21]] (session 16)
-- Merged PRs: [#6](https://github.com/Zopyrus269/sentinelscan/pull/6) (frontend cleanup + test
-  fixes, session 16, merged as `2b7fe76`), [#4](https://github.com/Zopyrus269/sentinelscan/pull/4)
-  (Graphify integration, session 15), [#1](https://github.com/Zopyrus269/sentinelscan/pull/1)
-  (dhanush-changes security hardening + SSRF fix), [#2](https://github.com/Zopyrus269/sentinelscan/pull/2)
-  (PR-required rule)
-- Live site: `https://sentinelscan-yd2u.onrender.com` -- Google sign-in confirmed working
-  end-to-end as of session 13.
-- Render service: `srv-d9rrj6n40ujc73c4efcg`
-- `scripts/README.md` -- team secrets bootstrap setup/usage instructions.
-- `render.yaml` -- Render deployment Blueprint (repo root); confirmed `branch: main`,
-  `autoDeploy: true`.
-- Repo collaborators (via GitHub API, session 14): `Zopyrus269` (admin), `Dannyo6`, `sbsai25`,
-  `bhuvan-sk`.
+- **Session 28 (this session):** [[2026-08-30]] -- full Phase 3 narrative.
+- **Branch reviews from session 26:** [[workstream-a-code-review-2026-08-29]],
+  [[workstream-c-code-review-2026-08-29]], reverification addendum in
+  [[workstream-b-code-review-2026-08-23]]
+- **Workstream handoffs (historical, on `main`):** `docs/workstreams/WORKSTREAM_A.md` (Sanjana),
+  `docs/workstreams/WORKSTREAM_C.md` (Danny)
+- Prior daily logs: [[2026-08-29]] (sessions 26-27), [[2026-08-24]] (sessions 24-25),
+  [[2026-08-23]] (sessions 22-23), [[2026-08-22]] (sessions 19-21),
+  [[2026-08-21]] (sessions 16-18)
+- Session 26 plan: `C:\Users\ADMIN\.claude\plans\right-now-in-the-graceful-coral.md`. Session 27
+  plan: `C:\Users\ADMIN\.claude\plans\let-s-proceed-with-the-inherited-magpie.md`. Session 28
+  plan: `C:\Users\ADMIN\.claude\plans\let-s-implement-the-last-nifty-rabin.md`
+- Merged PRs: [#19](https://github.com/Zopyrus269/sentinelscan/pull/19) (branch integration,
+  final merge into `main`; `0cb41be`), [#18](https://github.com/Zopyrus269/sentinelscan/pull/18)
+  (Workstream C Phase 1 fixes; `cabd841`), [#17](https://github.com/Zopyrus269/sentinelscan/pull/17)
+  (Workstream A Phase 1 fix; `dc13821`), [#16](https://github.com/Zopyrus269/sentinelscan/pull/16)
+  (JS test suite for `telemetry.js`; `9effb88`), [#15](https://github.com/Zopyrus269/sentinelscan/pull/15)
+  (review fixes: read cost, ordering, deployment config, C4; `00daf3f`),
+  [#14](https://github.com/Zopyrus269/sentinelscan/pull/14) (review fixes: correctness and
+  production bugs; `d6ef21f`), [#13](https://github.com/Zopyrus269/sentinelscan/pull/13)
+  (Phase 4 seed data; `e073d35`), [#12](https://github.com/Zopyrus269/sentinelscan/pull/12)
+  (Phase 3 read API + rollup; `a24860b`), [#11](https://github.com/Zopyrus269/sentinelscan/pull/11)
+  (Phase 2 ingest endpoint; `703b85e`), [#10](https://github.com/Zopyrus269/sentinelscan/pull/10)
+  (Phase 1 storage backbone; `7a02649`), [#9](https://github.com/Zopyrus269/sentinelscan/pull/9)
+  (observability handoff docs; `1e98e80`), [#8](https://github.com/Zopyrus269/sentinelscan/pull/8)
+  (graphify backup hygiene), [#6](https://github.com/Zopyrus269/sentinelscan/pull/6) (frontend
+  cleanup + test fixes; `2b7fe76`), [#4](https://github.com/Zopyrus269/sentinelscan/pull/4)
+  (Graphify integration), [#1](https://github.com/Zopyrus269/sentinelscan/pull/1) (security
+  hardening + SSRF fix), [#2](https://github.com/Zopyrus269/sentinelscan/pull/2) (PR-required
+  rule)
+- Live site: `https://sentinelscan-yd2u.onrender.com`. Render service: `srv-d9rrj6n40ujc73c4efcg`.
+- `render.yaml` -- Render deployment Blueprint (repo root); `branch: main`, `autoDeploy: true`.
+- Repo collaborators: `Zopyrus269` (admin, Shreyas), `Dannyo6`, `sbsai25`, `bhuvan-sk`.
+  Workstream owners are Sanjana (A, GitHub handle `sbsai25`) and Danny (C, commits show as
+  "Dhanush V").
