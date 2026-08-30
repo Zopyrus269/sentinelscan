@@ -1,0 +1,220 @@
+"""Tests for apps.backend.logstore.firestore_sink -- the Firestore write path.
+
+Mocks get_db() so no live Firestore project is needed, following the same
+collection-name-keyed mocking pattern tests/test_dev_routes.py already uses for the
+rest of the app's Firebase-backed code.
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+import unittest
+from datetime import datetime, timezone
+from unittest.mock import patch, MagicMock
+
+from apps.backend.logstore import firestore_sink
+from apps.backend.logstore.firestore_sink import FirestoreSink
+from apps.backend.logstore.schema import LOGS_COLLECTION, PRESENCE_COLLECTION, STATS_COLLECTION
+
+# _update_stats folds a `firestore_writes` counter into *today's* wall-clock date entry
+# (see firestore_sink.py). Pinning "now" keeps date-keyed assertions below deterministic
+# regardless of what day the suite actually runs on.
+_FIXED_NOW = datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc)
+
+
+def make_event(**overrides):
+    event = {
+        "event_id": "e1", "ts": "2026-08-22T10:00:00+00:00", "level": "info",
+        "source": "backend", "category": "http", "message": "ok",
+        "trace_id": "t1", "session_id": "s1", "uid": "u1", "scan_id": None,
+        "duration_ms": 5, "data": {}, "release": "dev", "env": "dev",
+    }
+    event.update(overrides)
+    return event
+
+
+def _mock_db():
+    """Builds a fake Firestore client with one distinct child mock per top-level
+    collection, keyed further by document id where the test cares about that."""
+    collections = {
+        LOGS_COLLECTION: MagicMock(),
+        STATS_COLLECTION: MagicMock(),
+        PRESENCE_COLLECTION: MagicMock(),
+    }
+    db = MagicMock()
+    db.collection.side_effect = lambda name: collections[name]
+    return db, collections
+
+
+class TestFirestoreSink(unittest.TestCase):
+
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_degrades_to_noop_when_db_unconfigured(self, mock_get_db):
+        mock_get_db.return_value = None
+        # Must not raise even with events queued -- the sink thread treats any
+        # exception as retryable, so a "not configured" state must be a clean no-op.
+        FirestoreSink().write_batch([make_event()])
+
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_empty_batch_is_a_noop(self, mock_get_db):
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+
+        FirestoreSink().write_batch([])
+
+        db.collection.assert_not_called()
+
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_writes_one_batch_document_with_denormalized_ids(self, mock_get_db):
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        events = [make_event(event_id="e1", session_id="s1"), make_event(event_id="e2", session_id="s2")]
+
+        FirestoreSink().write_batch(events)
+
+        logs_doc = collections[LOGS_COLLECTION].document.return_value
+        logs_doc.set.assert_called_once()
+        written = logs_doc.set.call_args[0][0]
+        self.assertEqual(written["event_count"], 2)
+        self.assertEqual(sorted(written["session_ids"]), ["s1", "s2"])
+        collections[LOGS_COLLECTION].document.assert_called_once_with(written["batch_id"])
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_stats_counters_incremented_per_date(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        events = [
+            make_event(category="http", level="info"),
+            make_event(category="error", level="error"),
+            make_event(category="llm", level="info", data={"total_tokens": 42}),
+        ]
+
+        FirestoreSink().write_batch(events)
+
+        stats_doc = collections[STATS_COLLECTION].document.return_value
+        stats_doc.set.assert_called_once()
+        payload, kwargs = stats_doc.set.call_args
+        self.assertTrue(kwargs.get("merge"))
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_stats_split_across_two_dates_writes_two_documents(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        date_docs = {}
+        collections[STATS_COLLECTION].document.side_effect = lambda date: date_docs.setdefault(date, MagicMock())
+        events = [
+            make_event(ts="2026-08-21T23:59:00+00:00"),
+            make_event(ts="2026-08-22T00:01:00+00:00"),
+        ]
+
+        FirestoreSink().write_batch(events)
+
+        self.assertEqual(set(date_docs.keys()), {"2026-08-21", "2026-08-22"})
+        for doc in date_docs.values():
+            doc.set.assert_called_once()
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_daily_unique_sessions_counted_not_accumulated_in_an_array(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        events = [
+            make_event(session_id="s1", ts="2026-08-22T10:00:00+00:00"),
+            make_event(session_id="s2", ts="2026-08-22T10:01:00+00:00"),
+            make_event(session_id=None, ts="2026-08-22T10:02:00+00:00"),
+        ]
+
+        FirestoreSink().write_batch(events)
+
+        stats_doc = collections[STATS_COLLECTION].document.return_value
+        payload, kwargs = stats_doc.set.call_args
+        self.assertTrue(kwargs.get("merge"))
+        self.assertIn("firestore_writes", payload[0])
+        # A scalar Increment, never a `session_ids` array: that array had no upper bound and
+        # eventually pushed the document past Firestore's 1 MB limit, at which point every
+        # stats write for the day failed and the sink dropped every batch until midnight.
+        self.assertNotIn("session_ids", payload[0])
+        self.assertEqual(payload[0]["unique_sessions"].value, 2)
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_repeat_sessions_do_not_advance_unique_sessions_again(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        sink = FirestoreSink()
+
+        sink.write_batch([make_event(session_id="s1", ts="2026-08-22T10:00:00+00:00")])
+        stats_doc = collections[STATS_COLLECTION].document.return_value
+        self.assertEqual(stats_doc.set.call_args[0][0]["unique_sessions"].value, 1)
+
+        # Same session, later batch: the day's distinct-session count must not move.
+        sink.write_batch([make_event(session_id="s1", ts="2026-08-22T10:05:00+00:00")])
+        self.assertNotIn("unique_sessions", stats_doc.set.call_args[0][0])
+
+        # A genuinely new session does advance it.
+        sink.write_batch([make_event(session_id="s2", ts="2026-08-22T10:06:00+00:00")])
+        self.assertEqual(stats_doc.set.call_args[0][0]["unique_sessions"].value, 1)
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_tracked_session_memory_is_bounded(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        sink = FirestoreSink()
+
+        # Well past the cap, and spread over more dates than are kept, so both bounds bite.
+        for day in range(4):
+            date = f"2026-08-{18 + day:02d}"
+            sink.write_batch([
+                make_event(session_id=f"d{day}s{i}", ts=f"{date}T10:00:00+00:00", event_id=f"d{day}e{i}")
+                for i in range(5)
+            ])
+
+        self.assertLessEqual(len(sink._counted_sessions), firestore_sink._MAX_TRACKED_DATES)
+        for counted in sink._counted_sessions.values():
+            self.assertLessEqual(len(counted), firestore_sink._MAX_TRACKED_SESSIONS)
+
+    @patch("apps.backend.logstore.firestore_sink.datetime")
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_firestore_writes_counts_batch_stats_and_presence(self, mock_get_db, mock_datetime):
+        mock_datetime.now.return_value = _FIXED_NOW
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        events = [make_event(session_id="s1", ts="2026-08-22T10:00:00+00:00")]
+
+        FirestoreSink().write_batch(events)
+
+        stats_doc = collections[STATS_COLLECTION].document.return_value
+        payload, _ = stats_doc.set.call_args
+        # 1 batch doc + 1 stats doc (this one) + 1 presence upsert for "s1" = 3.
+        self.assertEqual(payload[0]["firestore_writes"].value, 3)
+
+    @patch("apps.backend.logstore.firestore_sink.get_db")
+    def test_presence_upserted_per_session_using_latest_event(self, mock_get_db):
+        db, collections = _mock_db()
+        mock_get_db.return_value = db
+        session_docs = {}
+        collections[PRESENCE_COLLECTION].document.side_effect = lambda sid: session_docs.setdefault(sid, MagicMock())
+        events = [
+            make_event(session_id="s1", ts="2026-08-22T10:00:00+00:00", uid="u1"),
+            make_event(session_id="s1", ts="2026-08-22T10:05:00+00:00", uid="u1"),
+            make_event(session_id=None),
+        ]
+
+        FirestoreSink().write_batch(events)
+
+        self.assertEqual(set(session_docs.keys()), {"s1"})
+        payload, kwargs = session_docs["s1"].set.call_args
+        self.assertEqual(payload[0]["last_seen"], "2026-08-22T10:05:00+00:00")
+        self.assertTrue(kwargs.get("merge"))
+
+
+if __name__ == "__main__":
+    unittest.main()

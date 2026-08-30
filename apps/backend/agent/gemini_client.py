@@ -279,9 +279,30 @@ class GeminiClient:
                     role="model",
                     parts=[types.Part.from_text(text=cached.get("text", ""))],
                 )
+                from apps.backend.observability.gemini_meter import record_llm_call
+                try:
+                    record_llm_call(model=self._model_name, usage={}, duration_ms=0, cached=True)
+                except Exception:
+                    pass
                 return cached
 
-        raw_response = self._call_with_backoff(history)
+        from apps.backend.observability.gemini_meter import usage_from_response, record_llm_call
+        start_time = time.monotonic()
+        try:
+            raw_response = self._call_with_backoff(history)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            try:
+                usage = usage_from_response(raw_response)
+                record_llm_call(model=self._model_name, usage=usage, duration_ms=duration_ms)
+            except Exception:
+                pass
+        except Exception as e:
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            try:
+                record_llm_call(model=self._model_name, usage={}, duration_ms=duration_ms, error=str(e))
+            except Exception:
+                pass
+            raise
         normalized = _extract_normalized_response(raw_response)
 
         if use_cache and normalized["type"] == "text":

@@ -1,0 +1,781 @@
+/* ================================================================
+   SentinelScan Observability & Developer Console
+   Visual Language: Deep obsidian base, luminous blue-violet-magenta
+   wave atmosphere, translucent glass panels, minimal chrome,
+   crisp typography, generous spacing, restrained security aesthetics.
+   ================================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+/* ----------------------------------------------------------------
+   Design Tokens
+   ---------------------------------------------------------------- */
+:root {
+  --bg: #05070d;
+  --bg-panel: rgba(12, 17, 29, 0.75);
+  --bg-panel-soft: rgba(18, 25, 42, 0.55);
+  --bg-panel-solid: #0c1220;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-active: rgba(99, 102, 241, 0.12);
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-bright: rgba(147, 197, 253, 0.25);
+  --border-focus: rgba(129, 140, 248, 0.5);
+
+  --text: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-subtle: #475569;
+
+  --blue: #3b82f6;
+  --violet: #8b5cf6;
+  --magenta: #ec4899;
+  --cyan: #06b6d4;
+  --indigo: #6366f1;
+
+  --success: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.12);
+  --success-border: rgba(16, 185, 129, 0.25);
+
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.25);
+
+  --danger: #f43f5e;
+  --danger-bg: rgba(244, 63, 94, 0.12);
+  --danger-border: rgba(244, 63, 94, 0.25);
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* ----------------------------------------------------------------
+   Base & Reset
+   ---------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--bg);
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+/* SentinelScan Luminous Wave Atmospheric Background */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(59, 130, 246, 0.18), transparent 70%),
+    radial-gradient(ellipse 70% 45% at 88% 50%, rgba(139, 92, 246, 0.13), transparent 65%),
+    radial-gradient(ellipse 80% 55% at 12% 85%, rgba(217, 70, 239, 0.11), transparent 70%),
+    linear-gradient(180deg, #05070d 0%, #080c18 40%, #090818 75%, #05070d 100%);
+}
+
+body > main {
+  flex: 1 0 auto;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  font: inherit;
+  border: none;
+  background: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input, select, textarea {
+  font: inherit;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ----------------------------------------------------------------
+   Scrollbars
+   ---------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* ----------------------------------------------------------------
+   Container
+   ---------------------------------------------------------------- */
+.ls-container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+@media (max-width: 768px) {
+  .ls-container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ----------------------------------------------------------------
+   Header & Navbar (Pure SentinelScan Product Aesthetics)
+   ---------------------------------------------------------------- */
+.ls-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(5, 7, 13, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+.ls-header-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 28px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+@media (max-width: 768px) {
+  .ls-header-inner {
+    padding: 0 16px;
+    height: 56px;
+  }
+}
+
+.ls-brand-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ls-brand {
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.ls-brand-sub {
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.ls-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ls-nav a {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 18px 2px;
+  position: relative;
+  transition: color 150ms ease;
+}
+
+.ls-nav a:hover {
+  color: #ffffff;
+}
+
+.ls-nav a.active {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ls-nav a.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  border-radius: 2px 2px 0 0;
+}
+
+.ls-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ls-mobile-toggle {
+  display: none;
+  color: var(--text);
+  font-size: 20px;
+  padding: 6px;
+}
+@media (max-width: 820px) {
+  .ls-mobile-toggle { display: block; }
+  .ls-nav {
+    display: none;
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    background: rgba(5, 7, 13, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    flex-direction: column;
+    padding: 16px 20px;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .ls-nav.open { display: flex; }
+  .ls-nav a {
+    padding: 8px 0;
+    width: 100%;
+  }
+  .ls-nav a.active::after {
+    bottom: 4px;
+    width: 32px;
+  }
+}
+
+/* ----------------------------------------------------------------
+   Translucent SentinelScan Panels (Cards)
+   ---------------------------------------------------------------- */
+.ls-card {
+  background: var(--bg-panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  position: relative;
+  transition: border-color 150ms ease;
+}
+
+.ls-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ls-section-title {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.ls-page-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+}
+
+.ls-page-subtitle {
+  margin: 5px 0 0 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+/* ----------------------------------------------------------------
+   SentinelScan Metric Panels (KPIs)
+   ---------------------------------------------------------------- */
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+.kpi-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ----------------------------------------------------------------
+   Status Indicators
+   ---------------------------------------------------------------- */
+.beacon {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.beacon-green { background-color: var(--success); }
+.beacon-amber { background-color: var(--warning); }
+.beacon-red   { background-color: var(--danger); }
+.beacon-pulse {
+  animation: beaconGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes beaconGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.15); }
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.dot-green { background-color: var(--success); }
+.dot-amber { background-color: var(--warning); }
+.dot-red   { background-color: var(--danger); }
+.dot-grey  { background-color: var(--text-subtle); }
+
+/* ----------------------------------------------------------------
+   Status Pills & Badges (Clean, Minimal, Text-Centric)
+   ---------------------------------------------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.pill-info {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+.pill-debug {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.pill-warn {
+  background: var(--warning-bg);
+  color: #fde68a;
+  border-color: var(--warning-border);
+}
+.pill-error, .pill-fatal {
+  background: var(--danger-bg);
+  color: #fca5a5;
+  border-color: var(--danger-border);
+}
+.pill-success, .pill-operational {
+  background: var(--success-bg);
+  color: #86efac;
+  border-color: var(--success-border);
+}
+
+.cat-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* ----------------------------------------------------------------
+   Buttons & Controls
+   ---------------------------------------------------------------- */
+.ls-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #05070d;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  transition: opacity 150ms ease, transform 100ms ease;
+}
+.ls-btn-primary:hover {
+  opacity: 0.92;
+}
+
+.ls-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-panel-soft);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.ls-btn-secondary:hover {
+  background: var(--bg-hover);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.ls-input, .ls-select {
+  background: var(--bg-panel-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+.ls-input:focus, .ls-select:focus {
+  border-color: var(--border-focus);
+}
+.ls-select option {
+  background-color: var(--bg-panel-solid);
+  color: var(--text);
+}
+
+/* ----------------------------------------------------------------
+   Tables & Console Data Grids
+   ---------------------------------------------------------------- */
+.ls-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.ls-table th {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.ls-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.ls-table tbody tr {
+  transition: background 100ms ease;
+}
+
+.ls-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.ls-table tr.row-error {
+  background: rgba(244, 63, 94, 0.08);
+}
+.ls-table tr.row-error:hover {
+  background: rgba(244, 63, 94, 0.13);
+}
+
+/* ----------------------------------------------------------------
+   Uptime Strip Heatmap
+   ---------------------------------------------------------------- */
+.uptime-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 24px;
+  width: 100%;
+}
+
+.uptime-bar {
+  flex: 1;
+  border-radius: 2px;
+  transition: opacity 120ms ease, transform 120ms ease;
+  cursor: pointer;
+  min-width: 2px;
+}
+.uptime-bar:hover {
+  opacity: 0.85;
+  transform: scaleY(1.18);
+}
+.uptime-bar.green { background-color: var(--success); }
+.uptime-bar.amber { background-color: var(--warning); }
+.uptime-bar.red   { background-color: var(--danger); }
+.uptime-bar.grey  { background-color: rgba(255, 255, 255, 0.1); }
+
+/* ----------------------------------------------------------------
+   Progress Tracks
+   ---------------------------------------------------------------- */
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  border-radius: 3px;
+  transition: width 250ms ease;
+}
+
+/* ----------------------------------------------------------------
+   Sessions & Timeline Explorer
+   ---------------------------------------------------------------- */
+.session-item {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+}
+.session-item:hover {
+  background: var(--bg-hover);
+}
+.session-item.selected {
+  background: var(--bg-active);
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+.trace-group {
+  background: var(--bg-panel-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.trace-group-header {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 100ms ease;
+}
+.trace-group-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.trace-group-body {
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.timeline-event {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.015);
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.timeline-event:hover {
+  border-left-color: var(--indigo);
+  background: rgba(255, 255, 255, 0.04);
+}
+.timeline-event.is-error {
+  border-left-color: var(--danger);
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.ai-card {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: rgba(6, 182, 212, 0.05);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.ai-card-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #67e8f9;
+  margin-bottom: 6px;
+}
+
+.ai-card-field {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ai-card-value {
+  font-size: 12px;
+  color: #ffffff;
+  font-family: var(--font-mono);
+}
+
+.ai-card-reasoning {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+
+/* ----------------------------------------------------------------
+   Slim Translucent Auth Banner
+   ---------------------------------------------------------------- */
+.ls-auth-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  background: rgba(18, 24, 40, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+.ls-auth-banner.warning {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.ls-auth-banner.error {
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.banner-icon {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.banner-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.banner-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ----------------------------------------------------------------
+   Empty States & Loading
+   ---------------------------------------------------------------- */
+.ls-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.ls-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ls-empty-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.ls-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: lsSpin 700ms linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes lsSpin {
+  to { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none !important;
+}

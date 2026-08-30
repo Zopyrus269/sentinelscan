@@ -78,8 +78,12 @@ def is_domain_blocked(target_url: str) -> bool:
     return False
 
 
-def _run_scan_background(scan_id: str, target: str, uid: str = None) -> None:
+def _run_scan_background(scan_id: str, target: str, uid: str = None, telemetry_ctx=None) -> None:
     """Runs the agent scan on a background thread, updating scan_store as it progresses."""
+    from apps.backend.observability import restore, set_context
+    if telemetry_ctx:
+        restore(telemetry_ctx)
+    set_context(scan_id=scan_id)
     update_scan(scan_id, status="IN_PROGRESS")
 
     evidence_tools = {
@@ -233,7 +237,9 @@ def start_scan():
             logging.warning(f"Error encountered: {e}")
 
     scan_id = create_scan(target)
-    thread = threading.Thread(target=_run_scan_background, args=(scan_id, target, uid), daemon=True)
+    from apps.backend.observability import snapshot
+    ctx = snapshot()
+    thread = threading.Thread(target=_run_scan_background, args=(scan_id, target, uid, ctx), daemon=True)
     thread.start()
 
     return jsonify({"scan_id": scan_id, "status": "PENDING"}), 202

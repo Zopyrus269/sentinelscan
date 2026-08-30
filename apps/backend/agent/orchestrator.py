@@ -406,6 +406,8 @@ def _coverage_entry(tool_name: str, result: Dict[str, Any]) -> Dict[str, Any]:
 def run_scan(target: str, max_iterations: int = DEFAULT_MAX_ITERATIONS,
              on_progress: Optional[Callable[..., None]] = None) -> Dict[str, Any]:
     """Run one authorized Gemini-guided assessment with all 12 stages accounted for."""
+    from apps.backend.observability import wrap_progress_callback
+    on_progress = wrap_progress_callback(on_progress)
     client = GeminiClient()
     scan_started = time.monotonic()
     history: List[types.Content] = [

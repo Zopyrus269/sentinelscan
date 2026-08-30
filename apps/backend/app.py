@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 from apps.backend.extensions import limiter
 
 load_dotenv()
@@ -15,6 +16,8 @@ from apps.backend.routes.scan_routes import scan_bp
 from apps.backend.routes.auth_routes import auth_bp
 from apps.backend.routes.history_routes import history_bp
 from apps.backend.routes.dev_routes import dev_bp
+from apps.backend.routes.telemetry_routes import telemetry_bp
+from apps.backend.logstore import pipeline
 
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
@@ -27,13 +30,34 @@ def create_app() -> Flask:
     allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
     CORS(app, origins=allowed_origins)
     
+    # Render terminates TLS at its own proxy, so without this every request looks like it
+    # came from that proxy's address -- and flask-limiter's per-IP buckets collapse into a
+    # single shared one for the entire internet. Telemetry is the first high-frequency
+    # endpoint here, so it is the first that would notice.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
     limiter.init_app(app)
-    
+
+    # Installs the request/error hooks and logging bridge that record backend-originated
+    # events (http, error, agent, worker, llm). Must come before pipeline.ensure_started()
+    # below: observability.emit's queue is the same queue the sink thread drains (see
+    # apps/backend/observability/emit.py), so the sink should be ready to drain by the
+    # time the app starts accepting requests that could emit into it.
+    from apps.backend.observability import init_app as init_observability
+    init_observability(app)
+
+    # Only stand up the sink thread when telemetry is actually switched on. Otherwise this
+    # is a polling background thread and a hijacked SIGTERM handler serving a feature that
+    # is off -- and off is the production default (see render.yaml).
+    if pipeline.is_enabled():
+        pipeline.ensure_started()
+
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
     app.register_blueprint(scan_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(history_bp)
     app.register_blueprint(dev_bp)
+    app.register_blueprint(telemetry_bp)
 
     @app.after_request
     def add_security_headers(response):
